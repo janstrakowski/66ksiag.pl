@@ -1,0 +1,14 @@
+[package]
+name = "ksiag-import"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Import BG 1879 TXT → kanoniczne drzewo data/"
+
+[[bin]]
+name = "ksiag-import"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

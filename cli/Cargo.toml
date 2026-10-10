@@ -1,0 +1,14 @@
+[package]
+name = "ksiag"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CLI klienta kanonicznego drzewa 66ksiąg"
+
+[[bin]]
+name = "66ksiag"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
