@@ -1,9 +1,10 @@
 /* Shell cache + Background Fetch (Scourby) → Cache Storage */
-const CACHE = "ksiag-v4";
+const CACHE = "ksiag-v5";
 const AUDIO_CACHE = "ksiag-scourby-mp3-v1";
 const SHELL = [
   "/",
   "/index.html",
+  "/fonts.css",
   "/styles.css",
   "/app.js",
   "/plan.js",
