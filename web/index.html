@@ -100,11 +100,7 @@
             <span class="label">Codzienne czytanie</span>
           </div>
           <form id="plan-form" class="plan-form">
-            <label class="plan-check">
-              <input type="checkbox" name="enabled" id="plan-enabled" />
-              <span data-i18n="enablePlan">Włącz dzienny plan</span>
-            </label>
-
+            <div id="plan-setup">
             <fieldset>
               <legend data-i18n="goal">Cel</legend>
               <label class="plan-radio">
@@ -154,9 +150,21 @@
                 <span data-i18n="minutesUnit">min / dzień</span>
               </label>
               <p class="plan-hint" id="plan-preview">3 rozdz. / dzień</p>
-              <p class="plan-hint" id="plan-eta" hidden></p>
               <p class="plan-hint faint" data-i18n="timeHint">Czas zaokrąglamy do pełnych rozdziałów (średnio ok. 3 min na rozdział).</p>
             </fieldset>
+
+            <button type="submit" class="tablet" id="plan-set" data-i18n="setPlan">Ustaw</button>
+            </div>
+
+            <div id="plan-active" hidden>
+              <p class="plan-hint" id="plan-active-summary"></p>
+              <p class="plan-hint" id="plan-eta" hidden></p>
+              <button type="button" class="tablet ital" id="plan-abandon" data-i18n="abandonPlan">Porzuć</button>
+              <a class="tablet ital" id="plan-continue" href="/czytaj/01-gen/1">
+                <span class="cta-main">Zacznij czytać</span>
+                <span class="cta-sub">Rodzaju I</span>
+              </a>
+            </div>
 
             <fieldset>
               <legend data-i18n="notifications">Powiadomienia</legend>
@@ -185,27 +193,7 @@
                 <button type="button" class="tablet ital" id="notify-recheck" hidden>Sprawdź ponownie</button>
               </div>
             </fieldset>
-
-            <button type="submit" class="tablet" data-i18n="savePlan">Zapisz plan</button>
-            <a class="tablet ital" id="plan-continue" href="/czytaj/01-gen/1">
-              <span class="cta-main">Zacznij czytać</span>
-              <span class="cta-sub">Rodzaju I</span>
-            </a>
           </form>
-
-          <div class="plan-reset-block">
-            <p class="plan-reset-label" data-i18n="reset">Reset</p>
-            <div class="plan-reset-actions">
-              <button type="button" class="tablet ital" id="plan-reset-progress" data-i18n="resetProgress">
-                Resetuj postęp
-              </button>
-              <p class="plan-hint faint" data-i18n="resetProgressHint">Zeruje dzisiejsze zaliczenia i wraca na początek celu. Ustawienia zostają.</p>
-              <button type="button" class="tablet ital" id="plan-reset-all" data-i18n="resetAll">
-                Przywróć domyślne
-              </button>
-              <p class="plan-hint faint" data-i18n="resetAllHint">Wyłącza plan i czyści cel, limity oraz powiadomienia.</p>
-            </div>
-          </div>
 
         </div>
       </div>

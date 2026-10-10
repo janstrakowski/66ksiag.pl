@@ -4,13 +4,14 @@ test("plan form switches language with edition", async ({ page }) => {
   await page.goto("/wybor");
   await page.locator('[data-pick="bg-1879"]').click();
   await page.goto("/plan");
-  await expect(page.locator("#plan [data-i18n='enablePlan']")).toContainText(/Włącz/i);
+  await expect(page.locator("#plan [data-i18n='setPlan']")).toHaveText("Ustaw");
+  await expect(page.locator("#plan-abandon")).toBeHidden();
 
   await page.goto("/wybor");
   await page.locator('[data-pick="kjv-1769"]').click();
   await page.goto("/plan");
-  await expect(page.locator("#plan [data-i18n='enablePlan']")).toContainText(/Appoint|portion/i);
-  await expect(page.locator("#plan [data-i18n='savePlan']")).toBeVisible();
+  await expect(page.locator("#plan [data-i18n='setPlan']")).toHaveText("Appoint");
+  await expect(page.locator("#plan [data-i18n='abandonPlan']")).toHaveText("Put off");
 });
 
 test("KJV reader uses Early Modern chrome strings", async ({ page }) => {

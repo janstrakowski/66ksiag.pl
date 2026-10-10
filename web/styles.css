@@ -695,6 +695,13 @@
     .plan-hint.faint { font-size: 0.82rem; color: var(--faint); }
     .plan-form .tablet { width: 100%; }
     .plan-form a.tablet { margin-top: 0.15rem; }
+    #plan-setup,
+    #plan-active {
+      display: grid;
+      gap: 0.85rem;
+    }
+    #plan-setup[hidden],
+    #plan-active[hidden] { display: none !important; }
     .plan-reset-block {
       margin-top: 0.85rem;
       padding-top: 0.75rem;

@@ -126,6 +126,7 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
     private var pending: Route? = null
     private var pendingJoin: String? = null
     private var pendingPlan: Plan? = null
+    private var pendingNotifyOnly = false
     private var controller: MediaController? = null
     private var playBook: String? = null
     private var playChapter: Int? = null
@@ -440,44 +441,102 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    fun savePlan(draft: Plan) {
-        if (draft.notifications && !Notifier.allowed(getApplication())) {
-            pendingPlan = draft
+    fun appointPlan(draft: Plan) {
+        val copy = copyFor(edition)
+        if (plan.notifications) {
+            commitAppointed(draft, notifications = true)
+            return
+        }
+        confirm = Confirm(
+            title = copy.notifyOfferTitle,
+            body = copy.notifyOfferBody,
+            okLabel = copy.notifyOfferYes,
+            cancelLabel = copy.notifyOfferNo,
+            onCancel = {
+                confirm = null
+                commitAppointed(draft, notifications = false)
+            },
+        ) {
+            confirm = null
+            commitAppointed(draft, notifications = true)
+        }
+    }
+
+    fun abandonPlan() {
+        val copy = copyFor(edition)
+        confirm = Confirm(
+            title = copy.abandonTitle,
+            body = copy.abandonBody,
+            okLabel = copy.abandonPlan,
+        ) {
+            confirm = null
+            val next = plan.copy(enabled = false).armed()
+            plan = next
+            store.savePlan(next)
+            Reminders.sync(getApplication(), false)
+            Debt.sync(getApplication())
+            scheduleCloudPush()
+            flash(copy.planDisabled)
+        }
+    }
+
+    /** Przełącznik powiadomień, niezależny od Ustaw. Ta sama flaga co pytanie przy ustawianiu. */
+    fun setNotifications(on: Boolean) {
+        if (plan.notifications == on) return
+        if (!on) {
+            persistNotifications(on = false, granted = true)
+            return
+        }
+        if (!Notifier.allowed(getApplication())) {
+            pendingNotifyOnly = true
+            val next = plan.copy(notifications = true)
+            pendingPlan = next
+            plan = next
+            store.savePlan(next)
+            Reminders.sync(getApplication(), next.wantsNotifications())
+            Debt.sync(getApplication())
+            scheduleCloudPush()
             askNotify = true
             return
         }
-        commitPlan(draft, granted = !draft.notifications || Notifier.allowed(getApplication()))
+        persistNotifications(on = true, granted = true)
     }
 
     fun onNotifyPermission(granted: Boolean) {
         val draft = pendingPlan ?: return
+        val notifyOnly = pendingNotifyOnly
         pendingPlan = null
-        commitPlan(draft, granted)
+        pendingNotifyOnly = false
+        if (notifyOnly) {
+            persistNotifications(on = true, granted = granted)
+            return
+        }
+        commitPlan(draft, granted, appoint = true)
     }
 
-    fun askResetProgress() {
-        val copy = copyFor(edition)
-        confirm = Confirm(copy.resetProgressTitle, copy.resetProgressBody) {
-            confirm = null
-            plan = pl.ksiag.app.model.resetPlanProgress(plan)
-            store.savePlan(plan)
-            Debt.sync(getApplication())
-            scheduleCloudPush()
-            flash(copy.progressResetFlash)
+    private fun commitAppointed(draft: Plan, notifications: Boolean) {
+        val next = draft.copy(enabled = true, notifications = notifications)
+        if (notifications && !Notifier.allowed(getApplication())) {
+            pendingNotifyOnly = false
+            pendingPlan = next
+            askNotify = true
+            return
         }
+        commitPlan(next, granted = !notifications || Notifier.allowed(getApplication()), appoint = true)
     }
 
-    fun askResetAll() {
+    private fun persistNotifications(on: Boolean, granted: Boolean) {
         val copy = copyFor(edition)
-        confirm = Confirm(copy.resetAllTitle, copy.resetAllBody) {
-            confirm = null
-            plan = pl.ksiag.app.model.resetPlanAll()
-            store.savePlan(plan)
-            Reminders.sync(getApplication(), false)
-            Debt.sync(getApplication())
-            scheduleCloudPush()
-            flash(copy.planDefaultsFlash)
-        }
+        var next = plan.copy(notifications = on)
+        if (on && granted) next = next.copy(startNotifiedDay = null)
+        plan = next
+        store.savePlan(next)
+        Reminders.sync(getApplication(), next.wantsNotifications())
+        Debt.sync(getApplication())
+        scheduleCloudPush()
+        if (!on) return
+        if (!granted) flash(copy.notifyDeniedFlash)
+        else flash(if (Notifier.allowed(getApplication())) copy.notifyEnabledFlash else copy.notifyFailedFlash)
     }
 
     fun dismissConfirm() {
@@ -563,8 +622,9 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         return todayAssignment(list, plan, ::toRoman)
     }
 
-    private fun commitPlan(draft: Plan, granted: Boolean) {
+    private fun commitPlan(draft: Plan, granted: Boolean, appoint: Boolean = false) {
         val copy = copyFor(edition)
+        val wasOn = plan.notifications
         var next = plan.copy(
             enabled = draft.enabled,
             goal = draft.goal,
@@ -577,21 +637,20 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
             minutesPerDay = draft.minutesPerDay,
             notifications = draft.notifications,
         ).armed()
-        val justEnabled = next.notifications && granted
-        if (next.notifications && !granted) {
-            flash(copy.notifyDeniedFlash)
-        } else if (justEnabled) {
-            next = next.copy(startNotifiedDay = null)
-        }
-            plan = next
+        val turnedOn = next.notifications && granted && !wasOn
+        if (next.notifications && granted) next = next.copy(startNotifiedDay = null)
+        plan = next
         store.savePlan(next)
         Reminders.sync(getApplication(), next.wantsNotifications())
         Debt.sync(getApplication())
         scheduleCloudPush()
-        if (justEnabled && next.enabled) {
-            flash(if (Notifier.allowed(getApplication())) copy.notifyEnabledFlash else copy.notifyFailedFlash)
-        } else if (!next.notifications || granted) {
-            flash(if (next.enabled) copy.planSaved(pl.ksiag.app.model.quotaPreview(next, copy.quotaChapters, copy.quotaTime)) else copy.planDisabled)
+        when {
+            next.notifications && !granted -> flash(copy.notifyDeniedFlash)
+            turnedOn && next.enabled ->
+                flash(if (Notifier.allowed(getApplication())) copy.notifyEnabledFlash else copy.notifyFailedFlash)
+            appoint && next.enabled ->
+                flash(copy.planSaved(pl.ksiag.app.model.quotaPreview(next, copy.quotaChapters, copy.quotaTime)))
+            !next.enabled -> flash(copy.planDisabled)
         }
     }
 

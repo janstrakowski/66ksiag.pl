@@ -15,8 +15,6 @@ import {
   todayAssignment,
   isDailyPlanComplete,
   todayKey,
-  resetPlanProgress,
-  resetPlanAll,
   onPlanSaved,
   armFreshPlan,
   notePortionChapter,
@@ -1089,7 +1087,8 @@ async function renderPlan() {
     steps.innerHTML = pc.blockedSteps.map((s) => `<li>${s}</li>`).join("");
   }
 
-  document.getElementById("plan-enabled").checked = !!plan.enabled;
+  document.getElementById("plan-setup").hidden = !!plan.enabled;
+  document.getElementById("plan-active").hidden = !plan.enabled;
   document.querySelector(`input[name="goal"][value="${plan.goal}"]`).checked = true;
   document.querySelector(`input[name="mode"][value="${plan.mode}"]`).checked = true;
   document.getElementById("plan-from-book").value = plan.fromBook;
@@ -1098,15 +1097,13 @@ async function renderPlan() {
   document.getElementById("plan-to-ch").value = plan.toChapter;
   document.getElementById("plan-chapters").value = plan.chaptersPerDay;
   document.getElementById("plan-minutes").value = plan.minutesPerDay;
-  if (plan.notifications) {
-    document.getElementById("plan-notify-on").checked = true;
-  } else {
-    document.getElementById("plan-notify-off").checked = true;
-  }
+  paintNotifyRadios(!!plan.notifications);
   syncPlanFormUi();
 
   const eta = document.getElementById("plan-eta");
+  const summary = document.getElementById("plan-active-summary");
   if (plan.enabled) {
+    summary.textContent = planAppointmentSummary(books, plan, pc);
     const line = portionStatusLine(books, plan);
     eta.hidden = !line;
     eta.textContent = line;
@@ -1430,17 +1427,100 @@ document.getElementById("share-btn").addEventListener("click", async () => {
   }
 });
 
+function planAppointmentSummary(books, current, pc) {
+  let goal = pc.wholeBible;
+  if (current.goal === "st") goal = pc.oldTestament;
+  else if (current.goal === "nt") goal = pc.newTestament;
+  else if (current.goal === "range") {
+    const short = (id) => books.find((b) => b.id === id)?.short || "";
+    goal = `${pc.from} ${short(current.fromBook)} ${current.fromChapter} · ${pc.to} ${short(current.toBook)} ${current.toChapter}`;
+  }
+  return `${goal} · ${quotaPreview(current, pc)}`;
+}
+
+let paintingNotify = false;
+let notifyGen = 0;
+
+function paintNotifyRadios(on) {
+  paintingNotify = true;
+  document.getElementById(on ? "plan-notify-on" : "plan-notify-off").checked = true;
+  paintingNotify = false;
+}
+
+/** Wspólna ścieżka uprawnień dla przełącznika i pytania przy Ustaw. */
+async function permissionForNotifications(wantOn) {
+  if (!wantOn) return { on: false, perm: "off" };
+  const perm = await ensureNotifyPermission();
+  if (perm === "unsupported") return { on: false, perm };
+  return { on: true, perm };
+}
+
+async function announceNotifications(perm, { announce }) {
+  const pc = planCopy(edition);
+  if (perm === "unsupported") {
+    flash(pc.notifyUnsupportedFlash);
+    return;
+  }
+  if (perm === "denied") {
+    flash(pc.notifyDeniedFlash);
+    return;
+  }
+  if (perm !== "granted") return;
+  if (announce) {
+    const shown = await notifyEnabledConfirm(t(edition));
+    flash(shown ? pc.notifyEnabledFlash : pc.notifyFailedFlash);
+  }
+  if (!loadPlan().enabled) return;
+  try {
+    const books = await loadBooks();
+    await maybeNotifyStart(books, { force: true });
+  } catch {
+    /* ignore */
+  }
+}
+
+async function applyNotificationPreference(wantOn) {
+  const wasOn = !!loadPlan().notifications;
+  if (wantOn === wasOn) return;
+  const gen = ++notifyGen;
+  const { on, perm } = await permissionForNotifications(wantOn);
+  if (gen !== notifyGen) return;
+  plan = loadPlan();
+  plan.notifications = on;
+  if (on && perm === "granted") plan.startNotifiedDay = null;
+  savePlan(plan);
+  paintNotifyRadios(on);
+  await syncNotifyPermissionUi();
+  await announceNotifications(perm, { announce: on && perm === "granted" && !wasOn });
+}
+
 const planForm = document.getElementById("plan-form");
 planForm.addEventListener("change", syncPlanFormUi);
 planForm.addEventListener("input", syncPlanFormUi);
 document.getElementById("notify-recheck")?.addEventListener("click", () => {
   recheckNotifyPermission().catch(() => {});
 });
+for (const id of ["plan-notify-on", "plan-notify-off"]) {
+  document.getElementById(id).addEventListener("change", () => {
+    if (paintingNotify) return;
+    applyNotificationPreference(document.getElementById("plan-notify-on").checked).catch(() => {});
+  });
+}
 planForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(planForm);
+  const pc = planCopy(edition);
+  const wasOn = !!loadPlan().notifications;
+  let wantNotify = wasOn;
+  if (!wasOn) {
+    wantNotify = await askConfirm(pc.notifyOfferTitle, pc.notifyOfferBody, {
+      ok: pc.notifyOfferYes,
+      cancel: pc.notifyOfferNo,
+    });
+  }
+  const { on, perm } = await permissionForNotifications(wantNotify);
   plan = loadPlan();
-  plan.enabled = document.getElementById("plan-enabled").checked;
+  plan.enabled = true;
   plan.goal = fd.get("goal") || "bible";
   plan.mode = fd.get("mode") || "chapters";
   plan.fromBook = fd.get("fromBook") || "01-gen";
@@ -1449,42 +1529,39 @@ planForm.addEventListener("submit", async (e) => {
   plan.toChapter = Number(fd.get("toChapter")) || 1;
   plan.chaptersPerDay = Number(fd.get("chaptersPerDay")) || 3;
   plan.minutesPerDay = Number(fd.get("minutesPerDay")) || 15;
-  plan.notifications = fd.get("notifications") === "on";
+  plan.notifications = on;
   plan = armFreshPlan(plan);
-
-  const pc = planCopy(edition);
-  let justEnabledNotify = false;
-  if (plan.notifications) {
-    const perm = await ensureNotifyPermission();
-    if (perm === "denied") {
-      // Preferencja zostaje „włączone”, ale UI pokaże instrukcję odblokowania.
-      flash(pc.notifyDeniedFlash);
-    } else if (perm === "unsupported") {
-      plan.notifications = false;
-      flash(pc.notifyUnsupportedFlash);
-    } else if (perm === "granted") {
-      justEnabledNotify = true;
-      // Pozwól ponownie wysłać „Zacznij czytać” po włączeniu w UI
-      plan.startNotifiedDay = null;
-    }
-  }
-
+  if (on && perm === "granted") plan.startNotifiedDay = null;
   savePlan(plan);
   refreshPlanBanner();
-
-  if (justEnabledNotify && plan.enabled && plan.notifications) {
-    const shown = await notifyEnabledConfirm(t(edition));
-    if (shown) flash(pc.notifyEnabledFlash);
-    else flash(pc.notifyFailedFlash);
-    try {
-      const books = await loadBooks();
-      await maybeNotifyStart(books, { force: true });
-    } catch {
-      /* ignore */
-    }
+  if (perm === "denied" || perm === "unsupported") {
+    await announceNotifications(perm, { announce: false });
+  } else if (on && perm === "granted" && !wasOn) {
+    await announceNotifications(perm, { announce: true });
   } else {
-    flash(plan.enabled ? pc.planSaved(quotaPreview(plan, pc)) : pc.planDisabled);
+    flash(pc.planSaved(quotaPreview(plan, pc)));
+    if (on && perm === "granted") {
+      try {
+        const books = await loadBooks();
+        await maybeNotifyStart(books, { force: true });
+      } catch {
+        /* ignore */
+      }
+    }
   }
+  renderPlan();
+});
+
+document.getElementById("plan-abandon").addEventListener("click", async () => {
+  const pc = planCopy(edition);
+  const ok = await askConfirm(pc.abandonTitle, pc.abandonBody, { ok: pc.abandonPlan });
+  if (!ok) return;
+  plan = loadPlan();
+  plan.enabled = false;
+  plan = armFreshPlan(plan);
+  savePlan(plan);
+  refreshPlanBanner();
+  flash(pc.planDisabled);
   renderPlan();
 });
 
@@ -1525,16 +1602,6 @@ function askConfirm(title, body, labels = {}) {
     document.addEventListener("keydown", onKey);
   });
 }
-
-document.getElementById("plan-reset-progress").addEventListener("click", async () => {
-  const pc = planCopy(edition);
-  const ok = await askConfirm(pc.resetProgressTitle, pc.resetProgressBody);
-  if (!ok) return;
-  plan = resetPlanProgress(loadPlan());
-  refreshPlanBanner();
-  flash(pc.progressResetFlash);
-  renderPlan();
-});
 
 document.getElementById("cloud-enabled").addEventListener("change", async () => {
   const on = document.getElementById("cloud-enabled").checked;
@@ -1594,16 +1661,6 @@ document.getElementById("cloud-scan").addEventListener("click", () => {
 document.getElementById("cloud-scan-close").addEventListener("click", stopCloudScan);
 document.getElementById("cloud-scan-overlay").addEventListener("click", (e) => {
   if (e.target.id === "cloud-scan-overlay") stopCloudScan();
-});
-
-document.getElementById("plan-reset-all").addEventListener("click", async () => {
-  const pc = planCopy(edition);
-  const ok = await askConfirm(pc.resetAllTitle, pc.resetAllBody);
-  if (!ok) return;
-  plan = resetPlanAll();
-  refreshPlanBanner();
-  flash(pc.planDefaultsFlash);
-  renderPlan();
 });
 
 document.getElementById("pick-choices").addEventListener("click", (e) => {

@@ -8,9 +8,9 @@ async function pickBg(page) {
 
 async function enablePlan(page, chapters = 1) {
   await page.goto("/plan");
-  await page.locator("#plan-enabled").check();
   await page.locator("#plan-chapters").fill(String(chapters));
-  await page.locator('#plan-form button[type="submit"]').click();
+  await page.locator("#plan-set").click();
+  await page.locator("#confirm-cancel").click();
   await expect(page.locator("#toast")).toBeVisible();
 }
 
@@ -52,25 +52,6 @@ test("reading past the portion stays in the portion reader", async ({ page }) =>
   await expect(page.locator("#plan-banner")).not.toContainText(/0 min/);
 });
 
-test("after reset the portion opens the goal start", async ({ page }) => {
-  await pickBg(page);
-  await enablePlan(page, 1);
-  await page.goto("/porcja");
-  await page.locator("#mark-read-btn").click();
-  await page.locator("#confirm-cancel").click();
-
-  await page.goto("/plan");
-  await page.locator("#plan-reset-progress").click();
-  await page.locator("#confirm-ok").click();
-  await expect(page.locator("#toast")).toBeVisible();
-
-  await page.goto("/czytaj/01-gen/2");
-  await expect(page.locator("#chapter-done")).toBeHidden();
-  await page.goto("/porcja");
-  await expect(page).toHaveURL(/\/porcja\/01-gen\/1$/);
-  await expect(page.locator("#mark-read-btn")).toBeVisible();
-});
-
 test("folio next only navigates and does not mark the chapter", async ({ page }) => {
   await pickBg(page);
   await enablePlan(page, 2);
@@ -110,10 +91,10 @@ test("home continue follows the last opened chapter, the portion follows the pla
 test("a New Testament goal opens that portion, not Genesis", async ({ page }) => {
   await pickBg(page);
   await page.goto("/plan");
-  await page.locator("#plan-enabled").check();
   await page.locator('input[name="goal"][value="nt"]').check();
   await page.locator("#plan-chapters").fill("2");
-  await page.locator('#plan-form button[type="submit"]').click();
+  await page.locator("#plan-set").click();
+  await page.locator("#confirm-cancel").click();
   await expect(page.locator("#toast")).toBeVisible();
 
   await page.goto("/czytaj/01-gen/1");

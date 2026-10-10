@@ -194,14 +194,15 @@ private fun PlanRoute(model: KsiagModel, copy: pl.ksiag.app.model.Copy) {
         plan = model.plan,
         books = model.books,
         notifyAllowed = Notifier.allowed(androidx.compose.ui.platform.LocalContext.current),
+        statusLine = if (model.plan.enabled) model.portionLine() else "",
         onHome = { model.go(Route.Home) },
-        onSave = { model.savePlan(it) },
+        onAppoint = { model.appointPlan(it) },
+        onAbandon = { model.abandonPlan() },
+        onNotifications = { model.setNotifications(it) },
         onRead = {
             if (model.plan.enabled) model.openPortion()
             else model.openReader("01-gen", 1, null)
         },
-        onResetProgress = { model.askResetProgress() },
-        onResetAll = { model.askResetAll() },
         onNotifySettings = { model.openNotifySettings() },
         continueMain = main,
         continueSub = sub,

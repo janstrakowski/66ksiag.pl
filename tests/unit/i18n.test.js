@@ -34,8 +34,12 @@ describe("i18n", () => {
   it("planCopy includes plan-form keys", () => {
     const pl = planCopy(bg);
     const en = planCopy(kjv);
-    expect(pl.enablePlan).toBeTruthy();
-    expect(en.enablePlan).toBeTruthy();
+    expect(pl.setPlan).toBe("Ustaw");
+    expect(pl.abandonPlan).toBe("Porzuć");
+    expect(en.setPlan).toBe("Appoint");
+    expect(en.abandonPlan).toBe("Put off");
+    expect(pl.notifyOfferYes).toBe("Włącz");
+    expect(en.notifyOfferNo).toBe("Not now");
     expect(pl.cloudHint).toMatch(/chmurze/);
     expect(pl.cloudHint).toMatch(/szyfrowane/);
     expect(en.cloudHint).toMatch(/cloud/i);

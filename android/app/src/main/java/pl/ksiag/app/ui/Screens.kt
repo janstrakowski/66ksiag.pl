@@ -381,16 +381,18 @@ fun PlanScreen(
     plan: Plan,
     books: List<Book>,
     notifyAllowed: Boolean,
+    statusLine: String,
     onHome: () -> Unit,
-    onSave: (Plan) -> Unit,
+    onAppoint: (Plan) -> Unit,
+    onAbandon: () -> Unit,
+    onNotifications: (Boolean) -> Unit,
     onRead: () -> Unit,
-    onResetProgress: () -> Unit,
-    onResetAll: () -> Unit,
     onNotifySettings: () -> Unit,
     continueMain: String,
     continueSub: String,
 ) {
-    var draft by remember(plan) { mutableStateOf(plan) }
+    val setupKey = "${plan.enabled}|${plan.goal}|${plan.mode}|${plan.fromBook}|${plan.toBook}|${plan.fromChapter}|${plan.toChapter}|${plan.chaptersPerDay}|${plan.minutesPerDay}"
+    var draft by remember(setupKey) { mutableStateOf(plan) }
     val preview = quotaPreview(draft, copy.quotaChapters, copy.quotaTime)
     KsiagPage(center = false, bottomReserve = 48.dp) {
         TopBar(copy.plan, copy.titleCard, onHome)
@@ -401,60 +403,67 @@ fun PlanScreen(
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(LocalPalette.current.ink))
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CheckRow(copy.enablePlan, draft.enabled) { draft = draft.copy(enabled = it) }
-                    Fieldset(copy.goal) {
-                        RadioRow(copy.wholeBible, draft.goal == "bible") { draft = draft.copy(goal = "bible") }
-                        RadioRow(copy.oldTestament, draft.goal == "st") { draft = draft.copy(goal = "st") }
-                        RadioRow(copy.newTestament, draft.goal == "nt") { draft = draft.copy(goal = "nt") }
-                        RadioRow(copy.range, draft.goal == "range") { draft = draft.copy(goal = "range") }
-                        if (draft.goal == "range") {
-                            RangeRow(copy.from, books, draft.fromBook, draft.fromChapter, { draft = draft.copy(fromBook = it) }) {
-                                draft = draft.copy(fromChapter = it)
+                    if (!plan.enabled) {
+                        Fieldset(copy.goal) {
+                            RadioRow(copy.wholeBible, draft.goal == "bible") { draft = draft.copy(goal = "bible") }
+                            RadioRow(copy.oldTestament, draft.goal == "st") { draft = draft.copy(goal = "st") }
+                            RadioRow(copy.newTestament, draft.goal == "nt") { draft = draft.copy(goal = "nt") }
+                            RadioRow(copy.range, draft.goal == "range") { draft = draft.copy(goal = "range") }
+                            if (draft.goal == "range") {
+                                RangeRow(copy.from, books, draft.fromBook, draft.fromChapter, { draft = draft.copy(fromBook = it) }) {
+                                    draft = draft.copy(fromChapter = it)
+                                }
+                                RangeRow(copy.to, books, draft.toBook, draft.toChapter, { draft = draft.copy(toBook = it) }) {
+                                    draft = draft.copy(toChapter = it)
+                                }
                             }
-                            RangeRow(copy.to, books, draft.toBook, draft.toChapter, { draft = draft.copy(toBook = it) }) {
-                                draft = draft.copy(toChapter = it)
+                        }
+                        Fieldset(copy.daily) {
+                            RadioRow(copy.byChapters, draft.mode == "chapters") { draft = draft.copy(mode = "chapters") }
+                            if (draft.mode == "chapters") {
+                                NumberRow(draft.chaptersPerDay, copy.chaptersUnit) { draft = draft.copy(chaptersPerDay = it) }
                             }
+                            RadioRow(copy.byTime, draft.mode == "time") { draft = draft.copy(mode = "time") }
+                            if (draft.mode == "time") {
+                                NumberRow(draft.minutesPerDay, copy.minutesUnit) { draft = draft.copy(minutesPerDay = it) }
+                            }
+                            Hint(preview)
+                            Hint(copy.timeHint, faint = true)
                         }
-                    }
-                    Fieldset(copy.daily) {
-                        RadioRow(copy.byChapters, draft.mode == "chapters") { draft = draft.copy(mode = "chapters") }
-                        if (draft.mode == "chapters") {
-                            NumberRow(draft.chaptersPerDay, copy.chaptersUnit) { draft = draft.copy(chaptersPerDay = it) }
-                        }
-                        RadioRow(copy.byTime, draft.mode == "time") { draft = draft.copy(mode = "time") }
-                        if (draft.mode == "time") {
-                            NumberRow(draft.minutesPerDay, copy.minutesUnit) { draft = draft.copy(minutesPerDay = it) }
-                        }
-                        Hint(preview)
-                        Hint(copy.timeHint, faint = true)
+                        Tablet(copy.setPlan) { onAppoint(draft) }
+                    } else {
+                        Hint(appointmentSummary(copy, plan, books))
+                        if (statusLine.isNotEmpty()) Hint(statusLine)
+                        Tablet(copy.abandonPlan, ital = true, onClick = onAbandon)
+                        Tablet(continueMain, continueSub, ital = true, onClick = onRead)
                     }
                     Fieldset(copy.notifications) {
-                        RadioRow(copy.on, draft.notifications) { draft = draft.copy(notifications = true) }
-                        RadioRow(copy.off, !draft.notifications) { draft = draft.copy(notifications = false) }
+                        RadioRow(copy.on, plan.notifications) { onNotifications(true) }
+                        RadioRow(copy.off, !plan.notifications) { onNotifications(false) }
                         Hint(copy.notifyHint, faint = true)
-                        if (draft.notifications && !notifyAllowed) {
+                        if (plan.notifications && !notifyAllowed) {
                             Hint(copy.notifyDeniedHint)
                             Linkish(copy.notifySettings, onNotifySettings)
                         }
                     }
-                    Tablet(copy.savePlan) { onSave(draft) }
-                    Tablet(continueMain, continueSub, ital = true, onClick = onRead)
-                }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(LocalPalette.current.ink.copy(alpha = 0.3f)))
-                BasicText(
-                    copy.reset.uppercase(),
-                    modifier = Modifier.padding(start = 14.dp, top = 12.dp),
-                    style = cinzel(0.55f, 0.18f, LocalPalette.current.faint),
-                )
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Tablet(copy.resetProgress, ital = true, onClick = onResetProgress)
-                    Hint(copy.resetProgressHint, faint = true)
-                    Tablet(copy.resetAll, ital = true, onClick = onResetAll)
-                    Hint(copy.resetAllHint, faint = true)
                 }
             }
         }
     }
+}
+
+private fun appointmentSummary(copy: Copy, plan: Plan, books: List<Book>): String {
+    val goal = when (plan.goal) {
+        "st" -> copy.oldTestament
+        "nt" -> copy.newTestament
+        "range" -> {
+            val from = books.find { it.id == plan.fromBook }?.short.orEmpty()
+            val to = books.find { it.id == plan.toBook }?.short.orEmpty()
+            "${copy.from} $from ${plan.fromChapter} · ${copy.to} $to ${plan.toChapter}"
+        }
+        else -> copy.wholeBible
+    }
+    return "$goal · ${quotaPreview(plan, copy.quotaChapters, copy.quotaTime)}"
 }
 
 @Composable
@@ -686,25 +695,6 @@ private fun Fieldset(legend: String, content: @Composable () -> Unit) {
     ) {
         BasicText(legend.uppercase(), style = cinzel(0.55f, 0.16f, p.ink))
         content()
-    }
-}
-
-@Composable
-private fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    val p = LocalPalette.current
-    Row(
-        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier
-                .width(16.dp)
-                .height(16.dp)
-                .border(1.dp, p.ink)
-                .background(if (checked) p.ink else Color.Transparent),
-        )
-        Spacer(Modifier.width(8.dp))
-        BasicText(label, style = TextStyle(fontFamily = LocalFonts.current.cardo, fontSize = 16.sp, color = p.ink))
     }
 }
 

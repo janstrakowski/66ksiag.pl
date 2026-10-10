@@ -318,7 +318,15 @@ export function planCopy(edition) {
     return {
       ...EN,
       dailyPlan: "The day’s portion",
-      enablePlan: "Appoint a daily portion",
+      setPlan: "Appoint",
+      abandonPlan: "Put off",
+      abandonTitle: "Put off the portion?",
+      abandonBody:
+        "The day’s portion shall be put off. The bound and the watchwords remain; the progress returneth unto the beginning.",
+      notifyOfferTitle: "Turn the watchwords on?",
+      notifyOfferBody: "We shall put thee in mind of the day’s portion.",
+      notifyOfferYes: "Turn on",
+      notifyOfferNo: "Not now",
       goal: "The bound",
       wholeBible: "The whole Scripture",
       oldTestament: "The Old Testament",
@@ -336,7 +344,6 @@ export function planCopy(edition) {
       on: "On",
       off: "Off",
       notifyHint: "A watchword to begin, and word how much of the portion ye have read.",
-      savePlan: "Keep this appointment",
       reset: "Reset",
       resetProgress: "Blot out the progress",
       resetProgressHint:
@@ -356,7 +363,7 @@ export function planCopy(edition) {
       blockedStepsApp: [
         "That wording in Site settings is right — Chrome doth not shew Allow/Block here.",
         "Open the Android app notification settings (link below) and turn 66ksiąg (and channels) on.",
-        "Return, tap Check again, then save the portion. Restart the app if need be.",
+        "Return, tap Check again, then turn the watchwords on again here. Restart the app if need be.",
       ],
       blockedExtraApp:
         "Site settings will say “Managed by 66ksiąg”. The switch that matters is in Android → Apps → 66ksiąg → Notifications.",
@@ -368,7 +375,15 @@ export function planCopy(edition) {
   return {
     ...PL,
     dailyPlan: "Codzienne czytanie",
-    enablePlan: "Włącz dzienny plan",
+    setPlan: "Ustaw",
+    abandonPlan: "Porzuć",
+    abandonTitle: "Porzucić plan?",
+    abandonBody:
+      "Dzienna porcja zostanie wyłączona. Cel i powiadomienia zostaną, a postęp czytania wróci na początek.",
+    notifyOfferTitle: "Włączyć powiadomienia?",
+    notifyOfferBody: "Przypomnimy o dziennym czytaniu.",
+    notifyOfferYes: "Włącz",
+    notifyOfferNo: "Nie teraz",
     goal: "Cel",
     wholeBible: "Cała Biblia",
     oldTestament: "Stary Testament",
@@ -386,7 +401,6 @@ export function planCopy(edition) {
     on: "Włączone",
     off: "Wyłączone",
     notifyHint: "Przypomnienie „Zacznij czytać…” oraz postęp „Przeczytałeś …%”.",
-    savePlan: "Zapisz plan",
     reset: "Reset",
     resetProgress: "Resetuj postęp",
     resetProgressHint: "Zeruje dzisiejsze zaliczenia i wraca na początek celu. Ustawienia zostają.",
@@ -405,7 +419,7 @@ export function planCopy(edition) {
     blockedStepsApp: [
       "Napis „Managed by 66ksiąg” w Site settings jest prawidłowy — Chrome nie pokazuje tu Allow/Block.",
       "Otwórz ustawienia powiadomień aplikacji Androida (link poniżej) i włącz 66ksiąg oraz kanały.",
-      "Wróć, stuknij Sprawdź ponownie, potem Zapisz plan. W razie potrzeby zamknij i otwórz appkę.",
+      "Wróć, stuknij Sprawdź ponownie, potem włącz powiadomienia ponownie tutaj. W razie potrzeby zamknij i otwórz appkę.",
     ],
     blockedExtraApp:
       "W Site settings zobaczysz „Managed by 66ksiąg”. Ważny jest przełącznik: Android → Aplikacje → 66ksiąg → Powiadomienia.",

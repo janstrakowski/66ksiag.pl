@@ -77,15 +77,11 @@ test.describe("daily plan", () => {
     await page.locator('[data-pick="bg-1879"]').click();
     await page.goto("/plan");
     await expect(page.locator("#plan")).toBeVisible();
-    await page.locator("#plan-enabled").check();
     await page.locator('input[name="goal"][value="nt"]').check();
     await page.locator('input[name="mode"][value="chapters"]').check();
     await page.locator("#plan-chapters").fill("2");
-    await page.locator("#plan-form").evaluate((form) => {
-      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    });
-    // submit handler is on form — click save button instead
-    await page.locator('#plan-form button[type="submit"]').click();
+    await page.locator("#plan-set").click();
+    await page.locator("#confirm-cancel").click();
     await expect(page.locator("#toast")).toBeVisible({ timeout: 5000 });
     await page.goto("/czytaj/40-mat/1");
     await expect(page.locator("#reader")).toBeVisible();
