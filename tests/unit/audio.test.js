@@ -3,14 +3,16 @@ import {
   catalogEntry,
   etaFromBytes,
   etaFromProgress,
+  audioPath,
   proxyPath,
   verseHtmlWithWords,
   wordsUrl,
 } from "../../web/audio.js";
 
 describe("audio helpers", () => {
-  it("proxyPath and wordsUrl", () => {
-    expect(proxyPath("01-gen", 12)).toBe("/audio/proxy/01-gen/12");
+  it("audioPath and wordsUrl", () => {
+    expect(audioPath("01-gen", 12)).toBe("/kjv/1769/01-gen/12.mp3");
+    expect(proxyPath("01-gen", 12)).toBe("/kjv/1769/01-gen/12.mp3");
     expect(wordsUrl("/kjv/1769", "01-gen", 1)).toBe("/kjv/1769/01-gen/1.words.json");
   });
 

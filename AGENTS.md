@@ -47,16 +47,16 @@ cargo run -p ksiag-import-kjv --release -- \
   --source /tmp/Bible-kjv --out data --commit <sha>
 ```
 
-## Audio KJV (Scourby)
+## Audio KJV (Scourby) — self-hosted
 
 ```bash
-python3 tools/audio-kjv/build_catalog.py   # → web/audio-catalog.json (commit)
-# PWA streamuje MP3 z ECFTF; „Pobierz audio” = Cache Storage przez /audio/proxy/…
-# Opcjonalnie lokalny align słów (bez bundlowania MP3 w dist):
-#   fetch_scourby.py && install_layout.py && align_whisper.py
+python3 tools/audio-kjv/fetch_scourby.py
+python3 tools/audio-kjv/install_layout.py --link   # → data/kjv/1769/{book}/{ch}.mp3
+python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json (commit)
 ```
 
-Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3; `build-dist` wyklucza `*.mp3`.
+PWA czyta `/kjv/1769/…/*.mp3` z tego samego originu. „Pobierz audio” = Cache Storage.  
+Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3 (`data/`, `vendor/` w gitignore); `build-dist` je kopiuje do `dist/`.
 
 ## Front
 
@@ -73,7 +73,7 @@ Wymaga lokalnego `data/` (BG + KJV) oraz `web/audio-catalog.json`.
 
 ```bash
 npm run test:unit          # Vitest: plan, i18n, editions, audio, katalog, kontrakty data/
-npm run test:e2e           # Playwright: picker, reader, plan, proxy audio, API
+npm run test:e2e           # Playwright: picker, reader, plan, self-hosted audio, API
 npm test                   # unit + e2e
 ```
 

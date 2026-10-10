@@ -1,5 +1,6 @@
 /**
- * Cloudflare Worker: krótkie aliasy → UI, proxy audio Scourby (CORS), SPA assets.
+ * Cloudflare Worker: krótkie aliasy → UI, SPA assets.
+ * Audio Scourby jest self-hosted pod /kjv/1769/{book}/{chapter}.mp3.
  */
 
 interface Env {
@@ -12,11 +13,7 @@ type Book = {
   short: string;
 };
 
-type CatalogChapter = { book: string; chapter: number; url: string };
-type Catalog = { chapters: CatalogChapter[] };
-
 let booksMemo: Book[] | null = null;
-let catalogMemo: Catalog | null = null;
 
 async function loadBooks(env: Env, origin: string): Promise<Book[]> {
   if (booksMemo) return booksMemo;
@@ -25,14 +22,6 @@ async function loadBooks(env: Env, origin: string): Promise<Book[]> {
   const data = (await res.json()) as { books: Book[] };
   booksMemo = data.books;
   return booksMemo;
-}
-
-async function loadCatalog(env: Env, origin: string): Promise<Catalog | null> {
-  if (catalogMemo) return catalogMemo;
-  const res = await env.ASSETS.fetch(new Request(`${origin}/audio-catalog.json`));
-  if (!res.ok) return null;
-  catalogMemo = (await res.json()) as Catalog;
-  return catalogMemo;
 }
 
 function resolveBook(books: Book[], key: string): Book | undefined {
@@ -46,70 +35,10 @@ function resolveBook(books: Book[], key: string): Book | undefined {
   );
 }
 
-function corsHeaders(extra: HeadersInit = {}): Headers {
-  const h = new Headers(extra);
-  h.set("Access-Control-Allow-Origin", "*");
-  h.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-  h.set("Access-Control-Allow-Headers", "*");
-  return h;
-}
-
-async function proxyAudio(
-  env: Env,
-  origin: string,
-  bookId: string,
-  chapter: number,
-  request: Request
-): Promise<Response> {
-  const catalog = await loadCatalog(env, origin);
-  const entry = catalog?.chapters.find(
-    (c) => c.book === bookId && Number(c.chapter) === chapter
-  );
-  if (!entry?.url) {
-    return new Response("Not found", { status: 404, headers: corsHeaders() });
-  }
-
-  const upstream = await fetch(entry.url, {
-    method: request.method === "HEAD" ? "HEAD" : "GET",
-    headers: {
-      Range: request.headers.get("Range") || "",
-      "User-Agent": "66ksiag-audio-proxy/1.0",
-    },
-  });
-
-  const headers = corsHeaders({
-    "Content-Type": upstream.headers.get("Content-Type") || "audio/mpeg",
-    "Cache-Control": "public, max-age=31536000, immutable",
-  });
-  const len = upstream.headers.get("Content-Length");
-  if (len) headers.set("Content-Length", len);
-  const ar = upstream.headers.get("Accept-Ranges");
-  if (ar) headers.set("Accept-Ranges", ar);
-  const cr = upstream.headers.get("Content-Range");
-  if (cr) headers.set("Content-Range", cr);
-
-  if (request.method === "HEAD") {
-    return new Response(null, { status: upstream.status, headers });
-  }
-  return new Response(upstream.body, { status: upstream.status, headers });
-}
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const parts = url.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
-
-    if (parts[0] === "audio" && parts[1] === "proxy" && parts.length === 4) {
-      if (request.method === "OPTIONS") {
-        return new Response(null, { status: 204, headers: corsHeaders() });
-      }
-      const bookId = parts[2];
-      const chapter = Number(parts[3]);
-      if (!bookId || !Number.isFinite(chapter)) {
-        return new Response("Bad request", { status: 400, headers: corsHeaders() });
-      }
-      return proxyAudio(env, url.origin, bookId, chapter, request);
-    }
 
     // Krótki alias: /{alias}/{chapter}[/{verse}]
     if (

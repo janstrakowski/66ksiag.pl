@@ -188,7 +188,9 @@ Narracja **Alexander Scourby** — tylko dla `kjv/1769` (BG nie ma audio).
 /kjv/1769/{book}/{chapter}.words.json   # timestamps słów (lokalny Whisper)
 ```
 
-**MP3 nie są w bundlu.** Katalog URL-i: `web/audio-catalog.json` (`tools/audio-kjv/build_catalog.py`). Odtwarzanie streamuje z ECFTF; „Pobierz audio” używa **Background Fetch** (pasek w powiadomieniach Android/Chrome) albo fallback Notification + fetch, wynik w Cache Storage przez `/audio/proxy/{book}/{chapter}`. Opcjonalne `.words.json` w `data/` tylko do podświetlania słów.
+**MP3 są self-hosted** pod `/kjv/1769/{book}/{chapter}.mp3` (katalog: `web/audio-catalog.json`).  
+„Pobierz audio” używa **Background Fetch** / fetch → Cache Storage tych samych URL-i (offline).  
+Opcjonalne `.words.json` w `data/` tylko do podświetlania słów. Fonty UI (Cardo, Cinzel) leżą w `web/assets/fonts/` — bez Google Fonts.
 
 PWA: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po końcu audio, auto-next w ramach dziennej quoty, stop po 100%, CTA „słuchaj dalej” (tryb beyond → aż do Apokalipsy).
 

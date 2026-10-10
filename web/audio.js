@@ -1,12 +1,13 @@
 /**
- * KJV Scourby audio — stream z internetu (ECFTF), opcjonalny offline cache.
- * MP3 nie są w bundlu aplikacji.
+ * KJV Scourby audio — self-hosted /kjv/1769/{book}/{chapter}.mp3,
+ * opcjonalny offline cache (Cache Storage / Background Fetch).
  */
 
 const STORAGE_KEY = "ksiag-audio-v1";
 const CACHE_NAME = "ksiag-scourby-mp3-v1";
 const CATALOG_URL = "/audio-catalog.json";
-/** Szacunek bajtów/rozdział (ECFTF ~1–3 MB) — do paska Background Fetch. */
+const AUDIO_BASE = "/kjv/1769";
+/** Szacunek bajtów/rozdział — do paska Background Fetch. */
 const AVG_CHAPTER_BYTES = 2.2 * 1024 * 1024;
 const BF_ID_PREFIX = "ksiag-scourby-";
 
@@ -59,8 +60,14 @@ function defaultSession() {
   };
 }
 
+/** Kanoniczna ścieżka MP3 na tym samym originie. */
+export function audioPath(bookId, chapter) {
+  return `${AUDIO_BASE}/${bookId}/${Number(chapter)}.mp3`;
+}
+
+/** @deprecated użyj audioPath — zachowane dla testów / starego SW cache. */
 export function proxyPath(bookId, chapter) {
-  return `/audio/proxy/${bookId}/${chapter}`;
+  return audioPath(bookId, chapter);
 }
 
 export async function loadAudioCatalog() {
@@ -106,7 +113,7 @@ async function cachedResponse(bookId, chapter) {
   if (!("caches" in window)) return null;
   try {
     const cache = await caches.open(CACHE_NAME);
-    return cache.match(proxyPath(bookId, chapter));
+    return cache.match(audioPath(bookId, chapter));
   } catch {
     return null;
   }
@@ -122,7 +129,7 @@ export async function countCachedChapters(catalog) {
   const cache = await caches.open(CACHE_NAME);
   let n = 0;
   for (const c of catalog.chapters) {
-    if (await cache.match(proxyPath(c.book, c.chapter))) n += 1;
+    if (await cache.match(audioPath(c.book, c.chapter))) n += 1;
   }
   return n;
 }
@@ -159,7 +166,7 @@ async function missingChapters(catalog) {
   const cache = await caches.open(CACHE_NAME);
   const missing = [];
   for (const c of catalog.chapters) {
-    if (!(await cache.match(proxyPath(c.book, c.chapter)))) missing.push(c);
+    if (!(await cache.match(audioPath(c.book, c.chapter)))) missing.push(c);
   }
   return missing;
 }
@@ -245,7 +252,7 @@ async function downloadViaBackgroundFetch(catalog, missing, onProgress, { signal
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
   const missingTotal = missing.length;
-  const urls = missing.map((c) => proxyPath(c.book, c.chapter));
+  const urls = missing.map((c) => audioPath(c.book, c.chapter));
   const downloadTotal = Math.ceil(missingTotal * AVG_CHAPTER_BYTES);
   const fetchId = `${BF_ID_PREFIX}${Date.now()}`;
   activeBgFetchId = fetchId;
@@ -331,7 +338,7 @@ async function downloadViaForeground(catalog, missing, onProgress, { signal, tit
 
   for (const c of missing) {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const key = proxyPath(c.book, c.chapter);
+    const key = audioPath(c.book, c.chapter);
     const res = await fetch(key, { signal });
     if (!res.ok) throw new Error(`download ${c.book}/${c.chapter}: ${res.status}`);
     await cache.put(key, res.clone());

@@ -85,7 +85,7 @@ const PL = {
   audioDownload: "Pobierz audio",
   audioDownloadCancel: "Anuluj pobieranie",
   audioDownloadHint:
-    "Streaming z internetu. Pobierz całość na urządzenie (offline). Na Androidzie Chrome pokaże pasek w powiadomieniach.",
+    "Audio z serwera (Scourby). Pobierz całość na urządzenie (offline). Na Androidzie Chrome pokaże pasek w powiadomieniach.",
   audioDownloadSystemHint: "Pobieranie brakujących rozdziałów — pasek w powiadomieniach…",
   audioDownloadProgress: (done, total, pct, eta) =>
     eta
@@ -191,7 +191,7 @@ const EN = {
   audioDownload: "Download audio",
   audioDownloadCancel: "Cancel download",
   audioDownloadHint:
-    "Streams from the net. Download all unto this device. On Android Chrome a system progress bar is shewn in the notifications.",
+    "Audio is served here (Scourby). Download all unto this device. On Android Chrome a system progress bar is shewn in the notifications.",
   audioDownloadSystemHint: "Fetching the chapters that are wanting — see the system bar…",
   audioDownloadProgress: (done, total, pct, eta) =>
     eta

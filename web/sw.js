@@ -129,8 +129,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // proxy audio — nie cache'uj w shellu; Background Fetch / app Cache Storage
-  if (url.pathname.startsWith("/audio/proxy/")) return;
+  // MP3 — Cache Storage z aplikacji / Background Fetch, nie shell precache
+  if (url.pathname.endsWith(".mp3")) return;
 
   event.respondWith(
     (async () => {

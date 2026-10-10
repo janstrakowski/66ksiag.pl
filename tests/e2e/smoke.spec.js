@@ -122,8 +122,8 @@ test.describe("API / static contracts", () => {
     expect(res.status()).toBe(404);
   });
 
-  test("audio proxy returns mpeg for Genesis 1", async ({ request }) => {
-    const res = await request.get("/audio/proxy/01-gen/1");
+  test("self-hosted Scourby mp3 for Genesis 1", async ({ request }) => {
+    const res = await request.get("/kjv/1769/01-gen/1.mp3");
     expect(res.ok()).toBeTruthy();
     const ct = res.headers()["content-type"] || "";
     expect(ct).toMatch(/audio|mpeg/i);

@@ -13,22 +13,22 @@ describe("audio-catalog.json contract", () => {
   const catalog = loadJson("web/audio-catalog.json");
   const books = loadJson("data/kjv/1769/books.json").books;
 
-  it("has version, source, and 1189 chapters", () => {
-    expect(catalog.version).toBe(1);
-    expect(catalog.source).toMatch(/earnestlycontending/i);
+  it("has version 2, self-hosted source, and 1189 chapters", () => {
+    expect(catalog.version).toBe(2);
+    expect(catalog.source).toBe("self-hosted");
+    expect(catalog.base).toBe("/kjv/1769");
     expect(catalog.count).toBe(1189);
     expect(catalog.chapters).toHaveLength(1189);
   });
 
-  it("matches books.json chapter counts in order", () => {
+  it("matches books.json with same-origin mp3 urls", () => {
     let i = 0;
     for (const b of books) {
       for (let ch = 1; ch <= b.chapters; ch++) {
         const row = catalog.chapters[i++];
         expect(row.book).toBe(b.id);
         expect(row.chapter).toBe(ch);
-        expect(row.url).toMatch(/^https:\/\//);
-        expect(row.url).toMatch(/\.mp3$/i);
+        expect(row.url).toBe(`/kjv/1769/${b.id}/${ch}.mp3`);
       }
     }
     expect(i).toBe(1189);
