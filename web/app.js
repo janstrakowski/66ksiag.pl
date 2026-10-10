@@ -8,6 +8,7 @@ import {
   isExtraCredit,
   nextUnreadInGoal,
   nextChapterInBible,
+  canMarkBeyondPlan,
   advanceCursor,
   quotaPreview,
   todayAssignment,
@@ -201,9 +202,11 @@ async function creditChapterFromAudio(bookId, chapter) {
   plan = loadPlan();
   if (!plan.enabled) return { kind: "off" };
   const ctxBooks = window.__reader?.books;
-  const result = markChapterRead(plan, bookId, chapter);
+  const result = markChapterRead(plan, bookId, chapter, ctxBooks);
   plan = result.plan;
-  if (result.kind === "already" || result.kind === "off") return result;
+  if (result.kind === "already" || result.kind === "off" || result.kind === "skip") {
+    return result;
+  }
   if (ctxBooks) plan = advanceCursor(plan, ctxBooks);
   refreshPlanBanner();
   const pct = progressPct(plan);
@@ -374,7 +377,7 @@ function sectionList(label, books) {
   return `<p class="testament-label">${label}</p><ul class="book-list">${items}</ul>`;
 }
 
-function updateMarkReadUi(bookId, chapter) {
+function updateMarkReadUi(bookId, chapter, books = window.__reader?.books) {
   const wrap = document.getElementById("chapter-done");
   const btn = document.getElementById("mark-read-btn");
   const copy = t(edition);
@@ -382,10 +385,10 @@ function updateMarkReadUi(bookId, chapter) {
     wrap.hidden = true;
     return;
   }
-  wrap.hidden = false;
   wrap.classList.remove("is-done", "is-extra", "is-extra-action");
 
   if (isChapterReadToday(plan, bookId, chapter)) {
+    wrap.hidden = false;
     wrap.classList.add("is-done");
     if (isExtraCredit(plan, bookId, chapter)) {
       wrap.classList.add("is-extra");
@@ -397,11 +400,19 @@ function updateMarkReadUi(bookId, chapter) {
   }
 
   if (isDailyPlanComplete(plan)) {
+    // Ponad plan tylko dla następnego rozdziału po ostatnim zaliczonym
+    if (!books || !canMarkBeyondPlan(books, plan, bookId, chapter)) {
+      wrap.hidden = true;
+      return;
+    }
+    wrap.hidden = false;
     wrap.classList.add("is-extra-action");
     btn.textContent = copy.markExtra;
-  } else {
-    btn.textContent = copy.markRead;
+    return;
   }
+
+  wrap.hidden = false;
+  btn.textContent = copy.markRead;
 }
 
 async function renderReader(route) {
@@ -474,7 +485,7 @@ async function renderReader(route) {
     }
 
     window.__reader = { book, chapter, data, books };
-    updateMarkReadUi(book.id, chapter);
+    updateMarkReadUi(book.id, chapter, books);
 
     audioControls.hidden = true;
     audioStopBtn.hidden = true;
@@ -765,11 +776,11 @@ document.getElementById("verses").addEventListener("click", (e) => {
 document.getElementById("mark-read-btn").addEventListener("click", async () => {
   const ctx = window.__reader;
   if (!ctx || !plan.enabled) return;
-  const result = markChapterRead(plan, ctx.book.id, ctx.chapter);
+  const result = markChapterRead(plan, ctx.book.id, ctx.chapter, ctx.books);
   plan = result.plan;
-  if (result.kind === "already" || result.kind === "off") return;
+  if (result.kind === "already" || result.kind === "off" || result.kind === "skip") return;
   plan = advanceCursor(plan, ctx.books);
-  updateMarkReadUi(ctx.book.id, ctx.chapter);
+  updateMarkReadUi(ctx.book.id, ctx.chapter, ctx.books);
   refreshPlanBanner();
   const pct = progressPct(plan);
   const copy = t(edition);
@@ -1072,13 +1083,15 @@ document.addEventListener("click", (e) => {
   if (url.origin !== location.origin) return;
   if (a.hasAttribute("download")) return;
 
-  // przy przejściu do następnego rozdziału — zalicz bieżący (plan lub ponad plan)
+  // przy przejściu do następnego rozdziału — zalicz bieżący (plan; ponad plan tylko gdy to kolejny)
   if (a.hasAttribute("data-mark-prev") && plan.enabled && window.__reader) {
     const ctx = window.__reader;
     if (!isChapterReadToday(plan, ctx.book.id, ctx.chapter)) {
-      const result = markChapterRead(plan, ctx.book.id, ctx.chapter);
+      const result = markChapterRead(plan, ctx.book.id, ctx.chapter, ctx.books);
       plan = result.plan;
-      plan = advanceCursor(plan, ctx.books);
+      if (result.kind === "plan" || result.kind === "extra") {
+        plan = advanceCursor(plan, ctx.books);
+      }
       if (result.kind === "plan" && notificationsWanted(plan)) {
         notifyProgress(progressPct(plan), t(edition));
       }

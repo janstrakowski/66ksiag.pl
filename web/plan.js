@@ -156,10 +156,10 @@ export function progressPct(plan) {
 }
 
 /**
- * Zalicz rozdział. Zwraca { plan, kind: "plan" | "extra" | "already" | "off" }.
- * Po wypełnieniu quoty kolejne zaliczenia są ponadprogramowe (nie podnoszą % ponad 100).
+ * Zalicz rozdział. Zwraca { plan, kind: "plan" | "extra" | "already" | "off" | "skip" }.
+ * Po wypełnieniu quoty — tylko następny rozdział po ostatnim zaliczonym (wymaga `books`).
  */
-export function markChapterRead(plan, bookId, chapter) {
+export function markChapterRead(plan, bookId, chapter, books = null) {
   const key = chapKey(bookId, chapter);
   if (!plan.enabled) return { plan, kind: "off" };
   if (plan.day !== todayKey()) {
@@ -169,10 +169,17 @@ export function markChapterRead(plan, bookId, chapter) {
   if (plan.readToday.includes(key)) {
     return { plan, kind: "already" };
   }
-  const kind = isDailyPlanComplete(plan) ? "extra" : "plan";
+  if (isDailyPlanComplete(plan)) {
+    if (!books || !canMarkBeyondPlan(books, plan, bookId, chapter)) {
+      return { plan, kind: "skip" };
+    }
+    plan.readToday.push(key);
+    savePlan(plan);
+    return { plan, kind: "extra" };
+  }
   plan.readToday.push(key);
   savePlan(plan);
-  return { plan, kind };
+  return { plan, kind: "plan" };
 }
 
 export function isChapterReadToday(plan, bookId, chapter) {
@@ -220,6 +227,39 @@ export function nextChapterInBible(books, bookId, chapter) {
   }
   if (i + 1 >= books.length) return null;
   return { book: books[i + 1].id, chapter: 1 };
+}
+
+/** Najdalej w kanonie wśród dzisiejszych zaliczeń (nie kolejność kliknięć). */
+export function furthestCredited(books, plan) {
+  let bestScore = -1;
+  let best = null;
+  for (const key of plan.readToday || []) {
+    const [bookId, ch] = key.split("/");
+    const bi = books.findIndex((b) => b.id === bookId);
+    if (bi < 0) continue;
+    const score = bi * 100_000 + Number(ch);
+    if (score > bestScore) {
+      bestScore = score;
+      best = { book: bookId, chapter: Number(ch) };
+    }
+  }
+  return best;
+}
+
+/**
+ * Jedyny rozdział, który wolno zaliczyć „ponad plan”:
+ * następny po najdalej zaliczonym. Inaczej „Zalicz ponad plan” nie ma sensu.
+ */
+export function nextBeyondPlanTarget(books, plan) {
+  if (!plan?.enabled || !isDailyPlanComplete(plan)) return null;
+  const last = furthestCredited(books, plan);
+  if (!last) return null;
+  return nextChapterInBible(books, last.book, last.chapter);
+}
+
+export function canMarkBeyondPlan(books, plan, bookId, chapter) {
+  const next = nextBeyondPlanTarget(books, plan);
+  return !!(next && next.book === bookId && next.chapter === Number(chapter));
 }
 
 export function advanceCursor(plan, books) {
