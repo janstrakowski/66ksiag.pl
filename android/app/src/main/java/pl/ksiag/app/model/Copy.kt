@@ -258,7 +258,7 @@ private val PL = Copy(
     audioUnavailable = "Brak audio dla tego rozdziału",
     audioDownload = "Pobierz audio",
     audioDownloadCancel = "Anuluj pobieranie",
-    audioDownloadResume = "Wznów pobieranie",
+    audioDownloadResume = "Wznów audio",
     audioDownloadHint = "Audio z serwera (Scourby). Pobierz całość na urządzenie (offline).",
     audioDownloadFinished = "Audio pobrane",
     audioDownloadFailed = "Nie udało się pobrać audio",
@@ -319,10 +319,10 @@ private val PL = Copy(
     copied = { "Skopiowano · $it" },
     unknownBook = { "Nieznana księga: $it" },
     missingChapter = { "Brak rozdziału $it" },
-    audioDownloadProgress = { done, total, pct, eta ->
-        if (eta != null) "Brakujące: $done / $total ($pct%) · $eta" else "Brakujące: $done / $total ($pct%)"
+    audioDownloadProgress = { done, total, _, eta ->
+        if (eta != null) "Brakujące: $done / $total · $eta" else "Brakujące: $done / $total"
     },
-    audioDownloadPartial = { n, total -> "Offline: $n / $total rozdziałów" },
+    audioDownloadPartial = { n, total -> "Brakujące: $n / $total" },
     audioDownloadDone = { _ -> "Audio jest już pobrane." },
     audioEtaMinutes = { "zostało ~$it min" },
 )
@@ -426,7 +426,7 @@ private val EN = Copy(
     audioUnavailable = "No audio for this chapter",
     audioDownload = "Download audio",
     audioDownloadCancel = "Cancel download",
-    audioDownloadResume = "Resume download",
+    audioDownloadResume = "Resume audio",
     audioDownloadHint = "Audio is served here (Scourby). Download all unto this device.",
     audioDownloadFinished = "Audio is downloaded",
     audioDownloadFailed = "Could not download the audio",
@@ -493,11 +493,11 @@ private val EN = Copy(
     copied = { "Copied · $it" },
     unknownBook = { "Unknown book: $it" },
     missingChapter = { "No such chapter $it" },
-    audioDownloadProgress = { done, total, pct, eta ->
-        if (eta != null) "Wanting: $done / $total ($pct%) · $eta" else "Wanting: $done / $total ($pct%)"
+    audioDownloadProgress = { done, total, _, eta ->
+        if (eta != null) "Wanting: $done / $total · $eta" else "Wanting: $done / $total"
     },
-    audioDownloadPartial = { n, total -> "Offline: $n / $total chapters" },
-    audioDownloadDone = { _ -> "The audio is already downloaded." },
+    audioDownloadPartial = { n, total -> "Wanting: $n / $total" },
+    audioDownloadDone = { _ -> "Audio is already downloaded." },
     audioEtaMinutes = { "about $it min left" },
 )
 

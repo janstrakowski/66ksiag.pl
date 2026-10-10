@@ -66,6 +66,20 @@ python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json 
 PWA czyta `/kjv/1769/…/*.mp3` z tego samego originu. „Pobierz audio” = Cache Storage.  
 Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3 (`data/`, `vendor/` w gitignore); `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
 
+### Pobieranie audio na karcie tytułowej
+
+Jeden przycisk. `x` to rozdziały już zapisane lokalnie, `N` to cały katalog. Częściowe pobranie nie jest „pobranym audio”. Ten sam układ w PWA i w Androidzie.
+
+- Przycisk jest aktywny wtedy i tylko wtedy, gdy audio nie jest pobrane w całości.
+- „Download audio” / „Pobierz audio” wtedy i tylko wtedy, gdy nie ma ani jednego rozdziału i nic się nie pobiera.
+- „Cancel download” / „Anuluj pobieranie” wtedy i tylko wtedy, gdy pobieranie trwa.
+- „Resume audio” / „Wznów audio” wtedy i tylko wtedy, gdy jest częściowo pobrane i pobieranie nie trwa.
+- Gdy całość jest pobrana, przycisk jest nieaktywny i nosi „Audio is already downloaded.” / „Audio jest już pobrane.” — nie żaden z trzech napisów powyżej.
+- „Clear downloaded audio” / „Usuń pobrane audio” jest widoczne wtedy i tylko wtedy, gdy audio jest pobrane w całości albo pobieranie jest wstrzymane. W trakcie pobierania go nie ma.
+- „Audio is served here…” tylko gdy nie ma ani jednego rozdziału i nic się nie pobiera.
+- Przy części — także po anulowaniu — status to „Wanting: x / N” (PL: „Brakujące: x / N”). PWA pobiera rozdział po rozdziale w karcie, bez Background Fetch. `x` rośnie po każdym zapisanym rozdziale i nie cofa się. Po anulowaniu zostaje na tej samej liczbie.
+- Gdy całość jest pobrana, status to „Audio is already downloaded.” / „Audio jest już pobrane.”
+
 ## Front
 
 `web/` czyta wyłącznie warstwę `data/` (te same kontrakty co CLI).

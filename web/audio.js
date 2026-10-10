@@ -41,6 +41,36 @@ export function etaFromProgress(done, total, startedAtMs) {
   return Math.max(0, (total - done) / rate);
 }
 
+/**
+ * Stan przycisku pobierania na karcie tytułowej.
+ * have = rozdziały już zapisane, total = cały katalog, running = pobieranie trwa.
+ * Częściowe pobranie nie jest „pobranym”.
+ * @returns {{ button: "download"|"cancel"|"resume"|"done", enabled: boolean, status: "hint"|"wanting"|"done", showClear: boolean, have: number, total: number, pct: number }}
+ */
+export function audioDownloadUi({ have = 0, total = 0, running = false } = {}) {
+  const n = Math.max(0, Number(have) || 0);
+  const all = Math.max(0, Number(total) || 0);
+  const complete = !running && all > 0 && n >= all;
+  const partial = n > 0 && !complete;
+  let button = "download";
+  if (running) button = "cancel";
+  else if (partial) button = "resume";
+  else if (complete) button = "done";
+  let status = "hint";
+  if (running || partial) status = "wanting";
+  else if (complete) status = "done";
+  const pct = all > 0 ? Math.min(100, Math.round((n / all) * 100)) : 0;
+  return {
+    button,
+    enabled: !complete,
+    status,
+    showClear: !running && n > 0,
+    have: n,
+    total: all,
+    pct,
+  };
+}
+
 export function etaFromBytes(downloaded, downloadTotal, startedAtMs) {
   const elapsed = (Date.now() - startedAtMs) / 1000;
   if (elapsed < 2 || !downloadTotal || downloaded < 8 * 1024) return null;
@@ -238,6 +268,8 @@ function emitMissingProgress(onProgress, opts) {
   const {
     done,
     total,
+    have,
+    catalog,
     startedAt,
     mode,
     bytes,
@@ -247,16 +279,41 @@ function emitMissingProgress(onProgress, opts) {
     bytes != null && bytesTotal
       ? etaFromBytes(bytes, bytesTotal, startedAt)
       : etaFromProgress(done, total, startedAt);
-  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  const shownHave = have != null ? have : done;
+  const shownTotal = catalog != null ? catalog : total;
+  const pct = shownTotal > 0 ? Math.min(100, Math.round((shownHave / shownTotal) * 100)) : 0;
   onProgress?.({
-    done,
-    total,
+    done: shownHave,
+    total: shownTotal,
     pct,
     etaSec,
     mode,
     bytes,
     bytesTotal,
   });
+}
+
+/** Zapisuje do Cache Storage te rekordy Background Fetch, które już doszły. Wiszące pomija. */
+async function persistSettledRecords(bg, saved) {
+  if (!bg || !("caches" in globalThis)) return saved.size;
+  const cache = await caches.open(CACHE_NAME);
+  const records = await bg.matchAll();
+  const pending = Symbol("pending");
+  await Promise.all(
+    records.map(async (record) => {
+      const url = record.request.url;
+      if (saved.has(url)) return;
+      try {
+        const response = await Promise.race([record.responseReady, Promise.resolve(pending)]);
+        if (response === pending || !response?.ok) return;
+        await cache.put(record.request, response.clone());
+        saved.add(url);
+      } catch {
+        /* rekord jeszcze w drodze albo odrzucony */
+      }
+    })
+  );
+  return saved.size;
 }
 
 async function downloadViaBackgroundFetch(catalog, missing, onProgress, { signal, title }) {
@@ -278,27 +335,71 @@ async function downloadViaBackgroundFetch(catalog, missing, onProgress, { signal
   });
   activeBgFetch = bg;
 
-  const onBfProgress = () => {
+  const catalogTotal = catalog.chapters.length;
+  const already = catalogTotal - missingTotal;
+  const saved = new Set();
+  let persistChain = Promise.resolve();
+  let lastPersist = 0;
+
+  const rememberSettled = (force) => {
+    const now = Date.now();
+    if (!force && now - lastPersist < 800) return persistChain;
+    lastPersist = now;
+    persistChain = persistChain.then(() => persistSettledRecords(bg, saved)).catch(() => saved.size);
+    return persistChain;
+  };
+
+  const emitHave = () => {
     const downloaded = bg.downloaded || 0;
     const totalBytes = bg.downloadTotal || downloadTotal;
-    const frac = totalBytes ? Math.min(1, downloaded / totalBytes) : 0;
-    const done = Math.min(missingTotal, Math.round(frac * missingTotal));
+    const estimated = Math.min(missingTotal, Math.floor(downloaded / AVG_CHAPTER_BYTES));
+    const sessionDone = Math.max(saved.size, estimated);
     emitMissingProgress(onProgress, {
-      done,
+      done: sessionDone,
       total: missingTotal,
+      have: already + sessionDone,
+      catalog: catalogTotal,
       startedAt,
       mode: "background",
       bytes: downloaded,
       bytesTotal: totalBytes,
     });
   };
+
+  let stallTimer;
+  const stalled = new Promise((_, reject) => {
+    stallTimer = setTimeout(() => reject(new Error("background-fetch-stalled")), 1500);
+  });
+  const done = waitForBgFetchDone(reg, fetchId, signal);
+  const onBfProgress = () => {
+    if ((bg.downloaded || 0) > 0) clearTimeout(stallTimer);
+    emitHave();
+    void rememberSettled(false);
+  };
   bg.addEventListener("progress", onBfProgress);
-  onBfProgress();
+  emitHave();
 
   try {
-    await waitForBgFetchDone(reg, fetchId, signal);
+    await Promise.race([done, stalled]);
+  } catch (e) {
+    if (e?.message === "background-fetch-stalled") {
+      done.catch(() => {});
+      try {
+        await bg.abort();
+      } catch {
+        /* już przerwane */
+      }
+      throw e;
+    }
+    throw e;
   } finally {
+    clearTimeout(stallTimer);
     bg.removeEventListener("progress", onBfProgress);
+    try {
+      await rememberSettled(true);
+    } catch {
+      /* rejestracja mogła już zniknąć */
+    }
     activeBgFetch = null;
     activeBgFetchId = null;
   }
@@ -306,21 +407,22 @@ async function downloadViaBackgroundFetch(catalog, missing, onProgress, { signal
   emitMissingProgress(onProgress, {
     done: missingTotal,
     total: missingTotal,
+    have: catalogTotal,
+    catalog: catalogTotal,
     startedAt,
     mode: "background",
     bytes: downloadTotal,
     bytesTotal: downloadTotal,
   });
-  return { done: missingTotal, total: missingTotal, mode: "background" };
+  return { done: catalogTotal, total: catalogTotal, mode: "background" };
 }
 
 async function notifyProgress(done, total, etaSec, title, formatEta) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
     const reg = await ensureAudioServiceWorker();
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     const eta = formatEta ? formatEta(etaSec) : "";
-    const body = eta ? `${done} / ${total} (${pct}%) · ${eta}` : `${done} / ${total} (${pct}%)`;
+    const body = eta ? `${done} / ${total} · ${eta}` : `${done} / ${total}`;
     const opts = {
       body,
       tag: "ksiag-audio-download",
@@ -338,6 +440,8 @@ async function notifyProgress(done, total, etaSec, title, formatEta) {
 
 async function downloadViaForeground(catalog, missing, onProgress, { signal, title, formatEta }) {
   const missingTotal = missing.length;
+  const catalogTotal = catalog.chapters.length;
+  const already = catalogTotal - missingTotal;
   const cache = await caches.open(CACHE_NAME);
   let completed = 0;
   const startedAt = Date.now();
@@ -350,6 +454,15 @@ async function downloadViaForeground(catalog, missing, onProgress, { signal, tit
     }
   }
 
+  emitMissingProgress(onProgress, {
+    done: 0,
+    total: missingTotal,
+    have: already,
+    catalog: catalogTotal,
+    startedAt,
+    mode: "foreground",
+  });
+
   for (const c of missing) {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const key = audioPath(c.book, c.chapter);
@@ -361,43 +474,33 @@ async function downloadViaForeground(catalog, missing, onProgress, { signal, tit
     emitMissingProgress(onProgress, {
       done: completed,
       total: missingTotal,
+      have: already + completed,
+      catalog: catalogTotal,
       startedAt,
       mode: "foreground",
     });
     if (completed === 1 || completed === missingTotal || completed % 5 === 0) {
-      await notifyProgress(completed, missingTotal, etaSec, title, formatEta);
+      await notifyProgress(already + completed, catalogTotal, etaSec, title, formatEta);
     }
   }
-  await notifyProgress(missingTotal, missingTotal, 0, title, formatEta);
-  return { done: missingTotal, total: missingTotal, mode: "foreground" };
+  await notifyProgress(catalogTotal, catalogTotal, 0, title, formatEta);
+  return { done: catalogTotal, total: catalogTotal, mode: "foreground" };
 }
 
 /**
- * Pobierz brakujące rozdziały.
- * Preferuje Background Fetch (pasek w powiadomieniach Android/Chrome).
- * Fallback: fetch w karcie + aktualizowane Notification.
+ * Pobierz brakujące rozdziały po kolei w tej karcie.
+ * Licznik na stronie rusza dopiero, gdy rozdział jest zapisany — bez Background Fetch.
  */
 export async function downloadAllAudio(onProgress, { signal, title, formatEta } = {}) {
   const catalog = await loadAudioCatalog();
   const missing = await missingChapters(catalog);
   if (!missing.length) {
-    onProgress?.({ done: 0, total: 0, pct: 100, etaSec: 0, mode: "cached" });
-    return { done: 0, total: 0, mode: "cached" };
+    const catalogTotal = catalog.chapters.length;
+    onProgress?.({ done: catalogTotal, total: catalogTotal, pct: 100, etaSec: 0, mode: "cached" });
+    return { done: catalogTotal, total: catalogTotal, mode: "cached" };
   }
 
-  // Jeden Background Fetch = jeden systemowy pasek dla wszystkich brakujących plików
-  if (supportsBackgroundFetch()) {
-    try {
-      return await downloadViaBackgroundFetch(catalog, missing, onProgress, {
-        signal,
-        title,
-      });
-    } catch (e) {
-      if (e?.name === "AbortError") throw e;
-      console.warn("[66ksiąg] Background Fetch unavailable, foreground fallback:", e);
-    }
-  }
-
+  await abortAudioDownload();
   return downloadViaForeground(catalog, missing, onProgress, {
     signal,
     title,

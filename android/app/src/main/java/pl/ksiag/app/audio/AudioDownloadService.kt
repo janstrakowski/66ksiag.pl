@@ -68,7 +68,7 @@ class AudioDownloadService : Service() {
         }
         if (job?.isActive == true) return START_NOT_STICKY
         DownloadBus.cancel = false
-        startForeground(Notifier.ID_DOWNLOAD, note(0, 1, null))
+        startForeground(Notifier.ID_DOWNLOAD, note(0, 0, null))
         job = scope.launch { run() }
         return START_NOT_STICKY
     }
@@ -104,7 +104,7 @@ class AudioDownloadService : Service() {
                     eta = eta,
                 )
                 getSystemService(android.app.NotificationManager::class.java)
-                    ?.notify(Notifier.ID_DOWNLOAD, note(completed, missing.size, eta))
+                    ?.notify(Notifier.ID_DOWNLOAD, note(have + completed, chapters.size, eta))
                 val dest = AudioFiles.file(this, ch.book, ch.chapter)
                 dest.parentFile?.mkdirs()
                 val tmp = dest.resolveSibling(dest.name + ".part")
@@ -140,7 +140,7 @@ class AudioDownloadService : Service() {
                 )
                 if (!finished) {
                     getSystemService(android.app.NotificationManager::class.java)
-                        ?.notify(Notifier.ID_DOWNLOAD, note(completed, missing.size, eta(completed, missing.size, started, copy)))
+                        ?.notify(Notifier.ID_DOWNLOAD, note(have + completed, chapters.size, eta(completed, missing.size, started, copy)))
                 }
             }
             val finalHave = AudioFiles.count(this)
@@ -198,7 +198,7 @@ class AudioDownloadService : Service() {
         return copy.audioEtaMinutes(left.coerceAtLeast(1))
     }
 
-    private fun note(done: Int, total: Int, eta: String?): Notification {
+    private fun note(have: Int, catalog: Int, eta: String?): Notification {
         val copy = copyFor(Store(this).edition())
         val cancel = PendingIntent.getService(
             this,
@@ -206,12 +206,12 @@ class AudioDownloadService : Service() {
             Intent(this, AudioDownloadService::class.java).setAction(ACTION_CANCEL),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val pct = if (total == 0) 0 else ((done.toDouble() / total) * 100).roundToInt()
+        val pct = if (catalog == 0) 0 else ((have.toDouble() / catalog) * 100).roundToInt()
         return NotificationCompat.Builder(this, KsiagApplication.CHANNEL_AUDIO)
             .setSmallIcon(R.drawable.ic_notification_icon)
             .setContentTitle(copy.audioDownloadNotifyTitle)
-            .setContentText(copy.audioDownloadProgress(done, total, pct, eta))
-            .setProgress(total, done, total == 0)
+            .setContentText(copy.audioDownloadProgress(have, catalog, pct, eta))
+            .setProgress(catalog.coerceAtLeast(1), have.coerceAtMost(catalog.coerceAtLeast(1)), catalog == 0)
             .setOngoing(true)
             .addAction(0, copy.audioDownloadCancel, cancel)
             .build()

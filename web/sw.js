@@ -27,27 +27,33 @@ async function broadcast(msg) {
   for (const c of list) c.postMessage(msg);
 }
 
+async function storeFetchedRecords(bg) {
+  const cache = await caches.open(AUDIO_CACHE);
+  const records = await bg.matchAll();
+  let cached = 0;
+  await Promise.all(
+    records.map(async (record) => {
+      try {
+        const response = await Promise.race([
+          record.responseReady,
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 4000)),
+        ]);
+        if (response && response.ok) {
+          await cache.put(record.request, response.clone());
+          cached += 1;
+        }
+      } catch {
+        /* skip failed or unfinished record */
+      }
+    })
+  );
+  return cached;
+}
+
 async function settleAudioFetch(event, ok) {
   const bg = event.registration;
   const fetchId = bg.id;
-  let cached = 0;
-  if (ok) {
-    const cache = await caches.open(AUDIO_CACHE);
-    const records = await bg.matchAll();
-    await Promise.all(
-      records.map(async (record) => {
-        try {
-          const response = await record.responseReady;
-          if (response && response.ok) {
-            await cache.put(record.request, response.clone());
-            cached += 1;
-          }
-        } catch {
-          /* skip failed record */
-        }
-      })
-    );
-  }
+  const cached = await storeFetchedRecords(bg);
 
   try {
     const origin = self.location.origin;
@@ -83,11 +89,15 @@ self.addEventListener("backgroundfetchfail", (event) => {
 
 self.addEventListener("backgroundfetchabort", (event) => {
   event.waitUntil(
-    broadcast({
-      type: "audio-download-fail",
-      fetchId: event.registration.id,
-      reason: "aborted",
-    })
+    (async () => {
+      const cached = await storeFetchedRecords(event.registration);
+      await broadcast({
+        type: "audio-download-fail",
+        fetchId: event.registration.id,
+        reason: "aborted",
+        cached,
+      });
+    })()
   );
 });
 

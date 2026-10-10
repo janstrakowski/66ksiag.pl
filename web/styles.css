@@ -182,6 +182,15 @@
       background: var(--hatch);
       color: var(--ink);
     }
+    button.tablet.ital:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    button.tablet.ital:disabled:hover,
+    button.tablet.ital:disabled:focus-visible {
+      background: transparent;
+      color: var(--ink);
+    }
 
     /* KJV theme placeholder — pełny styl 1611 w demach */
     body.theme-kjv {

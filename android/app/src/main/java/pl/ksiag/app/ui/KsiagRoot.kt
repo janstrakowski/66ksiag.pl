@@ -108,21 +108,21 @@ private fun HomeRoute(model: KsiagModel, copy: pl.ksiag.app.model.Copy) {
     val dl = model.download
     val complete = !dl.running && dl.catalog > 0 && dl.have >= dl.catalog
     val partial = dl.have > 0 && !complete
+    val pct = if (dl.catalog == 0) 0 else (dl.have * 100 / dl.catalog)
     val label = when {
-        dl.running -> copy.audioDownloadProgress(
-            dl.done,
-            dl.total,
-            if (dl.total == 0) 0 else (dl.done * 100 / dl.total),
-            dl.eta,
+        dl.running || partial -> copy.audioDownloadProgress(
+            dl.have,
+            dl.catalog,
+            pct,
+            if (dl.running) dl.eta else null,
         )
-        dl.failed -> copy.audioDownloadFailed
         complete -> copy.audioDownloadDone(dl.catalog)
-        partial -> copy.audioDownloadPartial(dl.have, dl.catalog)
         else -> copy.audioDownloadHint
     }
     val downloadButton = when {
         dl.running -> copy.audioDownloadCancel
         partial -> copy.audioDownloadResume
+        complete -> copy.audioDownloadDone(dl.catalog)
         else -> copy.audioDownload
     }
     val place = model.readingPlace()
@@ -152,10 +152,10 @@ private fun HomeRoute(model: KsiagModel, copy: pl.ksiag.app.model.Copy) {
         downloadLabel = label,
         downloadButton = downloadButton,
         downloadEnabled = !complete,
-        showMeter = dl.running && dl.total > 0,
-        meterPct = if (dl.total == 0) 0 else (dl.done * 100 / dl.total),
-        showClear = dl.have > 0,
-        clearLabel = if (dl.running) copy.audioDownloadCancel else copy.audioClear,
+        showMeter = dl.running && dl.catalog > 0,
+        meterPct = if (dl.catalog == 0) 0 else (dl.have * 100 / dl.catalog),
+        showClear = !dl.running && dl.have > 0,
+        clearLabel = copy.audioClear,
         onRead = {
             if (place != null) model.openReader(place.book, place.chapter, null)
             else model.openReader("01-gen", 1, null)
@@ -173,7 +173,7 @@ private fun HomeRoute(model: KsiagModel, copy: pl.ksiag.app.model.Copy) {
                 else -> model.startDownload()
             }
         },
-        onClearAudio = { if (dl.running) model.cancelDownload() else model.askClearAudio() },
+        onClearAudio = { model.askClearAudio() },
         sourceName = copy.homeSourceName,
         onSource = { model.openSource() },
     )
