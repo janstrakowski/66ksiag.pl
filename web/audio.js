@@ -476,21 +476,27 @@ export function createAudioController({ audioEl, hooks }) {
     activeIdx = -1;
   }
 
+  function indexAt(t) {
+    const idx = words.findIndex((w) => t >= w.s && t < w.e);
+    if (idx >= 0) return idx;
+    // Krótka przerwa między słowami — nie gaś podświetlenia. Dłuższa pauza gaśnie.
+    let prev = -1;
+    for (let i = 0; i < words.length; i++) {
+      if (words[i].s > t) break;
+      prev = i;
+    }
+    if (prev >= 0 && t - words[prev].e <= 0.35) return prev;
+    return -1;
+  }
+
   function highlightAt(t) {
     if (!words.length) return;
-    let idx = activeIdx;
-    if (idx < 0 || idx >= words.length || t < words[idx].s || t >= words[idx].e) {
-      idx = words.findIndex((w) => t >= w.s && t < w.e);
-      if (idx < 0) {
-        for (let i = words.length - 1; i >= 0; i--) {
-          if (t >= words[i].s) {
-            idx = i;
-            break;
-          }
-        }
-      }
+    const idx = indexAt(t);
+    if (idx < 0) {
+      if (activeIdx !== -1) clearHighlight();
+      return;
     }
-    if (idx < 0 || idx === activeIdx) return;
+    if (idx === activeIdx) return;
     document.querySelectorAll(".w.is-spoken").forEach((el) => el.classList.remove("is-spoken"));
     activeIdx = idx;
     const w = words[idx];
