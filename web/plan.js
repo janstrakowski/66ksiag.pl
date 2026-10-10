@@ -328,10 +328,14 @@ export function todayAssignment(books, plan, toRoman) {
   }
 
   const remaining = quota - done;
-  const next = nextUnreadInGoal(books, plan);
-  if (!next) return null;
+  const target = nextMarkTarget(books, plan);
+  if (!target) return null;
 
-  const slice = list.slice(next.index, next.index + remaining);
+  const startKey = chapKey(target.book, target.chapter);
+  const startIdx = list.indexOf(startKey);
+  if (startIdx < 0) return null;
+
+  const slice = list.slice(startIdx, startIdx + remaining);
   if (!slice.length) return null;
 
   const start = refLabel(books, slice[0], toRoman);
@@ -346,13 +350,12 @@ export function todayAssignment(books, plan, toRoman) {
     minutes = Math.max(1, Math.round(remaining * AVG_CHAPTER_MIN));
   }
 
-  const [book, chapter] = slice[0].split("/");
   return {
     done: false,
     started: done > 0,
     minutes,
     range,
     chapters: slice.length,
-    href: `/czytaj/${book}/${chapter}`,
+    href: `/czytaj/${target.book}/${target.chapter}`,
   };
 }

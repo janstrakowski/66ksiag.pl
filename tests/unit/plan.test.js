@@ -207,6 +207,17 @@ describe("marking progress", () => {
     expect(asg.minutes).toBeGreaterThan(0);
   });
 
+  it("todayAssignment continue href follows last marked, not browse position", () => {
+    let plan = enabledPlan({ chaptersPerDay: 3 });
+    plan = markChapterRead(plan, "01-gen", 1, books).plan;
+    plan = advanceCursor(plan, books);
+    const asg = todayAssignment(books, plan, toRoman);
+    expect(asg.done).toBe(false);
+    expect(asg.href).toBe("/czytaj/01-gen/2");
+    expect(asg.started).toBe(true);
+    expect(nextMarkTarget(books, plan)).toEqual({ book: "01-gen", chapter: 2 });
+  });
+
   it("todayAssignment done when quota filled", () => {
     let plan = enabledPlan({ chaptersPerDay: 1 });
     plan = markChapterRead(plan, "01-gen", 1).plan;

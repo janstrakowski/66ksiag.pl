@@ -6,7 +6,7 @@ import {
   markChapterRead,
   isChapterReadToday,
   isExtraCredit,
-  nextUnreadInGoal,
+  nextMarkTarget,
   nextChapterInBible,
   canMarkChapter,
   advanceCursor,
@@ -270,7 +270,7 @@ async function handleAudioChapterEnded({ bookId, chapter }) {
       flash(copy.audioSessionEnded);
       return;
     }
-    const next = nextUnreadInGoal(books, plan);
+    const next = nextMarkTarget(books, plan);
     if (next) {
       navigateToChapter(next.book, next.chapter, { autoplay: true });
       return;
@@ -474,7 +474,7 @@ async function renderReader(route) {
         : `<span></span>`;
     const next =
       chapter < book.chapters
-        ? `<a class="tablet ital" data-mark-prev href="/czytaj/${book.id}/${chapter + 1}">Cap. ${toRoman(chapter + 1)} →</a>`
+        ? `<a class="tablet ital" href="/czytaj/${book.id}/${chapter + 1}">Cap. ${toRoman(chapter + 1)} →</a>`
         : nextBookLink(books, book);
     nav.innerHTML = prev + next;
 
@@ -519,7 +519,7 @@ function nextBookLink(books, book) {
   const i = books.findIndex((b) => b.id === book.id);
   if (i < 0 || i >= books.length - 1) return `<span></span>`;
   const n = books[i + 1];
-  return `<a class="tablet ital" data-mark-prev href="/czytaj/${n.id}/1">${n.short} →</a>`;
+  return `<a class="tablet ital" href="/czytaj/${n.id}/1">${n.short} →</a>`;
 }
 
 function setStartCta(el, assignment) {
@@ -645,7 +645,7 @@ async function renderHome() {
         return;
       }
       if (asg?.done) {
-        const next = nextUnreadInGoal(books, plan);
+        const next = nextMarkTarget(books, plan);
         cta.href = next
           ? `/czytaj/${next.book}/${next.chapter}`
           : `/czytaj/${DEFAULT_READ.book}/${DEFAULT_READ.chapter}`;
@@ -732,7 +732,7 @@ async function renderPlan() {
       setStartCta(cont, asg);
       cont.hidden = false;
     } else if (asg?.done) {
-      const next = nextUnreadInGoal(books, plan);
+      const next = nextMarkTarget(books, plan);
       cont.hidden = !next;
       if (next) {
         cont.href = `/czytaj/${next.book}/${next.chapter}`;
@@ -1081,21 +1081,6 @@ document.addEventListener("click", (e) => {
   const url = new URL(a.href, location.origin);
   if (url.origin !== location.origin) return;
   if (a.hasAttribute("download")) return;
-
-  // przy przejściu do następnego rozdziału — zalicz bieżący (plan; ponad plan tylko gdy to kolejny)
-  if (a.hasAttribute("data-mark-prev") && plan.enabled && window.__reader) {
-    const ctx = window.__reader;
-    if (!isChapterReadToday(plan, ctx.book.id, ctx.chapter)) {
-      const result = markChapterRead(plan, ctx.book.id, ctx.chapter, ctx.books);
-      plan = result.plan;
-      if (result.kind === "plan" || result.kind === "extra") {
-        plan = advanceCursor(plan, ctx.books);
-      }
-      if (result.kind === "plan" && notificationsWanted(plan)) {
-        notifyProgress(progressPct(plan), t(edition));
-      }
-    }
-  }
 
   e.preventDefault();
   history.pushState(null, "", url.pathname + url.search + url.hash);

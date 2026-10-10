@@ -47,9 +47,9 @@ test("home CTA continues plan assignment after partial progress", async ({ page 
   await enablePlan(page, 3);
   await page.goto("/czytaj/01-gen/1");
   await page.locator("#mark-read-btn").click();
+  await page.goto("/czytaj/01-gen/4");
   await page.goto("/");
   await expect(page.locator("#home-read-cta")).toBeVisible();
-  await expect(page.locator("#home-read-cta .cta-main")).toContainText(/Kontynuuj|Zacznij/i);
-  const href = await page.locator("#home-read-cta").getAttribute("href");
-  expect(href).toMatch(/\/czytaj\//);
+  await expect(page.locator("#home-read-cta .cta-main")).toContainText(/Kontynuuj|Go on/i);
+  await expect(page.locator("#home-read-cta")).toHaveAttribute("href", "/czytaj/01-gen/2");
 });
