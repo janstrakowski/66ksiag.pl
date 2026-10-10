@@ -128,6 +128,12 @@
     .pick-only {
       padding: 1.1rem 0.85rem 1.15rem;
     }
+    .pick-only .fleurons {
+      margin-bottom: 0.35rem;
+    }
+    .pick-only .rules {
+      margin: 0.15rem auto 0.75rem;
+    }
     button.tablet {
       appearance: none;
       width: 100%;
