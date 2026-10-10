@@ -36,8 +36,6 @@
 
     .screen { display: none; width: 100%; }
     .screen.is-on { display: block; }
-    /* Pierwsze wejście w czytnik — ukryj folio aż będzie kompletny stan */
-    .moulding-inner.reader.is-pending { visibility: hidden; }
 
     .moulding {
       background: var(--paper);

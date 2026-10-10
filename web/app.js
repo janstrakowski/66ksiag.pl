@@ -57,9 +57,10 @@ const audioEl = document.getElementById("scourby-audio");
 const audioBar = document.getElementById("audio-bar");
 const audioBarLabel = document.getElementById("audio-bar-label");
 const audioBarToggle = document.getElementById("audio-bar-toggle");
-const audioControls = document.getElementById("audio-controls");
-const audioPlayBtn = document.getElementById("audio-play-btn");
-const audioStopBtn = document.getElementById("audio-stop-btn");
+/** Live query — folio czytnika jest podmieniane w całości. */
+const audioControls = () => document.getElementById("audio-controls");
+const audioPlayBtn = () => document.getElementById("audio-play-btn");
+const audioStopBtn = () => document.getElementById("audio-stop-btn");
 
 const audioPlayer = createAudioController({
   audioEl,
@@ -178,9 +179,12 @@ function editionSupportsAudio() {
 }
 
 function syncAudioChrome(state) {
+  const controls = audioControls();
+  const playBtn = audioPlayBtn();
+  const stopBtn = audioStopBtn();
   if (!editionSupportsAudio()) {
     audioBar.hidden = true;
-    audioControls.hidden = true;
+    if (controls) controls.hidden = true;
     document.body.classList.remove("has-audio-bar");
     return;
   }
@@ -191,14 +195,22 @@ function syncAudioChrome(state) {
     document.body.classList.add("has-audio-bar");
     audioBarLabel.textContent = playing ? copy.audioBarListening : copy.audioBarPaused;
     audioBarToggle.textContent = playing ? copy.audioPause : copy.audioResume;
-    audioStopBtn.hidden = false;
-    audioPlayBtn.textContent = playing ? copy.audioPause : copy.audioListen;
+    if (stopBtn) stopBtn.hidden = false;
+    if (playBtn) playBtn.textContent = playing ? copy.audioPause : copy.audioListen;
   } else {
     audioBar.hidden = true;
     document.body.classList.remove("has-audio-bar");
-    audioStopBtn.hidden = true;
-    audioPlayBtn.textContent = copy.audioListen;
+    if (stopBtn) stopBtn.hidden = true;
+    if (playBtn) playBtn.textContent = copy.audioListen;
   }
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 async function creditChapterFromAudio(bookId, chapter) {
@@ -346,22 +358,23 @@ function parseRoute(pathname) {
 
 async function renderBooks() {
   if (!edition) return renderPick();
-  show("books");
-  setCanonical("/ksiegi");
   const copy = t(edition);
-  document.querySelector("#books .topbar strong").textContent = copy.index;
-  document.querySelector("#books .topbar .linkish").textContent = copy.titleCard;
-  document.querySelector("#books .index-head .label").textContent = copy.booksHeading;
-  const root = document.getElementById("book-list-root");
+  let listHtml;
   try {
     const books = await loadBooks();
     const st = books.filter((b) => b.testament === "st");
     const nt = books.filter((b) => b.testament === "nt");
-    root.innerHTML =
-      sectionList(copy.testamentOt, st) + sectionList(copy.testamentNt, nt);
+    listHtml = sectionList(copy.testamentOt, st) + sectionList(copy.testamentNt, nt);
   } catch (e) {
-    root.innerHTML = `<p class="error-box">${e.message}</p>`;
+    listHtml = `<p class="error-box">${e.message}</p>`;
   }
+  // Najpierw pełny DOM, potem ujawnienie ekranu
+  document.querySelector("#books .topbar strong").textContent = copy.index;
+  document.querySelector("#books .topbar .linkish").textContent = copy.titleCard;
+  document.querySelector("#books .index-head .label").textContent = copy.booksHeading;
+  document.getElementById("book-list-root").innerHTML = listHtml;
+  setCanonical("/ksiegi");
+  show("books");
 }
 
 function sectionList(label, books) {
@@ -415,7 +428,7 @@ function updateMarkReadUi(bookId, chapter, books = window.__reader?.books) {
   applyMarkReadUi(computeMarkReadUi(bookId, chapter, books));
 }
 
-/** Buduje cały folio poza DOM, potem jeden synchroniczny commit. */
+/** Buduje całe folio jako jeden HTML, potem jedna podmiana — bez pustego layoutu. */
 function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy }) {
   const est = estimateMinutesFromVerses(data.verses);
   const wrapWords = editionSupportsAudio();
@@ -434,35 +447,34 @@ function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy })
       ? `<a class="tablet ital" href="/czytaj/${book.id}/${chapter + 1}">Cap. ${toRoman(chapter + 1)} →</a>`
       : nextBookLink(books, book);
   const mark = computeMarkReadUi(book.id, chapter, books);
-  const runningHtml = `
-      <span>${chapterLabel(chapter)}</span>
-      <span>${book.short}</span>
-      <span>${editionLabel()}</span>`;
+  const markClass = ["chapter-done", ...mark.classes].join(" ");
+  const showAudio = editionSupportsAudio() && hasAudio;
+  const stopHidden = audioPlayer.current().playing ? "" : " hidden";
   const heading = `${copy.chapterWord} ${toRoman(chapter)}`;
   const timeText = `${copy.readingEta} · ${copy.etaMinutes(est.minutes)}`;
-  const showAudio = editionSupportsAudio() && hasAudio;
 
-  // Commit — żadnego ciężkiego CPU między zapisami do DOM
-  document.getElementById("running").innerHTML = runningHtml;
-  document.getElementById("chap-heading").textContent = heading;
-  document.getElementById("chap-book").textContent = book.name;
-  const timeEl = document.getElementById("read-time");
-  timeEl.hidden = false;
-  timeEl.textContent = timeText;
-  document.getElementById("verses").innerHTML = versesHtml;
-  document.getElementById("folio-nav").innerHTML = prev + next;
-  applyMarkReadUi(mark);
+  const html = `
+          <div class="running" id="running">
+            <span>${escapeHtml(chapterLabel(chapter))}</span>
+            <span>${escapeHtml(book.short)}</span>
+            <span>${escapeHtml(editionLabel())}</span>
+          </div>
+          <header class="chap-title">
+            <h1 id="chap-heading">${escapeHtml(heading)}</h1>
+            <p id="chap-book">${escapeHtml(book.name)}</p>
+            <p class="read-time" id="read-time">${escapeHtml(timeText)}</p>
+            <div class="audio-controls" id="audio-controls"${showAudio ? "" : " hidden"}>
+              <button type="button" class="tablet" id="audio-play-btn">${escapeHtml(copy.audioListen)}</button>
+              <button type="button" class="tablet ital" id="audio-stop-btn"${stopHidden}>${escapeHtml(copy.audioStop)}</button>
+            </div>
+          </header>
+          <ol class="verses" id="verses">${versesHtml}</ol>
+          <div class="${markClass}" id="chapter-done"${mark.hidden ? " hidden" : ""}>
+            <button type="button" class="tablet" id="mark-read-btn">${escapeHtml(mark.text)}</button>
+          </div>
+          <div class="folio-nav" id="folio-nav">${prev}${next}</div>`;
 
-  if (!editionSupportsAudio()) {
-    audioControls.hidden = true;
-    audioStopBtn.hidden = true;
-  } else {
-    audioControls.hidden = !showAudio;
-    audioPlayBtn.textContent = copy.audioListen;
-    audioStopBtn.textContent = copy.audioStop;
-    audioStopBtn.hidden = !audioPlayer.current().playing;
-  }
-
+  document.querySelector("#reader .moulding-inner.reader").innerHTML = html;
   selectedVerse = verse;
   window.__reader = { book, chapter, data, books };
   return { showAudio };
@@ -472,21 +484,7 @@ async function renderReader(route) {
   if (!edition) return renderPick();
   const gen = ++readerLoadGen;
   const copy = t(edition);
-  const readerEl = document.getElementById("reader");
   const folio = document.querySelector("#reader .moulding-inner.reader");
-  // Przy zmianie rozdziału zostaw poprzedni folio do momentu pełnego painta
-  const keepPrevious = readerEl.classList.contains("is-on") && !!window.__reader;
-
-  show("reader", { scroll: false });
-  document.querySelector("#reader .topbar .linkish").textContent = copy.backBooks;
-  document.getElementById("share-btn").textContent = copy.share;
-  document.querySelector('#reader a[href="/plan"]').textContent = copy.plan;
-
-  if (!keepPrevious) {
-    folio?.classList.add("is-pending");
-    document.getElementById("chapter-done").hidden = true;
-    audioControls.hidden = true;
-  }
 
   try {
     const books = await loadBooks();
@@ -517,6 +515,10 @@ async function renderReader(route) {
       if (gen !== readerLoadGen) return;
     }
 
+    // Poprzedni ekran zostaje widoczny, aż tu jest komplet — potem jeden reveal
+    document.querySelector("#reader .topbar .linkish").textContent = copy.backBooks;
+    document.getElementById("share-btn").textContent = copy.share;
+    document.querySelector('#reader a[href="/plan"]').textContent = copy.plan;
     setCanonical(route.verse ? `${canonPath}/${route.verse}` : canonPath);
     if (location.pathname !== nice) {
       history.replaceState(null, "", nice);
@@ -531,7 +533,7 @@ async function renderReader(route) {
       hasAudio,
       copy,
     });
-    folio?.classList.remove("is-pending");
+    show("reader");
 
     if (pendingAudioAutoplay && showAudio) {
       pendingAudioAutoplay = false;
@@ -541,19 +543,16 @@ async function renderReader(route) {
       pendingAudioAutoplay = false;
     }
 
-    window.scrollTo(0, 0);
     if (route.verse) {
       const el = document.querySelector(`#verses li[data-v="${route.verse}"]`);
       if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     }
   } catch (e) {
     if (gen !== readerLoadGen) return;
-    folio?.classList.remove("is-pending");
-    document.getElementById("verses").innerHTML = `<li class="error-box">${e.message}</li>`;
-    document.getElementById("folio-nav").innerHTML = "";
-    document.getElementById("read-time").hidden = true;
-    document.getElementById("chapter-done").hidden = true;
-    audioControls.hidden = true;
+    if (folio) {
+      folio.innerHTML = `<p class="error-box" style="padding:1rem">${escapeHtml(e.message)}</p>`;
+    }
+    show("reader");
   }
 }
 
@@ -637,9 +636,34 @@ async function maybeNotifyStart(books) {
 async function renderHome() {
   if (!edition) return renderPick();
   applyTheme();
-  show("home");
-  setCanonical("/");
   const copy = t(edition);
+  const cta = document.getElementById("home-read-cta");
+
+  // CTA i audio — policz zanim pokażemy home
+  try {
+    const books = await loadBooks();
+    plan = loadPlan();
+    if (plan.enabled) {
+      await maybeNotifyStart(books);
+      const asg = todayAssignment(books, plan, toRoman);
+      if (asg && !asg.done) {
+        setStartCta(cta, asg);
+      } else if (asg?.done) {
+        const next = nextMarkTarget(books, plan);
+        cta.href = next
+          ? `/czytaj/${next.book}/${next.chapter}`
+          : `/czytaj/${DEFAULT_READ.book}/${DEFAULT_READ.chapter}`;
+        cta.innerHTML = `<span class="cta-main">${copy.planDone}</span><span class="cta-sub">${copy.readOn}</span>`;
+      } else {
+        setStartCta(cta, null);
+      }
+    } else {
+      setStartCta(cta, null);
+    }
+  } catch {
+    setStartCta(cta, null);
+  }
+
   document.getElementById("home-eyebrow").textContent = copy.homeEyebrow;
   document.getElementById("home-title").textContent = copy.homeTitle;
   document.getElementById("home-sub").innerHTML = copy.homeSub;
@@ -649,7 +673,6 @@ async function renderHome() {
   document.getElementById("home-plan").textContent = copy.planLink;
   document.getElementById("home-change-edition").textContent = copy.changeEdition;
 
-  const cta = document.getElementById("home-read-cta");
   const continueBtn = document.getElementById("home-audio-continue");
   const audioSess = loadAudioSession();
   const showContinue =
@@ -676,29 +699,8 @@ async function renderHome() {
     }
   }
 
-  try {
-    const books = await loadBooks();
-    plan = loadPlan();
-    if (plan.enabled) {
-      await maybeNotifyStart(books);
-      const asg = todayAssignment(books, plan, toRoman);
-      if (asg && !asg.done) {
-        setStartCta(cta, asg);
-        return;
-      }
-      if (asg?.done) {
-        const next = nextMarkTarget(books, plan);
-        cta.href = next
-          ? `/czytaj/${next.book}/${next.chapter}`
-          : `/czytaj/${DEFAULT_READ.book}/${DEFAULT_READ.chapter}`;
-        cta.innerHTML = `<span class="cta-main">${copy.planDone}</span><span class="cta-sub">${copy.readOn}</span>`;
-        return;
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  setStartCta(cta, null);
+  setCanonical("/");
+  show("home");
 }
 
 function fillBookSelects(books) {
@@ -729,12 +731,12 @@ function syncPlanFormUi() {
 
 async function renderPlan() {
   if (!edition) return renderPick();
-  show("plan");
-  setCanonical("/plan");
   const books = await loadBooks();
-  fillBookSelects(books);
   plan = loadPlan();
   const pc = planCopy(edition);
+  const cont = document.getElementById("plan-continue");
+
+  fillBookSelects(books);
   document.querySelector("#plan .topbar strong").textContent = pc.planNav;
   document.querySelector("#plan .topbar .linkish").textContent = t(edition).titleCard;
   document.querySelector("#plan .index-head .label").textContent = pc.dailyPlan;
@@ -767,7 +769,6 @@ async function renderPlan() {
   }
   syncPlanFormUi();
 
-  const cont = document.getElementById("plan-continue");
   if (plan.enabled) {
     const asg = todayAssignment(books, plan, toRoman);
     if (asg && !asg.done) {
@@ -787,6 +788,9 @@ async function renderPlan() {
     setStartCta(cont, null);
     cont.hidden = false;
   }
+
+  setCanonical("/plan");
+  show("plan");
 }
 
 async function route() {
@@ -800,38 +804,73 @@ async function route() {
   return renderHome();
 }
 
-document.getElementById("verses").addEventListener("click", (e) => {
-  const li = e.target.closest("li[data-v]");
-  if (!li) return;
-  const ctx = window.__reader;
-  if (!ctx) return;
-  const n = Number(li.dataset.v);
-  selectedVerse = n;
-  document.querySelectorAll("#verses li").forEach((x) => x.classList.remove("is-sel"));
-  li.classList.add("is-sel");
-  const path = `/czytaj/${ctx.book.id}/${ctx.chapter}/${n}`;
-  history.replaceState(null, "", path);
-  setCanonical(`${editionPath()}/${ctx.book.id}/${ctx.chapter}/${n}`);
-});
-
-document.getElementById("mark-read-btn").addEventListener("click", async () => {
-  const ctx = window.__reader;
-  if (!ctx || !plan.enabled) return;
-  const result = markChapterRead(plan, ctx.book.id, ctx.chapter, ctx.books);
-  plan = result.plan;
-  if (result.kind === "already" || result.kind === "off" || result.kind === "skip") return;
-  plan = advanceCursor(plan, ctx.books);
-  updateMarkReadUi(ctx.book.id, ctx.chapter, ctx.books);
-  refreshPlanBanner();
-  const pct = progressPct(plan);
-  const copy = t(edition);
-  if (result.kind === "extra") {
-    flash(copy.beyondPlan);
+document.getElementById("reader").addEventListener("click", async (e) => {
+  const li = e.target.closest("#verses li[data-v]");
+  if (li) {
+    const ctx = window.__reader;
+    if (!ctx) return;
+    const n = Number(li.dataset.v);
+    selectedVerse = n;
+    document.querySelectorAll("#verses li").forEach((x) => x.classList.remove("is-sel"));
+    li.classList.add("is-sel");
+    const path = `/czytaj/${ctx.book.id}/${ctx.chapter}/${n}`;
+    history.replaceState(null, "", path);
+    setCanonical(`${editionPath()}/${ctx.book.id}/${ctx.chapter}/${n}`);
     return;
   }
-  if (notificationsWanted(plan)) await notifyProgress(pct, copy);
-  if (pct >= 100) flash(copy.planFinished);
-  else flash(copy.planPct(pct));
+
+  if (e.target.closest("#mark-read-btn")) {
+    const ctx = window.__reader;
+    if (!ctx || !plan.enabled) return;
+    const result = markChapterRead(plan, ctx.book.id, ctx.chapter, ctx.books);
+    plan = result.plan;
+    if (result.kind === "already" || result.kind === "off" || result.kind === "skip") return;
+    plan = advanceCursor(plan, ctx.books);
+    updateMarkReadUi(ctx.book.id, ctx.chapter, ctx.books);
+    refreshPlanBanner();
+    const pct = progressPct(plan);
+    const copy = t(edition);
+    if (result.kind === "extra") {
+      flash(copy.beyondPlan);
+      return;
+    }
+    if (notificationsWanted(plan)) await notifyProgress(pct, copy);
+    if (pct >= 100) flash(copy.planFinished);
+    else flash(copy.planPct(pct));
+    return;
+  }
+
+  if (e.target.closest("#audio-play-btn")) {
+    if (!editionSupportsAudio()) return;
+    const ctx = window.__reader;
+    if (!ctx) return;
+    if (audioPlayer.isPlaying() && audioPlayer.current().bookId === ctx.book.id && audioPlayer.current().chapter === ctx.chapter) {
+      audioPlayer.pause();
+      return;
+    }
+    if (
+      !audioPlayer.isPlaying() &&
+      audioPlayer.current().bookId === ctx.book.id &&
+      audioPlayer.current().chapter === ctx.chapter &&
+      audioEl.src
+    ) {
+      await audioPlayer.resume();
+      return;
+    }
+    plan = loadPlan();
+    const mode = plan.enabled && !isDailyPlanComplete(plan) ? "plan" : "beyond";
+    try {
+      await playChapterAudio(ctx.book.id, ctx.chapter, mode);
+    } catch {
+      flash(t(edition).audioUnavailable);
+    }
+    return;
+  }
+
+  if (e.target.closest("#audio-stop-btn")) {
+    audioMode = "idle";
+    audioPlayer.stop();
+  }
 });
 
 document.getElementById("share-btn").addEventListener("click", async () => {
@@ -1078,37 +1117,6 @@ document.getElementById("home-audio-clear")?.addEventListener("click", async () 
   await clearDownloadedAudio();
   flash(copy.audioCleared);
   await refreshAudioDownloadStatus(document.getElementById("home-audio-download-status"), copy);
-});
-
-audioPlayBtn.addEventListener("click", async () => {
-  if (!editionSupportsAudio()) return;
-  const ctx = window.__reader;
-  if (!ctx) return;
-  if (audioPlayer.isPlaying() && audioPlayer.current().bookId === ctx.book.id && audioPlayer.current().chapter === ctx.chapter) {
-    audioPlayer.pause();
-    return;
-  }
-  if (
-    !audioPlayer.isPlaying() &&
-    audioPlayer.current().bookId === ctx.book.id &&
-    audioPlayer.current().chapter === ctx.chapter &&
-    audioEl.src
-  ) {
-    await audioPlayer.resume();
-    return;
-  }
-  plan = loadPlan();
-  const mode = plan.enabled && !isDailyPlanComplete(plan) ? "plan" : "beyond";
-  try {
-    await playChapterAudio(ctx.book.id, ctx.chapter, mode);
-  } catch {
-    flash(t(edition).audioUnavailable);
-  }
-});
-
-audioStopBtn.addEventListener("click", () => {
-  audioMode = "idle";
-  audioPlayer.stop();
 });
 
 audioBarToggle.addEventListener("click", async () => {

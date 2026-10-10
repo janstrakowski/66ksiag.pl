@@ -30,6 +30,37 @@ test("folio nav moves between chapters", async ({ page }) => {
   await expect(page.locator("#verses li").first()).toBeVisible();
 });
 
+test("reader is revealed only with a complete folio (no empty moulding)", async ({ page }) => {
+  await page.goto("/wybor");
+  await page.locator('[data-pick="bg-1879"]').click();
+  await expect(page.locator("#home")).toBeVisible();
+
+  await page.evaluate(() => {
+    window.__sawEmptyReader = false;
+    const reader = document.getElementById("reader");
+    const obs = new MutationObserver(() => {
+      if (!reader.classList.contains("is-on")) return;
+      const verses = document.getElementById("verses");
+      const heading = document.getElementById("chap-heading");
+      if (!heading?.textContent?.trim() || !verses?.querySelector("li")) {
+        window.__sawEmptyReader = true;
+      }
+    });
+    obs.observe(reader, { attributes: true, attributeFilter: ["class"] });
+    window.__emptyReaderObs = obs;
+  });
+
+  await page.locator("#home-read-cta").click();
+  await expect(page.locator("#reader.is-on")).toBeVisible();
+  await expect(page.locator("#verses li").first()).toBeVisible();
+
+  const empty = await page.evaluate(() => {
+    window.__emptyReaderObs?.disconnect();
+    return window.__sawEmptyReader;
+  });
+  expect(empty).toBe(false);
+});
+
 test("folio nav keeps previous chapter until the next is ready (no loading flash)", async ({ page }) => {
   await page.goto("/wybor");
   await page.locator('[data-pick="bg-1879"]').click();
