@@ -11,7 +11,9 @@ import {
   isExtraCredit,
   loadPlan,
   markChapterRead,
+  canMarkChapter,
   canMarkBeyondPlan,
+  nextMarkTarget,
   nextBeyondPlanTarget,
   nextChapterInBible,
   nextUnreadInGoal,
@@ -233,29 +235,33 @@ describe("marking progress", () => {
     expect(progressPct(defaultPlan())).toBeNull();
   });
 
-  it("beyond plan only for next chapter after furthest credited", () => {
+  it("only next chapter after furthest credited can be marked", () => {
     let plan = enabledPlan({ chaptersPerDay: 2 });
+    expect(nextMarkTarget(books, plan)).toEqual({ book: "01-gen", chapter: 1 });
+    expect(canMarkChapter(books, plan, "01-gen", 2)).toBe(false);
+    expect(markChapterRead(plan, "01-gen", 2, books).kind).toBe("skip");
+
     plan = markChapterRead(plan, "01-gen", 1, books).plan;
+    expect(nextMarkTarget(books, plan)).toEqual({ book: "01-gen", chapter: 2 });
     plan = markChapterRead(plan, "01-gen", 2, books).plan;
     expect(isDailyPlanComplete(plan)).toBe(true);
     expect(nextBeyondPlanTarget(books, plan)).toEqual({ book: "01-gen", chapter: 3 });
     expect(canMarkBeyondPlan(books, plan, "01-gen", 3)).toBe(true);
-    expect(canMarkBeyondPlan(books, plan, "02-exo", 1)).toBe(false);
     expect(markChapterRead(plan, "02-exo", 1, books).kind).toBe("skip");
     const extra = markChapterRead(plan, "01-gen", 3, books);
     expect(extra.kind).toBe("extra");
     plan = extra.plan;
-    expect(nextBeyondPlanTarget(books, plan)).toEqual({ book: "02-exo", chapter: 1 });
-    expect(canMarkBeyondPlan(books, plan, "02-exo", 1)).toBe(true);
+    expect(nextMarkTarget(books, plan)).toEqual({ book: "02-exo", chapter: 1 });
   });
 
-  it("beyond plan uses furthest chapter not click order", () => {
+  it("after reset only the goal start can be marked", () => {
     let plan = enabledPlan({ chaptersPerDay: 2 });
-    // zalicz 1 potem 3 potem 2 w trakcie quoty — najdalej to gen/3
     plan = markChapterRead(plan, "01-gen", 1, books).plan;
-    plan = markChapterRead(plan, "01-gen", 3, books).plan;
-    expect(isDailyPlanComplete(plan)).toBe(true);
-    expect(nextBeyondPlanTarget(books, plan)).toEqual({ book: "02-exo", chapter: 1 });
-    expect(canMarkBeyondPlan(books, plan, "01-gen", 2)).toBe(false);
+    plan = markChapterRead(plan, "01-gen", 2, books).plan;
+    plan = resetPlanProgress(plan);
+    expect(nextMarkTarget(books, plan)).toEqual({ book: "01-gen", chapter: 1 });
+    expect(canMarkChapter(books, plan, "01-gen", 2)).toBe(false);
+    expect(markChapterRead(plan, "01-gen", 2, books).kind).toBe("skip");
+    expect(markChapterRead(plan, "01-gen", 1, books).kind).toBe("plan");
   });
 });

@@ -8,7 +8,7 @@ import {
   isExtraCredit,
   nextUnreadInGoal,
   nextChapterInBible,
-  canMarkBeyondPlan,
+  canMarkChapter,
   advanceCursor,
   quotaPreview,
   todayAssignment,
@@ -399,20 +399,19 @@ function updateMarkReadUi(bookId, chapter, books = window.__reader?.books) {
     return;
   }
 
-  if (isDailyPlanComplete(plan)) {
-    // Ponad plan tylko dla następnego rozdziału po ostatnim zaliczonym
-    if (!books || !canMarkBeyondPlan(books, plan, bookId, chapter)) {
-      wrap.hidden = true;
-      return;
-    }
-    wrap.hidden = false;
-    wrap.classList.add("is-extra-action");
-    btn.textContent = copy.markExtra;
+  // Tylko następny rozdział po ostatnim zaliczonym (po resecie — początek celu)
+  if (!books || !canMarkChapter(books, plan, bookId, chapter)) {
+    wrap.hidden = true;
     return;
   }
 
   wrap.hidden = false;
-  btn.textContent = copy.markRead;
+  if (isDailyPlanComplete(plan)) {
+    wrap.classList.add("is-extra-action");
+    btn.textContent = copy.markExtra;
+  } else {
+    btn.textContent = copy.markRead;
+  }
 }
 
 async function renderReader(route) {

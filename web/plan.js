@@ -157,7 +157,7 @@ export function progressPct(plan) {
 
 /**
  * Zalicz rozdział. Zwraca { plan, kind: "plan" | "extra" | "already" | "off" | "skip" }.
- * Po wypełnieniu quoty — tylko następny rozdział po ostatnim zaliczonym (wymaga `books`).
+ * Z `books` — tylko następny rozdział po ostatnim zaliczonym (albo start celu, gdy pusto).
  */
 export function markChapterRead(plan, bookId, chapter, books = null) {
   const key = chapKey(bookId, chapter);
@@ -169,10 +169,11 @@ export function markChapterRead(plan, bookId, chapter, books = null) {
   if (plan.readToday.includes(key)) {
     return { plan, kind: "already" };
   }
+  if (books && !canMarkChapter(books, plan, bookId, chapter)) {
+    return { plan, kind: "skip" };
+  }
   if (isDailyPlanComplete(plan)) {
-    if (!books || !canMarkBeyondPlan(books, plan, bookId, chapter)) {
-      return { plan, kind: "skip" };
-    }
+    if (!books) return { plan, kind: "skip" };
     plan.readToday.push(key);
     savePlan(plan);
     return { plan, kind: "extra" };
@@ -247,19 +248,40 @@ export function furthestCredited(books, plan) {
 }
 
 /**
- * Jedyny rozdział, który wolno zaliczyć „ponad plan”:
- * następny po najdalej zaliczonym. Inaczej „Zalicz ponad plan” nie ma sensu.
+ * Jedyny rozdział do zaliczenia: następny po najdalej zaliczonym.
+ * Bez zaliczeń — rozdział na kursorze w celu (po resecie: początek).
  */
-export function nextBeyondPlanTarget(books, plan) {
-  if (!plan?.enabled || !isDailyPlanComplete(plan)) return null;
+export function nextMarkTarget(books, plan) {
+  if (!plan?.enabled || !books?.length) return null;
   const last = furthestCredited(books, plan);
-  if (!last) return null;
+  if (!last) {
+    const list = buildChapterList(books, plan);
+    if (!list.length) return null;
+    const idx = Math.min(Math.max(0, plan.cursor || 0), list.length - 1);
+    const key = list[idx];
+    if (!plan.readToday.includes(key)) {
+      const [book, ch] = key.split("/");
+      return { book, chapter: Number(ch) };
+    }
+    const unread = nextUnreadInGoal(books, plan);
+    return unread ? { book: unread.book, chapter: unread.chapter } : null;
+  }
   return nextChapterInBible(books, last.book, last.chapter);
 }
 
-export function canMarkBeyondPlan(books, plan, bookId, chapter) {
-  const next = nextBeyondPlanTarget(books, plan);
+export function canMarkChapter(books, plan, bookId, chapter) {
+  const next = nextMarkTarget(books, plan);
   return !!(next && next.book === bookId && next.chapter === Number(chapter));
+}
+
+/** Jak `nextMarkTarget`, ale tylko gdy dzienna quota jest już pełna. */
+export function nextBeyondPlanTarget(books, plan) {
+  if (!plan?.enabled || !isDailyPlanComplete(plan)) return null;
+  return nextMarkTarget(books, plan);
+}
+
+export function canMarkBeyondPlan(books, plan, bookId, chapter) {
+  return isDailyPlanComplete(plan) && canMarkChapter(books, plan, bookId, chapter);
 }
 
 export function advanceCursor(plan, books) {
