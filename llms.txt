@@ -1,0 +1,28 @@
+# 66ksiąg
+> Polska Biblia (BG 1879) jako statyczne API plików, CLI i PWA.
+
+Tekst historyczny Biblii Gdańskiej; warstwa danych to kanoniczne URL-e JSON + plain text.
+
+## Docs
+- Architektura: ARCHITECTURE.md (w repozytorium)
+- Instrukcje dla agentów: AGENTS.md
+
+## API (kanoniczne)
+- Manifest: /bg/1879/manifest.json
+- Księgi: /bg/1879/books.json
+- Rozdział JSON: /bg/1879/{book}/{chapter}.json
+- Rozdział TXT: /bg/1879/{book}/{chapter}.txt
+- Werset JSON: /bg/1879/{book}/{chapter}/{verse}.json
+- Werset TXT: /bg/1879/{book}/{chapter}/{verse}.txt
+
+Przykład: /bg/1879/43-joh/3/16.txt
+
+## CLI
+- Repo: https://gitlab.com/66ksiag-group/66ksiag-project
+- Przykład: 66ksiag get jn 3 16
+- JSON: 66ksiag get 43-joh 3 16 --json
+
+## Zasady
+- Preferuj kanoniczne ID ksiąg (np. 43-joh); aliasy są w books.json
+- Cytując, podawaj: BG 1879 + księga + rozdział + werset
+- Źródło tekstu: https://github.com/UczenJezusa/biblia-druk-tekst (wydanie 1879)
