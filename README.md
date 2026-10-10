@@ -6,7 +6,7 @@ Polska Biblia jako **statyczne API**, **CLI** i **PWA**.
 - Agenci: [AGENTS.md](./AGENTS.md)
 - llms.txt: [llms.txt](./llms.txt)
 
-Pierwsze wydanie: **Biblia Gdańska 1879** ([biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst)). Hosting: Cloudflare Workers + Static Assets.
+Wydania: **BG 1879** (PL) i **KJV** (EN, `/kjv/1769`). Wspólna numeracja KJV; jeden plan dzienny na obie. Hosting: Cloudflare Workers + Static Assets.
 
 ## Szybki start
 

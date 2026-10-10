@@ -7,6 +7,8 @@ const SHELL = [
   "/app.js",
   "/plan.js",
   "/notify.js",
+  "/editions.js",
+  "/i18n.js",
   "/manifest.webmanifest",
   "/assets/orn-pair.svg",
 ];

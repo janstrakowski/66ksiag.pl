@@ -28,6 +28,7 @@ fn main() -> ExitCode {
     }
 
     let mut data_root = default_data_root();
+    let mut edition_rel = String::from("bg/1879");
     let mut json_out = false;
     let mut rest: Vec<String> = Vec::new();
     let mut i = 0;
@@ -40,6 +41,14 @@ fn main() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
                 data_root = PathBuf::from(&args[i]);
+            }
+            "--edition" => {
+                i += 1;
+                if i >= args.len() {
+                    eprintln!("--edition wymaga np. bg/1879 lub kjv/1769");
+                    return ExitCode::FAILURE;
+                }
+                edition_rel = args[i].clone();
             }
             "--json" => json_out = true,
             "-h" | "--help" => {
@@ -56,13 +65,19 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let edition = data_root.join("bg").join("1879");
+    let edition = {
+        let mut p = data_root.clone();
+        for part in edition_rel.split('/') {
+            p.push(part);
+        }
+        p
+    };
     let cmd = rest[0].as_str();
     let result = match cmd {
         "books" => cmd_books(&edition, json_out),
         "get" => cmd_get(&edition, &rest[1..], json_out),
         "chapter" => cmd_chapter(&edition, &rest[1..], json_out),
-        "path" => cmd_path(&edition, &rest[1..]),
+        "path" => cmd_path(&edition, &edition_rel, &rest[1..]),
         other => {
             eprintln!("nieznana komenda: {other}");
             print_help();
@@ -82,15 +97,16 @@ fn main() -> ExitCode {
 fn print_help() {
     eprintln!(
         "\
-66ksiag — klient kanonicznego drzewa BG 1879
+66ksiag — klient kanonicznego drzewa (numeracja KJV)
 
 Użycie:
-  66ksiag [--data DIR] books
-  66ksiag [--data DIR] get <księga> <rozdział> <werset> [--json]
-  66ksiag [--data DIR] chapter <księga> <rozdział> [--json]
-  66ksiag [--data DIR] path <księga> <rozdział> [werset]
+  66ksiag [--data DIR] [--edition bg/1879|kjv/1769] books
+  66ksiag […] get <księga> <rozdział> <werset> [--json]
+  66ksiag […] chapter <księga> <rozdział> [--json]
+  66ksiag […] path <księga> <rozdział> [werset]
 
-Domyślne --data: ../data względem binarki albo ./data / DATA_DIR.
+Domyślne: --edition bg/1879, --data = ./data lub DATA_DIR.
+Wszystkie wydania dzielą te same ID ksiąg i numery rozdziałów (remap do KJV).
 "
     );
 }
@@ -229,7 +245,7 @@ fn cmd_chapter(edition: &Path, args: &[String], json_out: bool) -> io::Result<()
     Ok(())
 }
 
-fn cmd_path(edition: &Path, args: &[String]) -> io::Result<()> {
+fn cmd_path(edition: &Path, edition_rel: &str, args: &[String]) -> io::Result<()> {
     if args.len() < 2 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -241,7 +257,7 @@ fn cmd_path(edition: &Path, args: &[String]) -> io::Result<()> {
     let chapter: u32 = args[1]
         .parse()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "zły rozdział"))?;
-    let base = format!("/bg/1879/{}/{}", book.id, chapter);
+    let base = format!("/{}/{}/{}", edition_rel.trim_matches('/'), book.id, chapter);
     if args.len() >= 3 {
         let verse: u32 = args[2]
             .parse()
@@ -250,7 +266,6 @@ fn cmd_path(edition: &Path, args: &[String]) -> io::Result<()> {
     } else {
         println!("{base}");
     }
-    let _ = edition; // path is canonical URL, not filesystem
     Ok(())
 }
 

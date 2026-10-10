@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${PORT:-8787}"
 
-if [[ ! -f "$ROOT/data/bg/1879/books.json" ]]; then
-  echo "Brak data/ — uruchom import." >&2
+if [[ ! -f "$ROOT/data/bg/1879/books.json" || ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
+  echo "Brak data/bg lub data/kjv — uruchom oba importy." >&2
   exit 1
 fi
 
@@ -24,12 +24,16 @@ class Handler(SimpleHTTPRequestHandler):
     def translate_path(self, path):
         parsed = urllib.parse.urlparse(path).path
         # API / static data
-        if parsed.startswith("/bg/"):
-            rel = parsed[len("/bg/"):]
-            candidate = DATA / "bg" / rel
+        if parsed.startswith("/bg/") or parsed.startswith("/kjv/"):
+            # /bg/1879/... or /kjv/1769/...
+            candidate = DATA / parsed.lstrip("/")
             if candidate.is_file():
                 return str(candidate)
             if candidate.is_dir():
+                return str(candidate)
+        if parsed == "/translations.json":
+            candidate = DATA / "translations.json"
+            if candidate.is_file():
                 return str(candidate)
         # app shell
         rel = parsed.lstrip("/") or "index.html"

@@ -17,30 +17,56 @@
 <body>
   <div class="shell" id="shell">
 
-    <section class="screen is-on" id="home" aria-label="Karta tytułowa">
+    <section class="screen" id="pick" aria-label="Wybór wersji">
       <div class="moulding">
         <div class="moulding-inner">
           <div class="underplate">
             <div class="fleurons" aria-hidden="true">
               <img src="/assets/orn-pair.svg" width="960" height="108" alt="" />
             </div>
-            <p class="eyebrow">Gdańsk · MDCXXXII</p>
-            <h1 class="title-main">Biblia Święta</h1>
-            <p class="brand-sub">to jest<br />Księgi Starego y Nowego Przymierza</p>
+            <h1 class="title-main" id="pick-title">Wybierz tekst</h1>
+            <p class="brand-sub" id="pick-sub">Numeracja rozdziałów jest wspólna (KJV). Plan dzienny działa dla obu.</p>
             <hr class="rules" />
-            <p class="meta">Tekst według wydania 1879</p>
+            <div class="cta-row" id="pick-choices">
+              <button type="button" class="tablet" data-pick="bg-1879">
+                <span class="cta-main">Biblia Gdańska 1879</span>
+                <span class="cta-sub">polski · miedzioryt</span>
+              </button>
+              <button type="button" class="tablet ital" data-pick="kjv-1769">
+                <span class="cta-main">King James Version</span>
+                <span class="cta-sub">English · 1611 style (WIP)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="home" aria-label="Karta tytułowa">
+      <div class="moulding">
+        <div class="moulding-inner">
+          <div class="underplate">
+            <div class="fleurons" aria-hidden="true">
+              <img src="/assets/orn-pair.svg" width="960" height="108" alt="" />
+            </div>
+            <p class="eyebrow" id="home-eyebrow">Gdańsk · MDCXXXII</p>
+            <h1 class="title-main" id="home-title">Biblia Święta</h1>
+            <p class="brand-sub" id="home-sub">to jest<br />Księgi Starego y Nowego Przymierza</p>
+            <hr class="rules" />
+            <p class="meta" id="home-meta">Tekst według wydania 1879</p>
             <div class="cta-row">
               <a class="tablet" id="home-read-cta" href="/czytaj/01-gen/1">
                 <span class="cta-main">Zacznij czytać</span>
                 <span class="cta-sub">Rodzaju I</span>
               </a>
-              <a class="tablet ital" href="/ksiegi">Spis ksiąg świętych</a>
-              <a class="tablet ital" href="/plan">Plan dzienny</a>
+              <a class="tablet ital" id="home-books" href="/ksiegi">Spis ksiąg świętych</a>
+              <a class="tablet ital" id="home-plan" href="/plan">Plan dzienny</a>
+              <button type="button" class="linkish home-change-edition" id="home-change-edition">Zmień wersję</button>
             </div>
           </div>
         </div>
       </div>
-      <p class="colophon">BG 1879 · źródło: biblia-druk-tekst</p>
+      <p class="colophon" id="home-colophon">BG 1879 · źródło: biblia-druk-tekst</p>
     </section>
 
     <section class="screen" id="plan" aria-label="Plan dzienny">

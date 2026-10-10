@@ -120,6 +120,66 @@
     }
 
     .cta-row { display: grid; gap: 0.4rem; }
+    .home-change-edition {
+      justify-self: center;
+      margin-top: 0.35rem;
+      font-size: 0.92rem;
+    }
+    button.tablet {
+      appearance: none;
+      width: 100%;
+      cursor: pointer;
+      font-family: Cinzel, Cardo, serif;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--paper) 70%, var(--paper-deep));
+      border: 1px solid var(--ink);
+      box-shadow:
+        inset 0 0 0 2px color-mix(in srgb, var(--paper) 80%, transparent),
+        inset 0 0 0 3px var(--ink);
+      padding: 0.7rem 0.5rem;
+      line-height: 1.15;
+      text-align: center;
+    }
+    button.tablet.ital {
+      font-family: Cardo, serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      background: transparent;
+      box-shadow: none;
+    }
+    button.tablet:hover,
+    button.tablet:focus-visible {
+      background: var(--ink);
+      color: var(--paper);
+      outline: none;
+    }
+    button.tablet.ital:hover,
+    button.tablet.ital:focus-visible {
+      background: var(--hatch);
+      color: var(--ink);
+    }
+
+    /* KJV theme placeholder — pełny styl 1611 w demach */
+    body.theme-kjv {
+      --paper: #e8dfc8;
+      --paper-deep: #c9b896;
+      --ink: #1a1510;
+      --ink-2: #3a3228;
+    }
+    body.theme-kjv .title-main {
+      letter-spacing: 0.18em;
+    }
+    body.theme-kjv .fleurons img {
+      opacity: 0.85;
+      filter: contrast(1.05);
+    }
 
     .tablet {
       appearance: none;

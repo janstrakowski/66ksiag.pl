@@ -1,8 +1,19 @@
 # Architektura 66ksiąg
 
-Polska aplikacja do czytania Biblii. Pierwsze wydanie tekstu: **Biblia Gdańska, wydanie 1879** (źródło: [UczenJezusa/biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst)).
+Aplikacja do czytania Biblii w wielu tłumaczeniach. Wydania:
+
+- **BG 1879** (`/bg/1879`) — Biblia Gdańska, PL ([biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst))
+- **KJV** (`/kjv/1769`) — King James Version, EN (tekst PD; UI inspirowane skanami 1611)
 
 Hosting docelowy: **Cloudflare Workers + Static Assets**.
+
+## Numeracja (krytyczne)
+
+Wszystkie tłumaczenia w tym projekcie używają **tej samej siatki rozdział/werset** (protestancka / KJV) i tych samych ID ksiąg (`01-gen` … `66-apo`).
+
+BG jest **przemapowana na numerację KJV**. Kolejne wersje też muszą być zremapowane — inaczej wspólny plan dzienny i przełączanie języka dają „dziwne akcje” (zaliczanie innego fragmentu).
+
+Plan dzienny jest **jeden na użytkownika**: zaliczenie rozdziału w BG lub KJV trafia do tej samej quoty (`bookId/chapter`).
 
 ## Zasada: dwie warstwy
 
@@ -29,18 +40,17 @@ Stabilne, używane w API, SEO (`rel=canonical`), share i CLI:
 
 ```
 /bg/1879/manifest.json
-/bg/1879/books.json
-/bg/1879/43-joh/book.json
-/bg/1879/43-joh/3.json
-/bg/1879/43-joh/3.txt
-/bg/1879/43-joh/3/16.json
-/bg/1879/43-joh/3/16.txt
+/kjv/1769/manifest.json
+/translations.json
+/{translation}/{edition}/books.json
+/{translation}/{edition}/43-joh/3.json
+/{translation}/{edition}/43-joh/3/16.txt
 ```
 
-- `{translation}` — np. `bg`
-- `{edition}` — np. `1879`
-- `{book}` — kanoniczne ID ze źródła, np. `43-joh`
-- rozdział i werset — liczby bez zer wiodących w URL (`3`, nie `03`); w imporcie ze źródła pliki `03.txt` mapujemy na `3`
+- `{translation}` — np. `bg`, `kjv`
+- `{edition}` — np. `1879`, `1769`
+- `{book}` — wspólne ID, np. `43-joh`
+- rozdział i werset — liczby bez zer wiodących w URL (`3`, nie `03`); w imporcie BG pliki `03.txt` mapujemy na `3`
 
 ### Krótkie aliasy
 
@@ -53,7 +63,7 @@ Wygodne do wpisywania i share w UI. Zawsze wskazują na kanoniczny URL (redirect
   → /bg/1879/43-joh/3/16
 ```
 
-Mapowanie aliasów → `43-joh` żyje w `books.json` (jedno miejsce prawdy). Domyślne wydanie aliasów krótkich: `bg/1879`, dopóki nie będzie wyboru tłumaczenia.
+Mapowanie aliasów → `43-joh` żyje w `books.json` (per wydanie, te same aliasy). Krótki URL otwiera czytnik; treść pochodzi z wybranego w PWA tłumaczenia.
 
 ### Oba poziomy szczegółowości
 
@@ -116,7 +126,12 @@ Ten sam werset co element tablicy w rozdziale; `16.txt` to sam tekst (opcjonalni
   web/                  # PWA oparta na warstwie data/
 ```
 
-Źródło tekstu: pinowany commit / submodule / fetch w `tools/import` z [biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst) — na start tylko folder **`1879`** (w pełni skorygowany). `1632` / `2023` później jako osobne `edition`.
+Źródła tekstu:
+
+- BG: `tools/import` ← [biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst) folder `1879`
+- KJV: `tools/import-kjv` ← [aruljohn/Bible-kjv](https://github.com/aruljohn/Bible-kjv) (PD; linia 1769)
+
+UI KJV (styl 1611) — osobne dema w `demos/kjv-1611/` (WIP).
 
 ## CLI (Rust)
 

@@ -21,16 +21,39 @@ import {
   notifyProgress,
 } from "./notify.js";
 import { isDevHost } from "./dev-host.js";
+import {
+  loadEditionChoice,
+  saveEditionChoice,
+  clearEditionChoice,
+  findEdition,
+} from "./editions.js";
+import { t, planCopy } from "./i18n.js";
 
-const EDITION = "/bg/1879";
 const DEFAULT_READ = { book: "01-gen", chapter: 1, verse: 1 };
+let edition = loadEditionChoice();
+
+function editionPath() {
+  return edition?.path || "/bg/1879";
+}
+
+function editionLabel() {
+  return edition?.short || "BG 1879";
+}
+
+function applyTheme() {
+  document.body.classList.remove("theme-bg", "theme-kjv");
+  if (!edition) return;
+  document.body.classList.add(edition.theme);
+  const copy = t(edition);
+  document.documentElement.lang = copy.htmlLang;
+  document.title = copy.docTitle;
+}
 
 const screens = [...document.querySelectorAll(".screen")];
 const shell = document.getElementById("shell");
 const toastEl = document.getElementById("toast");
 const canonical = document.getElementById("canonical");
 const planBanner = document.getElementById("plan-banner");
-const planBannerPct = document.getElementById("plan-banner-pct");
 
 let booksCache = null;
 let selectedVerse = null;
@@ -68,16 +91,17 @@ function toRoman(n) {
 }
 
 function chapterLabel(n) {
-  return `Rozd. ${toRoman(n)}`;
+  return edition?.language === "en" ? `Ch. ${toRoman(n)}` : `Rozd. ${toRoman(n)}`;
 }
 
 async function loadBooks() {
-  if (booksCache) return booksCache;
-  const res = await fetch(`${EDITION}/books.json`);
-  if (!res.ok) throw new Error("Nie udało się wczytać books.json");
+  const key = editionPath();
+  if (booksCache?.__path === key) return booksCache.books;
+  const res = await fetch(`${key}/books.json`);
+  if (!res.ok) throw new Error("books.json");
   const data = await res.json();
-  booksCache = data.books;
-  return booksCache;
+  booksCache = { __path: key, books: data.books };
+  return booksCache.books;
 }
 
 function resolveBook(books, key) {
@@ -120,7 +144,10 @@ function refreshPlanBanner() {
     document.body.classList.remove("has-plan-banner");
     return;
   }
-  planBannerPct.textContent = String(pct);
+  const en = edition?.language === "en";
+  planBanner.innerHTML = en
+    ? `You have read <span id="plan-banner-pct">${pct}</span>% of today’s plan.`
+    : `Przeczytałeś <span id="plan-banner-pct">${pct}</span>% dziennego planu.`;
   planBanner.hidden = false;
   document.body.classList.add("has-plan-banner");
 }
@@ -128,8 +155,9 @@ function refreshPlanBanner() {
 function parseRoute(pathname) {
   const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
 
-  if (parts.length === 0) return { name: "home" };
-  if (parts[0] === "ksiegi") return { name: "books" };
+  if (parts[0] === "wybor" || parts[0] === "choose") return { name: "pick" };
+  if (parts.length === 0) return { name: edition ? "home" : "pick" };
+  if (parts[0] === "ksiegi" || parts[0] === "books") return { name: "books" };
   if (parts[0] === "plan") return { name: "plan" };
 
   if (parts[0] === "czytaj" && parts[1]) {
@@ -155,16 +183,20 @@ function parseRoute(pathname) {
 }
 
 async function renderBooks() {
+  if (!edition) return renderPick();
   show("books");
   setCanonical("/ksiegi");
+  const copy = t(edition);
+  document.querySelector("#books .topbar strong").textContent = copy.index;
+  document.querySelector("#books .topbar .linkish").textContent = copy.titleCard;
+  document.querySelector("#books .index-head .label").textContent = copy.booksHeading;
   const root = document.getElementById("book-list-root");
   try {
     const books = await loadBooks();
     const st = books.filter((b) => b.testament === "st");
     const nt = books.filter((b) => b.testament === "nt");
     root.innerHTML =
-      sectionList("Starego Przymierza", st) +
-      sectionList("Nowego Przymierza", nt);
+      sectionList(copy.testamentOt, st) + sectionList(copy.testamentNt, nt);
   } catch (e) {
     root.innerHTML = `<p class="error-box">${e.message}</p>`;
   }
@@ -189,6 +221,7 @@ function sectionList(label, books) {
 function updateMarkReadUi(bookId, chapter) {
   const wrap = document.getElementById("chapter-done");
   const btn = document.getElementById("mark-read-btn");
+  const copy = t(edition);
   if (!plan.enabled) {
     wrap.hidden = true;
     return;
@@ -200,25 +233,30 @@ function updateMarkReadUi(bookId, chapter) {
     wrap.classList.add("is-done");
     if (isExtraCredit(plan, bookId, chapter)) {
       wrap.classList.add("is-extra");
-      btn.textContent = "Zaliczone ponad plan";
+      btn.textContent = copy.markedExtra;
     } else {
-      btn.textContent = "Zaliczone do dziennego planu";
+      btn.textContent = copy.markedPlan;
     }
     return;
   }
 
   if (isDailyPlanComplete(plan)) {
     wrap.classList.add("is-extra-action");
-    btn.textContent = "Zalicz ponad plan";
+    btn.textContent = copy.markExtra;
   } else {
-    btn.textContent = "Oznacz rozdział jako przeczytany";
+    btn.textContent = copy.markRead;
   }
 }
 
 async function renderReader(route) {
+  if (!edition) return renderPick();
   show("reader");
+  const copy = t(edition);
+  document.querySelector("#reader .topbar .linkish").textContent = copy.backBooks;
+  document.getElementById("share-btn").textContent = copy.share;
+  document.querySelector('#reader a[href="/plan"]').textContent = copy.plan;
   const versesEl = document.getElementById("verses");
-  versesEl.innerHTML = `<li class="error-box">Ładowanie…</li>`;
+  versesEl.innerHTML = `<li class="error-box">${copy.loading}</li>`;
 
   try {
     const books = await loadBooks();
@@ -230,7 +268,7 @@ async function renderReader(route) {
       throw new Error(`Brak rozdziału ${chapter}`);
     }
 
-    const canonPath = `${EDITION}/${book.id}/${chapter}`;
+    const canonPath = `${editionPath()}/${book.id}/${chapter}`;
     setCanonical(route.verse ? `${canonPath}/${route.verse}` : canonPath);
 
     const nice = `/czytaj/${book.id}/${chapter}${route.verse ? `/${route.verse}` : ""}`;
@@ -239,19 +277,21 @@ async function renderReader(route) {
     }
 
     const res = await fetch(`${canonPath}.json`);
-    if (!res.ok) throw new Error("Nie udało się wczytać rozdziału");
+    if (!res.ok) throw new Error("chapter");
     const data = await res.json();
+    const copy = t(edition);
 
     const est = estimateMinutesFromVerses(data.verses);
     const timeEl = document.getElementById("read-time");
     timeEl.hidden = false;
-    timeEl.textContent = `Czytanie · ${est.label}`;
+    timeEl.textContent = `${copy.readingEta} · ${est.label}`;
 
+    const chapWord = edition?.language === "en" ? "Chapter" : "Rozdział";
     document.getElementById("running").innerHTML = `
       <span>${chapterLabel(chapter)}</span>
       <span>${book.short}</span>
-      <span>BG 1879</span>`;
-    document.getElementById("chap-heading").textContent = `Rozdział ${toRoman(chapter)}`;
+      <span>${editionLabel()}</span>`;
+    document.getElementById("chap-heading").textContent = `${chapWord} ${toRoman(chapter)}`;
     document.getElementById("chap-book").textContent = book.name;
 
     selectedVerse = route.verse;
@@ -296,14 +336,41 @@ function nextBookLink(books, book) {
 }
 
 function setStartCta(el, assignment) {
+  const copy = t(edition);
   if (!assignment || assignment.done) {
     el.href = `/czytaj/${DEFAULT_READ.book}/${DEFAULT_READ.chapter}`;
-    el.innerHTML = `<span class="cta-main">Zacznij czytać</span><span class="cta-sub">Rodzaju I</span>`;
+    el.innerHTML = `<span class="cta-main">${copy.startRead}</span><span class="cta-sub">${copy.startGenesis}</span>`;
     return;
   }
   el.href = assignment.href;
-  const verb = assignment.started ? "Kontynuuj" : "Zacznij czytać";
+  const verb = assignment.started ? copy.continueRead : copy.startRead;
   el.innerHTML = `<span class="cta-main">${verb}</span><span class="cta-sub">${assignment.minutes}&nbsp;min · ${assignment.range}</span>`;
+}
+
+function renderPick() {
+  show("pick");
+  setCanonical("/wybor");
+  applyTheme();
+  if (!edition) {
+    document.getElementById("pick-title").textContent = "Wybierz tekst · Choose a text";
+    document.getElementById("pick-sub").textContent =
+      "Wspólna numeracja KJV · shared numbering. Plan dzienny wspólny · one daily plan.";
+  } else {
+    const copy = t(edition);
+    document.getElementById("pick-title").textContent = copy.pickTitle;
+    document.getElementById("pick-sub").textContent = copy.pickSub;
+  }
+}
+
+function selectEdition(id) {
+  const next = findEdition(id);
+  if (!next) return;
+  edition = next;
+  saveEditionChoice(edition);
+  booksCache = null;
+  applyTheme();
+  history.replaceState(null, "", "/");
+  route();
 }
 
 function notificationsWanted(p = plan) {
@@ -344,8 +411,20 @@ async function maybeNotifyStart(books) {
 }
 
 async function renderHome() {
+  if (!edition) return renderPick();
+  applyTheme();
   show("home");
   setCanonical("/");
+  const copy = t(edition);
+  document.getElementById("home-eyebrow").textContent = copy.homeEyebrow;
+  document.getElementById("home-title").textContent = copy.homeTitle;
+  document.getElementById("home-sub").innerHTML = copy.homeSub;
+  document.getElementById("home-meta").textContent = copy.homeMeta;
+  document.getElementById("home-colophon").textContent = copy.homeColophon;
+  document.getElementById("home-books").textContent = copy.booksLink;
+  document.getElementById("home-plan").textContent = copy.planLink;
+  document.getElementById("home-change-edition").textContent = copy.changeEdition;
+
   const cta = document.getElementById("home-read-cta");
   try {
     const books = await loadBooks();
@@ -362,7 +441,7 @@ async function renderHome() {
         cta.href = next
           ? `/czytaj/${next.book}/${next.chapter}`
           : `/czytaj/${DEFAULT_READ.book}/${DEFAULT_READ.chapter}`;
-        cta.innerHTML = `<span class="cta-main">Plan na dziś ukończony</span><span class="cta-sub">Czytaj dalej</span>`;
+        cta.innerHTML = `<span class="cta-main">${copy.planDone}</span><span class="cta-sub">${copy.readOn}</span>`;
         return;
       }
     }
@@ -399,11 +478,16 @@ function syncPlanFormUi() {
 }
 
 async function renderPlan() {
+  if (!edition) return renderPick();
   show("plan");
   setCanonical("/plan");
   const books = await loadBooks();
   fillBookSelects(books);
   plan = loadPlan();
+  const pc = planCopy(edition);
+  document.querySelector("#plan .topbar strong").textContent = pc.planNav;
+  document.querySelector("#plan .topbar .linkish").textContent = t(edition).titleCard;
+  document.querySelector("#plan .index-head .label").textContent = pc.dailyPlan;
 
   document.getElementById("plan-enabled").checked = !!plan.enabled;
   document.querySelector(`input[name="goal"][value="${plan.goal}"]`).checked = true;
@@ -446,6 +530,8 @@ async function renderPlan() {
 async function route() {
   refreshPlanBanner();
   const r = parseRoute(location.pathname);
+  if (!edition && r.name !== "pick") return renderPick();
+  if (r.name === "pick") return renderPick();
   if (r.name === "books") return renderBooks();
   if (r.name === "reader") return renderReader(r);
   if (r.name === "plan") return renderPlan();
@@ -463,7 +549,7 @@ document.getElementById("verses").addEventListener("click", (e) => {
   li.classList.add("is-sel");
   const path = `/czytaj/${ctx.book.id}/${ctx.chapter}/${n}`;
   history.replaceState(null, "", path);
-  setCanonical(`${EDITION}/${ctx.book.id}/${ctx.chapter}/${n}`);
+  setCanonical(`${editionPath()}/${ctx.book.id}/${ctx.chapter}/${n}`);
 });
 
 document.getElementById("mark-read-btn").addEventListener("click", async () => {
@@ -496,7 +582,7 @@ document.getElementById("share-btn").addEventListener("click", async () => {
   if (!verse) return;
   const shortAlias = (ctx.book.aliases && ctx.book.aliases[0]) || ctx.book.short.toLowerCase();
   const shortUrl = `${location.origin}/${shortAlias}/${ctx.chapter}/${n}`;
-  const text = `${ctx.book.short} ${ctx.chapter},${n} (BG 1879)\n${stripTags(verse.t)}\n${shortUrl}`;
+  const text = `${ctx.book.short} ${ctx.chapter},${n} (${editionLabel()})\n${stripTags(verse.t)}\n${shortUrl}`;
 
   try {
     if (navigator.share) {
@@ -607,6 +693,21 @@ document.getElementById("plan-reset-all").addEventListener("click", async () => 
   refreshPlanBanner();
   flash("Plan przywrócony do domyślnych");
   renderPlan();
+});
+
+document.getElementById("pick-choices").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-pick]");
+  if (!btn) return;
+  selectEdition(btn.getAttribute("data-pick"));
+});
+
+document.getElementById("home-change-edition").addEventListener("click", () => {
+  clearEditionChoice();
+  edition = null;
+  booksCache = null;
+  applyTheme();
+  history.pushState(null, "", "/wybor");
+  route();
 });
 
 window.addEventListener("popstate", () => route());
