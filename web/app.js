@@ -96,6 +96,8 @@ let booksCache = null;
 let selectedVerse = null;
 let toastTimer;
 let plan = loadPlan();
+/** Generacja ładowania czytnika — odrzuca przestarzałe odpowiedzi przy szybkim przewijaniu. */
+let readerLoadGen = 0;
 
 function flash(msg) {
   toastEl.textContent = msg;
@@ -104,10 +106,10 @@ function flash(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove("is-on"), 2200);
 }
 
-function show(id) {
+function show(id, { scroll = true } = {}) {
   screens.forEach((s) => s.classList.toggle("is-on", s.id === id));
   shell.classList.toggle("is-reader", id === "reader");
-  window.scrollTo(0, 0);
+  if (scroll) window.scrollTo(0, 0);
 }
 
 function toRoman(n) {
@@ -419,16 +421,28 @@ function updateMarkReadUi(bookId, chapter, books = window.__reader?.books) {
 
 async function renderReader(route) {
   if (!edition) return renderPick();
-  show("reader");
+  const gen = ++readerLoadGen;
   const copy = t(edition);
+  const versesEl = document.getElementById("verses");
+  const readerEl = document.getElementById("reader");
+  // Przy zmianie rozdziału zostaw poprzedni folio — bez „Ładowanie…” i migania przycisków
+  const keepPrevious = readerEl.classList.contains("is-on") && !!window.__reader;
+
+  show("reader", { scroll: !keepPrevious });
   document.querySelector("#reader .topbar .linkish").textContent = copy.backBooks;
   document.getElementById("share-btn").textContent = copy.share;
   document.querySelector('#reader a[href="/plan"]').textContent = copy.plan;
-  const versesEl = document.getElementById("verses");
-  versesEl.innerHTML = `<li class="error-box">${copy.loading}</li>`;
+
+  if (!keepPrevious) {
+    versesEl.innerHTML = `<li class="error-box">${copy.loading}</li>`;
+    document.getElementById("chapter-done").hidden = true;
+    audioControls.hidden = true;
+  }
 
   try {
     const books = await loadBooks();
+    if (gen !== readerLoadGen) return;
+
     const book = resolveBook(books, route.bookKey);
     if (!book) throw new Error(copy.unknownBook(route.bookKey));
 
@@ -448,7 +462,18 @@ async function renderReader(route) {
     const res = await fetch(`${canonPath}.json`);
     if (!res.ok) throw new Error(copy.loadFailed);
     const data = await res.json();
+    if (gen !== readerLoadGen) return;
 
+    let hasAudio = false;
+    if (!editionSupportsAudio()) {
+      pendingAudioAutoplay = false;
+      if (audioPlayer.current().bookId) audioPlayer.stop();
+    } else {
+      hasAudio = await chapterHasAudio(book.id, chapter);
+      if (gen !== readerLoadGen) return;
+    }
+
+    // Jedna podmiana DOM — docelowy stan bez stanu pośredniego
     const est = estimateMinutesFromVerses(data.verses);
     const timeEl = document.getElementById("read-time");
     timeEl.hidden = false;
@@ -481,21 +506,13 @@ async function renderReader(route) {
         : nextBookLink(books, book);
     nav.innerHTML = prev + next;
 
-    if (selectedVerse) {
-      const el = versesEl.querySelector(`li[data-v="${selectedVerse}"]`);
-      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
-
     window.__reader = { book, chapter, data, books };
     updateMarkReadUi(book.id, chapter, books);
 
-    audioControls.hidden = true;
-    audioStopBtn.hidden = true;
     if (!editionSupportsAudio()) {
-      pendingAudioAutoplay = false;
-      if (audioPlayer.current().bookId) audioPlayer.stop();
+      audioControls.hidden = true;
+      audioStopBtn.hidden = true;
     } else {
-      const hasAudio = await chapterHasAudio(book.id, chapter);
       audioControls.hidden = !hasAudio;
       audioPlayBtn.textContent = t(edition).audioListen;
       audioStopBtn.textContent = t(edition).audioStop;
@@ -509,7 +526,14 @@ async function renderReader(route) {
         pendingAudioAutoplay = false;
       }
     }
+
+    if (keepPrevious) window.scrollTo(0, 0);
+    if (selectedVerse) {
+      const el = versesEl.querySelector(`li[data-v="${selectedVerse}"]`);
+      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
   } catch (e) {
+    if (gen !== readerLoadGen) return;
     versesEl.innerHTML = `<li class="error-box">${e.message}</li>`;
     document.getElementById("folio-nav").innerHTML = "";
     document.getElementById("read-time").hidden = true;
