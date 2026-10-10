@@ -15,6 +15,7 @@ interface Env {
 
 const SYNC_MAX = 64;
 const SYNC_MIN = 29;
+const SIGN_SKEW_SEC = 15 * 60;
 
 function syncHeaders(extra?: Record<string, string>): Headers {
   return new Headers({
@@ -54,7 +55,73 @@ async function readSyncBody(request: Request): Promise<Uint8Array | Response> {
   return body;
 }
 
-/** Jeden slot na identyfikator. Ciało to szyfrogram, 29–64 B. Brak listy i większych zapisów. */
+function unauthorized(): Response {
+  return new Response(null, { status: 401, headers: syncHeaders() });
+}
+
+function fromHex(hex: string, bytes: number): Uint8Array | null {
+  if (!new RegExp(`^[0-9a-f]{${bytes * 2}}$`, "i").test(hex)) return null;
+  const out = new Uint8Array(bytes);
+  for (let i = 0; i < bytes; i++) out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
+function copyBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
+function ctEq(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+/** metoda, numer slotu, czas, klucz publiczny, ciało — to samo co w web/cloud.js. */
+function syncMessage(method: string, idHex: string, time: string, pubHex: string, body: Uint8Array): Uint8Array {
+  const head = new TextEncoder().encode(`${method}\n${idHex}\n${time}\n${pubHex}\n`);
+  const out = new Uint8Array(head.length + body.length);
+  out.set(head, 0);
+  out.set(body, head.length);
+  return out;
+}
+
+interface SyncAuth {
+  pub: Uint8Array;
+  pubHex: string;
+  sig: Uint8Array;
+  time: string;
+}
+
+function readAuth(request: Request): SyncAuth | Response {
+  const time = request.headers.get("x-sync-time") || "";
+  const pubHex = (request.headers.get("x-sync-pub") || "").toLowerCase();
+  const sigHex = (request.headers.get("x-sync-sign") || "").toLowerCase();
+  if (!/^\d{1,12}$/.test(time)) return unauthorized();
+  const skew = Math.abs(Math.floor(Date.now() / 1000) - Number(time));
+  if (skew > SIGN_SKEW_SEC) return unauthorized();
+  const pub = fromHex(pubHex, 32);
+  const sig = fromHex(sigHex, 64);
+  if (!pub || !sig) return unauthorized();
+  return { pub, pubHex, sig, time };
+}
+
+async function verifyEd25519(pub: Uint8Array, sig: Uint8Array, message: Uint8Array): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey("raw", pub, { name: "Ed25519" }, false, ["verify"]);
+    return await crypto.subtle.verify("Ed25519", key, sig, message);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Jeden slot na identyfikator. Ciało to szyfrogram, 29–64 B.
+ * Klucz publiczny pod pub:{id} pochodzi z tego samego sekretu co AES.
+ * GET i PUT bez ważnego podpisu żądania są odrzucane. Sam numer slotu nic nie zmienia.
+ */
 export async function handleSync(
   request: Request,
   env: Env,
@@ -64,8 +131,29 @@ export async function handleSync(
   if (parts.length !== 3 || !/^[0-9a-f]{32}$/.test(parts[2].toLowerCase())) {
     return new Response(null, { status: 400, headers: syncHeaders() });
   }
+  if (request.method !== "GET" && request.method !== "PUT") {
+    return new Response(null, { status: 405, headers: syncHeaders({ allow: "GET, PUT" }) });
+  }
   if (!env.SYNC) return new Response(null, { status: 503, headers: syncHeaders() });
   const id = parts[2].toLowerCase();
+
+  let body = new Uint8Array();
+  if (request.method === "PUT") {
+    const read = await readSyncBody(request);
+    if (read instanceof Response) return read;
+    body = read;
+  }
+
+  const auth = readAuth(request);
+  if (auth instanceof Response) return auth;
+  const message = syncMessage(request.method, id, auth.time, auth.pubHex, body);
+  const storedBuf = await env.SYNC.get(`pub:${id}`, "arrayBuffer");
+  const stored = storedBuf && storedBuf.byteLength === 32 ? new Uint8Array(storedBuf) : null;
+  if (stored) {
+    if (!ctEq(stored, auth.pub) || !(await verifyEd25519(stored, auth.sig, message))) return unauthorized();
+  } else if (!(await verifyEd25519(auth.pub, auth.sig, message))) {
+    return unauthorized();
+  }
 
   if (request.method === "GET") {
     const buf = await env.SYNC.get(id, "arrayBuffer");
@@ -76,14 +164,9 @@ export async function handleSync(
     });
   }
 
-  if (request.method === "PUT") {
-    const body = await readSyncBody(request);
-    if (body instanceof Response) return body;
-    await env.SYNC.put(id, body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength));
-    return new Response(null, { status: 204, headers: syncHeaders() });
-  }
-
-  return new Response(null, { status: 405, headers: syncHeaders({ allow: "GET, PUT" }) });
+  if (!stored) await env.SYNC.put(`pub:${id}`, copyBuffer(auth.pub));
+  await env.SYNC.put(id, copyBuffer(body));
+  return new Response(null, { status: 204, headers: syncHeaders() });
 }
 
 type Book = {

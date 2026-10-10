@@ -1,8 +1,10 @@
 /**
  * Zapis planu w chmurze bez konta.
  * Kod (32 B): 16 B identyfikatora slotu + 16 B klucza AES-128-GCM.
- * Na serwer idzie tylko identyfikator i szyfrogram ≤ 64 B.
- * Jawny rekord ma 16 B — postęp planu, nie magazyn plików.
+ * Ten sam klucz, przez HKDF, jest ziarnem podpisu Ed25519 żądania.
+ * Serwer trzyma tylko klucz publiczny i odrzuca żądanie bez ważnego podpisu.
+ * Na serwer idzie identyfikator, podpis i szyfrogram ≤ 64 B.
+ * Jawny rekord ma 24 B — postęp planu i miejsce czytania, nie magazyn plików.
  */
 
 import {
@@ -343,6 +345,61 @@ async function importKey(keyBytes) {
   return crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
+const SIGN_INFO = new TextEncoder().encode("ksiag-sync-sign");
+const ED25519_PKCS8_PREFIX = Uint8Array.from([
+  0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+]);
+
+function toHex(bytes) {
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function bytesFromBase64Url(text) {
+  const pad = text.length % 4 === 0 ? "" : "=".repeat(4 - (text.length % 4));
+  const bin = atob(text.replace(/-/g, "+").replace(/_/g, "/") + pad);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/** Bajt podpisu: metoda, numer slotu, czas, klucz publiczny, ciało. */
+export function syncMessage(method, idHex, timeSec, pubHex, body) {
+  const head = new TextEncoder().encode(`${method}\n${idHex}\n${timeSec}\n${pubHex}\n`);
+  const bytes = body?.length ? body : new Uint8Array();
+  const out = new Uint8Array(head.length + bytes.length);
+  out.set(head, 0);
+  out.set(bytes, head.length);
+  return out;
+}
+
+async function signingSeed(keyBytes, idBytes) {
+  const base = await crypto.subtle.importKey("raw", keyBytes, "HKDF", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt: idBytes, info: SIGN_INFO },
+    base,
+    256
+  );
+  return new Uint8Array(bits);
+}
+
+export async function syncAuthHeaders(method, parsed, body, nowSec = Math.floor(Date.now() / 1000)) {
+  const seed = await signingSeed(parsed.key, parsed.id);
+  const pkcs8 = new Uint8Array(ED25519_PKCS8_PREFIX.length + seed.length);
+  pkcs8.set(ED25519_PKCS8_PREFIX, 0);
+  pkcs8.set(seed, ED25519_PKCS8_PREFIX.length);
+  const priv = await crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, true, ["sign"]);
+  const jwk = await crypto.subtle.exportKey("jwk", priv);
+  const pubHex = toHex(bytesFromBase64Url(jwk.x));
+  const timeSec = String(nowSec);
+  const message = syncMessage(method, parsed.idHex, timeSec, pubHex, body);
+  const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", priv, message));
+  return {
+    "x-sync-time": timeSec,
+    "x-sync-pub": pubHex,
+    "x-sync-sign": toHex(sig),
+  };
+}
+
 export async function seal(plain, keyBytes, idBytes) {
   const key = await importKey(keyBytes);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -395,9 +452,10 @@ export async function pushNow() {
   const sealed = await seal(plain, parsed.key, parsed.id);
   if (sealed.byteLength > SYNC_MAX_BYTES) return "error";
   try {
+    const headers = await syncAuthHeaders("PUT", parsed, sealed);
     const res = await fetchSync(`/api/sync/${parsed.idHex}`, {
       method: "PUT",
-      headers: { "content-type": "application/octet-stream" },
+      headers: { "content-type": "application/octet-stream", ...headers },
       body: sealed,
     });
     if (!res.ok) return "error";
@@ -438,7 +496,8 @@ export async function pull(books) {
   if (!parsed) return "bad";
   let res;
   try {
-    res = await fetchSync(`/api/sync/${parsed.idHex}`);
+    const headers = await syncAuthHeaders("GET", parsed, new Uint8Array());
+    res = await fetchSync(`/api/sync/${parsed.idHex}`, { headers });
   } catch {
     emitStatus("offline");
     return "offline";
@@ -504,7 +563,8 @@ export async function joinToken(text, books) {
   if (!parsed) return "bad";
   let res;
   try {
-    res = await fetchSync(`/api/sync/${parsed.idHex}`);
+    const headers = await syncAuthHeaders("GET", parsed, new Uint8Array());
+    res = await fetchSync(`/api/sync/${parsed.idHex}`, { headers });
   } catch {
     emitStatus("offline");
     return "offline";

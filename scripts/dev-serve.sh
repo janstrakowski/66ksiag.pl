@@ -14,43 +14,60 @@ python3 - <<PY
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import csv
+import hmac
 import re
+import sys
 import threading
+import time
 import urllib.parse
 
 ROOT = Path("${ROOT}").resolve()
 WEB = ROOT / "web"
 DATA = ROOT / "data"
 PORT = ${PORT}
+sys.path.insert(0, str(ROOT / "scripts"))
+from sync_ed25519 import verify as verify_sync_sig
+
 SYNC_FILE = ROOT / ".local" / "sync.csv"
 SYNC_LOCK = threading.Lock()
 SYNC_MAX = 64
 SYNC_MIN = 29
+SIGN_SKEW = 15 * 60
 
 def load_slots():
     slots = {}
+    pubs = {}
     if not SYNC_FILE.is_file():
-        return slots
+        return slots, pubs
     with SYNC_FILE.open(newline="") as handle:
         for row in csv.reader(handle):
             if len(row) < 2 or row[0] == "id":
                 continue
+            ident = row[0].lower()
             try:
                 blob = bytes.fromhex(row[1])
             except ValueError:
                 continue
             if SYNC_MIN <= len(blob) <= SYNC_MAX:
-                slots[row[0].lower()] = blob
-    return slots
+                slots[ident] = blob
+            if len(row) >= 3 and row[2]:
+                try:
+                    pub = bytes.fromhex(row[2])
+                except ValueError:
+                    pub = b""
+                if len(pub) == 32:
+                    pubs[ident] = pub
+    return slots, pubs
 
-def save_slots(slots):
+def save_slots(slots, pubs):
     SYNC_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = SYNC_FILE.with_suffix(".csv.tmp")
     with tmp.open("w", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["id", "blob"])
-        for ident, blob in sorted(slots.items()):
-            writer.writerow([ident, blob.hex()])
+        writer.writerow(["id", "blob", "pub"])
+        for ident in sorted(slots):
+            pub = pubs.get(ident, b"")
+            writer.writerow([ident, slots[ident].hex(), pub.hex()])
     tmp.replace(SYNC_FILE)
 
 class Handler(SimpleHTTPRequestHandler):
@@ -112,40 +129,68 @@ class Handler(SimpleHTTPRequestHandler):
             return None
         return body
 
+    def _sync_status(self, status, body=b"", content_type=None):
+        self.send_response(status)
+        self.send_header("Cache-Control", "no-store")
+        if content_type:
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if body:
+            self.wfile.write(body)
+
+    def _sync_auth(self, method, ident, body):
+        """Podpis obejmuje metodę, numer slotu, czas, klucz publiczny i ciało."""
+        time_s = self.headers.get("x-sync-time") or ""
+        pub_hex = (self.headers.get("x-sync-pub") or "").lower()
+        sig_hex = (self.headers.get("x-sync-sign") or "").lower()
+        if not re.fullmatch(r"\d{1,12}", time_s):
+            return None
+        if abs(int(time.time()) - int(time_s)) > SIGN_SKEW:
+            return None
+        if not re.fullmatch(r"[0-9a-f]{64}", pub_hex) or not re.fullmatch(r"[0-9a-f]{128}", sig_hex):
+            return None
+        pub = bytes.fromhex(pub_hex)
+        sig = bytes.fromhex(sig_hex)
+        message = f"{method}\n{ident}\n{time_s}\n{pub_hex}\n".encode() + body
+        with SYNC_LOCK:
+            _slots, pubs = load_slots()
+            stored = pubs.get(ident)
+        if stored is not None:
+            if not hmac.compare_digest(stored, pub):
+                return None
+            if not verify_sync_sig(stored, sig, message):
+                return None
+            return pub, False
+        if not verify_sync_sig(pub, sig, message):
+            return None
+        return pub, True
+
     def do_GET(self):
         ident = self._sync_id()
         if ident is None:
             return super().do_GET()
         if ident == "":
-            self.send_response(400)
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
+            self._sync_status(400)
+            return
+        auth = self._sync_auth("GET", ident, b"")
+        if auth is None:
+            self._sync_status(401)
             return
         with SYNC_LOCK:
-            data = load_slots().get(ident)
+            data = load_slots()[0].get(ident)
         if data is None:
-            self.send_response(404)
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
+            self._sync_status(404)
             return
-        self.send_response(200)
-        self.send_header("Content-Type", "application/octet-stream")
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(data)
+        self._sync_status(200, data, "application/octet-stream")
 
     def do_PUT(self):
         ident = self._sync_id()
         if ident is None:
-            self.send_response(404)
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
+            self._sync_status(404)
             return
         if ident == "":
-            self.send_response(400)
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
+            self._sync_status(400)
             return
         declared = self.headers.get("Content-Length")
         too_big = declared is not None and int(declared) > SYNC_MAX
@@ -158,22 +203,27 @@ class Handler(SimpleHTTPRequestHandler):
                     if not chunk:
                         break
                     rest -= len(chunk)
-            self.send_response(413)
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
+            self._sync_status(413)
             return
         if body is None:
-            self.send_response(400)
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
+            self._sync_status(400)
             return
+        auth = self._sync_auth("PUT", ident, body)
+        if auth is None:
+            self._sync_status(401)
+            return
+        pub, _fresh = auth
         with SYNC_LOCK:
-            slots = load_slots()
+            slots, pubs = load_slots()
+            current = pubs.get(ident)
+            if current is None:
+                pubs[ident] = pub
+            elif not hmac.compare_digest(current, pub):
+                self._sync_status(401)
+                return
             slots[ident] = body
-            save_slots(slots)
-        self.send_response(204)
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
+            save_slots(slots, pubs)
+        self._sync_status(204)
 
     def log_message(self, fmt, *args):
         print("[%s] %s" % (self.log_date_time_string(), fmt % args))

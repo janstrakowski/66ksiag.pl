@@ -15,6 +15,7 @@ import {
   qrSvg,
   saveCloud,
   seal,
+  syncAuthHeaders,
 } from "../../web/cloud.js";
 import {
   defaultPlan,
@@ -148,12 +149,18 @@ describe("cloud sync", () => {
     local.cursor = 1;
     saveStoredPlan(local);
 
+    const seen = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(blob, { status: 200 }))
+      vi.fn(async (_url, opts) => {
+        seen.push(opts?.headers || {});
+        return new Response(blob, { status: 200 });
+      })
     );
 
     const status = await joinToken(formatToken(token.canonical), miniBooks());
+    expect(seen[0]["x-sync-pub"]).toMatch(/^[0-9a-f]{64}$/);
+    expect(seen[0]["x-sync-sign"]).toMatch(/^[0-9a-f]{128}$/);
     expect(status).toBe("joined");
     const stored = loadStoredPlan();
     expect(stored.cursor).toBe(4);
@@ -173,16 +180,24 @@ describe("cloud sync", () => {
       "fetch",
       vi.fn(async (url, opts) => {
         if (!opts || opts.method !== "PUT") return new Response(null, { status: 404 });
-        puts.push(new Uint8Array(await opts.body));
+        puts.push({ body: new Uint8Array(await opts.body), headers: opts.headers });
         return new Response(null, { status: 204 });
       })
     );
     const status = await joinToken(token.canonical, miniBooks());
     expect(status).toBe("uploaded");
     expect(puts).toHaveLength(1);
-    expect(puts[0].byteLength).toBe(52);
-    expect(puts[0].byteLength).toBeLessThanOrEqual(SYNC_MAX_BYTES);
-    const opened = await openSeal(puts[0], token.key, token.id);
+    expect(puts[0].body.byteLength).toBe(52);
+    expect(puts[0].body.byteLength).toBeLessThanOrEqual(SYNC_MAX_BYTES);
+    expect(puts[0].headers["x-sync-sign"]).toMatch(/^[0-9a-f]{128}$/);
+    const expected = await syncAuthHeaders(
+      "PUT",
+      token,
+      puts[0].body,
+      Number(puts[0].headers["x-sync-time"])
+    );
+    expect(puts[0].headers["x-sync-sign"]).toBe(expected["x-sync-sign"]);
+    const opened = await openSeal(puts[0].body, token.key, token.id);
     const decoded = decodePlan(opened, miniBooks(), defaultPlan());
     expect(decoded.plan.cursor).toBe(4);
   });

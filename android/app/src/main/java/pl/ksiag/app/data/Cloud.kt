@@ -24,7 +24,8 @@ import kotlin.math.min
 
 /**
  * Ten sam zapis co web/cloud.js: 32 B kodu (16 B slotu + 16 B AES-128-GCM),
- * jawny rekord 24 B, na serwer tylko szyfrogram 29–64 B.
+ * jawny rekord 24 B, na serwer szyfrogram 29–64 B.
+ * Ten sam klucz, przez HKDF, podpisuje żądanie (Ed25519). Serwer żąda podpisu.
  */
 object Cloud {
     private const val ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -192,12 +193,9 @@ object Cloud {
         val sealed = seal(plain, parsed.key, parsed.id)
         if (sealed.size > SYNC_MAX) return "error"
         return try {
-            val req = Request.Builder()
-                .url("$ORIGIN/api/sync/${parsed.idHex}")
-                .put(sealed.toRequestBody(octet))
-                .header("User-Agent", "66ksiag-android/2.0")
-                .build()
-            http.newCall(req).execute().use { res -> if (res.isSuccessful) "saved" else "error" }
+            http.newCall(syncCall("PUT", parsed, sealed)).execute().use { res ->
+                if (res.isSuccessful) "saved" else "error"
+            }
         } catch (_: Exception) {
             "offline"
         }
@@ -208,11 +206,7 @@ object Cloud {
         if (!state.enabled || state.token.isEmpty()) return "off"
         val parsed = parseToken(state.token) ?: return "bad"
         val res = try {
-            val req = Request.Builder()
-                .url("$ORIGIN/api/sync/${parsed.idHex}")
-                .header("User-Agent", "66ksiag-android/2.0")
-                .build()
-            http.newCall(req).execute()
+            http.newCall(syncCall("GET", parsed, ByteArray(0))).execute()
         } catch (_: Exception) {
             return "offline"
         }
@@ -240,11 +234,7 @@ object Cloud {
     fun join(store: Store, text: String, books: List<Book>): String {
         val parsed = parseToken(text) ?: return "bad"
         val res = try {
-            val req = Request.Builder()
-                .url("$ORIGIN/api/sync/${parsed.idHex}")
-                .header("User-Agent", "66ksiag-android/2.0")
-                .build()
-            http.newCall(req).execute()
+            http.newCall(syncCall("GET", parsed, ByteArray(0))).execute()
         } catch (_: Exception) {
             return "offline"
         }
@@ -263,6 +253,17 @@ object Cloud {
             decoded.places?.let { store.savePlaces(it) }
             return "joined"
         }
+    }
+
+    private fun syncCall(method: String, token: Token, body: ByteArray): Request {
+        val builder = Request.Builder()
+            .url("$ORIGIN/api/sync/${token.idHex}")
+            .header("User-Agent", "66ksiag-android/2.0")
+        for ((name, value) in SyncSign.headers(method, token.id, token.key, token.idHex, body)) {
+            builder.header(name, value)
+        }
+        if (method == "PUT") builder.put(body.toRequestBody(octet))
+        return builder.build()
     }
 
     private fun applyRemote(store: Store, decoded: Decoded) {

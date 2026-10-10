@@ -13,7 +13,8 @@ zone_name = "66ksiag.pl"
 pattern = "www.66ksiag.pl/*"
 zone_name = "66ksiag.pl"
 
-# Postęp planu: jeden klucz KV = identyfikator slotu, wartość = szyfrogram ≤ 64 B.
+# Postęp planu: identyfikator slotu → szyfrogram ≤ 64 B.
+# Odczyt i zapis wymagają podpisu Ed25519. Klucz publiczny leży pod pub:{id}.
 [[kv_namespaces]]
 binding = "SYNC"
 id = "99a40bb27a764d839669293aea208e8f"
