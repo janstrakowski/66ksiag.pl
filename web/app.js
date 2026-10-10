@@ -349,15 +349,6 @@ function renderPick() {
   show("pick");
   setCanonical("/wybor");
   applyTheme();
-  if (!edition) {
-    document.getElementById("pick-title").textContent = "Wybierz tekst · Choose a text";
-    document.getElementById("pick-sub").textContent =
-      "Wspólna numeracja KJV · shared numbering. Plan dzienny wspólny · one daily plan.";
-  } else {
-    const copy = t(edition);
-    document.getElementById("pick-title").textContent = copy.pickTitle;
-    document.getElementById("pick-sub").textContent = copy.pickSub;
-  }
 }
 
 function selectEdition(id) {
