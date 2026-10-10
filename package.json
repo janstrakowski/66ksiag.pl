@@ -1,6 +1,7 @@
 {
   "name": "66ksiag",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "build": "bash scripts/build-dist.sh",
     "dev": "bash scripts/dev-serve.sh",

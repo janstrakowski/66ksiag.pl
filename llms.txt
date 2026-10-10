@@ -6,6 +6,7 @@ Wspólna numeracja KJV; BG zremapowana. Plan dzienny wspólny dla języków.
 ## Docs
 - Architektura: ARCHITECTURE.md
 - Instrukcje dla agentów: AGENTS.md
+- Licencja: MIT (LICENSE)
 
 ## API
 - Katalog: /translations.json
