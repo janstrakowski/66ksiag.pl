@@ -15,41 +15,53 @@ async function enablePlan(page, chapters = 1) {
   await expect(page.locator("#toast")).toBeVisible();
 }
 
-test("completing daily quota hides plan banner at 100%", async ({ page }) => {
+test("finishing the portion asks whether to read on", async ({ page }) => {
   await pickBg(page);
   await enablePlan(page, 1);
-  await page.goto("/czytaj/01-gen/1");
+  await page.goto("/porcja");
+  await expect(page.locator("#mark-read-btn")).toBeVisible();
   await page.locator("#mark-read-btn").click();
-  // 100% → banner hidden per app rules
+  await expect(page.locator("#confirm-overlay")).toBeVisible();
+  await expect(page.locator("#confirm-ok")).toContainText(/Czytaj dalej|Read yet further/i);
   await expect(page.locator("#plan-banner")).toBeHidden();
+  await page.locator("#confirm-cancel").click();
+  await expect(page.locator("#home")).toBeVisible();
 });
 
-test("reset progress confirm dialog works", async ({ page }) => {
+test("reset progress brings the portion back to the start", async ({ page }) => {
   await pickBg(page);
   await enablePlan(page, 3);
-  await page.goto("/czytaj/01-gen/1");
+  await page.goto("/porcja");
   await page.locator("#mark-read-btn").click();
-  await expect(page.locator("#plan-banner")).toBeVisible();
+  await expect(page.locator("#plan-banner")).toContainText(/1 z 3|1 of 3/);
 
   await page.goto("/plan");
   await page.locator("#plan-reset-progress").click();
   await expect(page.locator("#confirm-overlay")).toBeVisible();
   await page.locator("#confirm-ok").click();
   await expect(page.locator("#toast")).toBeVisible();
+
+  await page.goto("/porcja");
+  await expect(page).toHaveURL(/\/porcja\/01-gen\/1$/);
+  await expect(page.locator("#plan-banner")).toContainText(/0 z 3|0 of 3/);
   await page.goto("/czytaj/01-gen/1");
-  // po resecie plan wciąż włączony → baner z 0%
-  await expect(page.locator("#plan-banner")).toBeVisible();
-  await expect(page.locator("#plan-banner")).toContainText(/0\s*%/);
+  await expect(page.locator("#chapter-done")).toBeHidden();
+  await expect(page.locator("#plan-banner")).toBeHidden();
 });
 
-test("home CTA continues plan assignment after partial progress", async ({ page }) => {
+test("ordinary reading remembers the last chapter and ignores the plan", async ({ page }) => {
   await pickBg(page);
   await enablePlan(page, 3);
   await page.goto("/czytaj/01-gen/1");
-  await page.locator("#mark-read-btn").click();
+  await expect(page.locator("#chapter-done")).toBeHidden();
+  await expect(page.locator("#folio-nav")).toBeVisible();
   await page.goto("/czytaj/01-gen/4");
   await page.goto("/");
-  await expect(page.locator("#home-read-cta")).toBeVisible();
-  await expect(page.locator("#home-read-cta .cta-main")).toContainText(/Kontynuuj|Go on/i);
-  await expect(page.locator("#home-read-cta")).toHaveAttribute("href", "/czytaj/01-gen/2");
+  const read = page.locator("#home-read-cta");
+  await expect(read.locator(".cta-main")).toContainText(/Kontynuuj|Go on/i);
+  await expect(read).toHaveAttribute("href", "/czytaj/01-gen/4");
+  const portion = page.locator("#home-plan-cta");
+  await expect(portion).toBeVisible();
+  await expect(portion).toHaveAttribute("href", /\/porcja\/01-gen\/1$/);
+  await expect(page.locator("#home-sync")).toHaveAttribute("href", "/synchronizacja");
 });

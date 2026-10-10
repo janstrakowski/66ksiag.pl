@@ -13,6 +13,11 @@ zone_name = "66ksiag.pl"
 pattern = "www.66ksiag.pl/*"
 zone_name = "66ksiag.pl"
 
+# Postęp planu: jeden klucz KV = identyfikator slotu, wartość = szyfrogram ≤ 64 B.
+[[kv_namespaces]]
+binding = "SYNC"
+id = "99a40bb27a764d839669293aea208e8f"
+
 [assets]
 directory = "./dist"
 binding = "ASSETS"

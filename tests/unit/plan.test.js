@@ -26,6 +26,10 @@ import {
   savePlan,
   todayAssignment,
   todayKey,
+  accruePlan,
+  readingMinutes,
+  planFinishDate,
+  notePortionChapter,
 } from "../../web/plan.js";
 import { miniBooks, toRoman } from "../fixtures/books.js";
 
@@ -204,7 +208,7 @@ describe("marking progress", () => {
     const plan = enabledPlan({ chaptersPerDay: 2 });
     const asg = todayAssignment(books, plan, toRoman);
     expect(asg.done).toBe(false);
-    expect(asg.href).toBe("/czytaj/01-gen/1");
+    expect(asg.href).toBe("/porcja/01-gen/1");
     expect(asg.range).toContain("Gen");
     expect(asg.minutes).toBeGreaterThan(0);
   });
@@ -215,7 +219,7 @@ describe("marking progress", () => {
     plan = advanceCursor(plan, books);
     const asg = todayAssignment(books, plan, toRoman);
     expect(asg.done).toBe(false);
-    expect(asg.href).toBe("/czytaj/01-gen/2");
+    expect(asg.href).toBe("/porcja/01-gen/2");
     expect(asg.started).toBe(true);
     expect(nextMarkTarget(books, plan)).toEqual({ book: "01-gen", chapter: 2 });
   });
@@ -304,5 +308,57 @@ describe("marking progress", () => {
     expect(isDailyPlanComplete(plan)).toBe(true);
     // po ostatnim rozdziale celu — brak kolejnego do zaliczenia
     expect(nextMarkTarget(books, plan)).toBeNull();
+  });
+});
+
+describe("dues and estimates", () => {
+  const books = miniBooks();
+  function enabledPlan(extra = {}) {
+    return {
+      ...defaultPlan(),
+      enabled: true,
+      chaptersPerDay: 2,
+      mode: "chapters",
+      goal: "bible",
+      ...extra,
+    };
+  }
+
+  it("adds one quota for each missed day and keeps the remainder", () => {
+    const plan = enabledPlan({ chaptersPerDay: 3, owed: 0, pile: 3, beyond: true, day: "2020-01-01" });
+    const next = accruePlan(plan, "2020-01-04");
+    expect(next.day).toBe("2020-01-04");
+    expect(next.owed).toBe(9);
+    expect(next.pile).toBe(9);
+    expect(next.beyond).toBe(false);
+    expect(next.readToday).toEqual([]);
+  });
+
+  it("keeps a leftover when the next day arrives", () => {
+    const plan = enabledPlan({ chaptersPerDay: 3, owed: 2, pile: 3, day: "2020-01-01" });
+    const next = accruePlan(plan, "2020-01-02");
+    expect(next.owed).toBe(5);
+    expect(next.pile).toBe(5);
+  });
+
+  it("never reports zero minutes while a portion remains", () => {
+    expect(readingMinutes(0, { mode: "chapters", chaptersPerDay: 3 })).toBeNull();
+    expect(readingMinutes(1, { mode: "chapters", chaptersPerDay: 3 })).toBe(3);
+    expect(readingMinutes(1, { mode: "time", minutesPerDay: 10 })).toBe(4);
+  });
+
+  it("rounds the finish date up, counting today", () => {
+    const plan = enabledPlan({ chaptersPerDay: 3, cursor: 0 });
+    const date = planFinishDate(books, plan, new Date(2026, 4, 10));
+    expect(date.getFullYear()).toBe(2026);
+    expect(date.getMonth()).toBe(4);
+    expect(date.getDate()).toBe(12);
+  });
+
+  it("shrinks the pile only from the portion reader", () => {
+    const plan = enabledPlan({ chaptersPerDay: 3, owed: 3, pile: 3 });
+    const next = notePortionChapter(plan);
+    expect(next.owed).toBe(2);
+    expect(notePortionChapter({ ...next, owed: 0 }).owed).toBe(0);
   });
 });

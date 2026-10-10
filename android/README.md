@@ -48,8 +48,10 @@ Fingerprint z lokalnego upload key (po Play App Signing dodaj też fingerprint z
 
 ## Natywne dodatki (poza Bubblewrap)
 
-`NotificationSettingsActivity` — otwiera ustawienia powiadomień z linku `ksiag://notification-settings` w PWA.  
-Po `bubblewrap update` przywróć wpis w `AndroidManifest.xml` i plik `.java` (nie są w szablonie Bubblewrap).
+Natywne Activity (poza szablonem Bubblewrap — przywróć po `bubblewrap update`):
+
+- `NotificationSettingsActivity` — `ksiag://notification-settings` (przełącznik Androida)
+- `SiteSettingsActivity` — `ksiag://site-settings` (zgoda Chrome dla strony; to zwykle odblokowuje `Notification.permission`)
 
 ## Play Console
 

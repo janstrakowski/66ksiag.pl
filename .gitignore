@@ -1,6 +1,7 @@
 /target/
 /dist/
 /data/
+/.local/
 /node_modules/
 /vendor/
 .wrangler/

@@ -241,6 +241,10 @@
       color: var(--faint);
       line-height: 1.35;
     }
+    .colophon a {
+      color: inherit;
+      text-underline-offset: 0.12em;
+    }
 
     /* —— index —— */
     .topbar {
@@ -318,6 +322,7 @@
       background: var(--hatch);
       outline: none;
     }
+    a.tablet[hidden] { display: none; }
     a.tablet {
       display: block;
       text-decoration: none;
@@ -510,6 +515,7 @@
     body.has-plan-banner.has-audio-bar { padding-bottom: 4.6rem; }
     body.has-plan-banner.has-audio-bar .audio-bar { bottom: 2.1rem; }
 
+    #reader.is-plan .folio-nav { display: none; }
     .folio-nav {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -709,6 +715,44 @@
     }
     .plan-reset-actions .tablet { width: 100%; margin-top: 0.35rem; }
     .plan-reset-actions .plan-hint { margin: 0.15rem 0 0.2rem; }
+    #cloud-panel[hidden] { display: none !important; }
+    .cloud-code {
+      margin: 0.45rem 0 0;
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      line-height: 1.45;
+      word-break: break-all;
+    }
+    .cloud-qr {
+      display: flex;
+      justify-content: center;
+      margin: 0.55rem 0;
+    }
+    .cloud-qr svg {
+      width: min(100%, 220px);
+      height: auto;
+    }
+    .cloud-join-label {
+      display: block;
+      margin-top: 0.65rem;
+      font-size: 0.92rem;
+    }
+    #cloud-join-input {
+      font: inherit;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--paper) 70%, #fff);
+      border: 1px solid var(--ink);
+      padding: 0.35rem 0.4rem;
+      width: 100%;
+      max-width: 100%;
+      resize: vertical;
+    }
+    .cloud-scan-video {
+      width: 100%;
+      background: #000;
+      margin: 0.35rem 0 0.6rem;
+    }
 
     .confirm-overlay {
       position: fixed;
@@ -765,10 +809,15 @@
     }
     .notify-unblock li + li { margin-top: 0.25rem; }
     .notify-settings-link {
-      display: inline-block;
-      margin-top: 0.35rem;
+      display: block;
+      margin-top: 0.45rem;
       font-style: italic;
       color: var(--ink);
       text-decoration: underline;
       text-underline-offset: 0.15em;
     }
+    #notify-recheck {
+      width: 100%;
+      margin-top: 0.55rem;
+    }
+    #notify-recheck[hidden] { display: none !important; }

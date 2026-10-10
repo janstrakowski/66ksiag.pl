@@ -30,28 +30,63 @@ export async function ensureServiceWorker() {
   }
 }
 
-export async function ensureNotifyPermission() {
+/**
+ * W TWA z delegacją Chrome pokazuje „Notifications managed by 66ksiąg”.
+ * Wtedy Notification.permission bywa „denied”, mimo że Android zezwala —
+ * próbujemy faktycznie wysłać (probe).
+ */
+export async function effectiveNotifyPermission({ allowDelegatedProbe = false } = {}) {
   if (typeof Notification === "undefined") return "unsupported";
   await ensureServiceWorker();
   if (Notification.permission === "granted") return "granted";
-  if (Notification.permission === "denied") return "denied";
-  return Notification.requestPermission();
+  if (Notification.permission === "default") {
+    return Notification.requestPermission();
+  }
+  // denied
+  if (allowDelegatedProbe) {
+    const delivered = await showSystemNotify("66ksiąg", "·", "ksiag-probe", "pl", {
+      ignorePermissionGate: true,
+      silent: true,
+    });
+    if (delivered) {
+      try {
+        const reg = await ensureServiceWorker();
+        const list = await reg?.getNotifications?.({ tag: "ksiag-probe" });
+        for (const n of list || []) n.close();
+      } catch {
+        /* ignore */
+      }
+      return "granted";
+    }
+  }
+  return "denied";
 }
 
-export async function showSystemNotify(title, body, tag = "ksiag-plan", lang = "pl") {
+export async function ensureNotifyPermission() {
+  return effectiveNotifyPermission({ allowDelegatedProbe: false });
+}
+
+export async function showSystemNotify(
+  title,
+  body,
+  tag = "ksiag-plan",
+  lang = "pl",
+  { ignorePermissionGate = false, silent = false } = {}
+) {
   if (!("Notification" in window)) return false;
-  if (Notification.permission !== "granted") return false;
+  if (!ignorePermissionGate && Notification.permission !== "granted") return false;
 
   const origin = typeof location !== "undefined" ? location.origin : "";
   const opts = {
     body,
     tag,
-    renotify: true,
+    renotify: !silent,
+    silent: !!silent,
     icon: `${origin}/assets/icon-192.png`,
     badge: `${origin}/assets/icon-192.png`,
     lang,
-    vibrate: [80, 40, 80],
   };
+  if (!silent) opts.vibrate = [80, 40, 80];
 
   const reg = await ensureServiceWorker();
   if (reg?.showNotification) {
@@ -80,32 +115,41 @@ export async function notifyStartReading(assignment, ui) {
   const body = ui?.minutesWithRange
     ? ui.minutesWithRange(assignment.minutes, assignment.range)
     : `${assignment.minutes} min · ${assignment.range}`;
-  return showSystemNotify(title, body, "ksiag-start", ui?.htmlLang || "pl");
+  const ignore = Notification.permission !== "granted";
+  return showSystemNotify(title, body, "ksiag-start", ui?.htmlLang || "pl", {
+    ignorePermissionGate: ignore,
+  });
 }
 
 export async function notifyProgress(pct, ui) {
   if (pct == null) return false;
   const lang = ui?.htmlLang || "pl";
+  const ignore = Notification.permission !== "granted";
   if (pct >= 100) {
     return showSystemNotify(
       ui?.planNav || "Plan dzienny",
       ui?.planFinished || "Przeczytałeś 100% dziennego planu.",
       "ksiag-progress",
-      lang
+      lang,
+      { ignorePermissionGate: ignore }
     );
   }
   const body = ui
     ? `${ui.bannerBefore}${pct}${ui.bannerAfter}`
     : `Przeczytałeś ${pct}% dziennego planu.`;
-  return showSystemNotify(ui?.planNav || "Plan dzienny", body, "ksiag-progress", lang);
+  return showSystemNotify(ui?.planNav || "Plan dzienny", body, "ksiag-progress", lang, {
+    ignorePermissionGate: ignore,
+  });
 }
 
 /** Potwierdzenie zaraz po włączeniu powiadomień w ustawieniach planu. */
 export async function notifyEnabledConfirm(ui) {
+  const ignore = Notification.permission !== "granted";
   return showSystemNotify(
     ui?.planNav || "Plan dzienny",
     ui?.notifyEnabledBody || "Powiadomienia włączone. Przypomnimy o czytaniu.",
     "ksiag-enabled",
-    ui?.htmlLang || "pl"
+    ui?.htmlLang || "pl",
+    { ignorePermissionGate: ignore }
   );
 }

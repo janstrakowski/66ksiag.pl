@@ -29,7 +29,56 @@ export function defaultPlan() {
     day: todayKey(),
     readToday: [],
     cursor: 0, // indeks w liście rozdziałów celu
+    owed: null, // ile rozdziałów zostało w dzisiejszej porcji (z zaległościami)
+    pile: null, // wielkość tej porcji po doliczeniu nowego dnia
+    beyond: false, // czytanie po skończonej porcji, tego samego dnia
+    doneToday: 0,
     startNotifiedDay: null, // dzień, w którym wysłano „Zacznij czytać…”
+  };
+}
+
+export function daysBetween(fromKey, toKey) {
+  const parse = (key) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key || "");
+    if (!m) return null;
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  };
+  const a = parse(fromKey);
+  const b = parse(toKey);
+  if (a == null || b == null) return 0;
+  return Math.max(0, Math.round((b - a) / 86400000));
+}
+
+/** Dolicza zaległe dni. Nieprzeczytana reszta zostaje, każdy nowy dzień dokłada jedną porcję. */
+export function accruePlan(plan, today = todayKey()) {
+  if (!plan?.enabled) {
+    if (!plan || plan.day === today) return plan;
+    return { ...plan, day: today, readToday: [], beyond: false, doneToday: 0 };
+  }
+  const quota = dailyQuota(plan);
+  let owed = plan.owed;
+  if (owed == null) {
+    const done = Math.min((plan.readToday || []).length, quota);
+    owed = Math.max(0, quota - done);
+  }
+  if (plan.day === today) {
+    const done = (plan.readToday || []).length;
+    return {
+      ...plan,
+      owed,
+      pile: plan.pile || owed + Math.min(done, quota),
+    };
+  }
+  const days = daysBetween(plan.day, today);
+  owed = Math.min(1189, owed + quota * days);
+  return {
+    ...plan,
+    owed,
+    pile: owed,
+    beyond: false,
+    readToday: [],
+    doneToday: 0,
+    day: today,
   };
 }
 
@@ -38,27 +87,72 @@ export function loadPlan() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultPlan();
     const p = { ...defaultPlan(), ...JSON.parse(raw) };
-    if (p.day !== todayKey()) {
-      p.day = todayKey();
-      p.readToday = [];
+    const accrued = accruePlan(p);
+    if (
+      accrued !== p &&
+      (accrued.day !== p.day || accrued.owed !== p.owed || accrued.beyond !== p.beyond)
+    ) {
+      savePlan(accrued, { silent: true });
     }
-    return p;
+    return accrued;
   } catch {
     return defaultPlan();
   }
 }
 
-export function savePlan(plan) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
+let planSaveHook = null;
+
+/** Wywołanie po lokalnym zapisie (nie przy cichym nadpisaniu z chmury). */
+export function onPlanSaved(fn) {
+  planSaveHook = fn;
 }
 
-/** Zeruje postęp (dziś + kursor), zostawia cel i ustawienia. */
-export function resetPlanProgress(plan) {
+export function savePlan(plan, opts) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
+  if (!opts?.silent) planSaveHook?.(plan);
+}
+
+/** Nowy zapis formularza: kursor na początku, dzisiejsza porcja od nowa. */
+export function armFreshPlan(plan) {
   const next = {
     ...plan,
     day: todayKey(),
     readToday: [],
     cursor: 0,
+    beyond: false,
+    doneToday: 0,
+  };
+  if (next.enabled) {
+    const q = dailyQuota(next);
+    next.owed = q;
+    next.pile = q;
+  } else {
+    next.owed = null;
+    next.pile = null;
+  }
+  return next;
+}
+
+/** Jedno zaliczenie w czytniku porcji. Zaległość maleje tylko, gdy jeszcze jest. */
+export function notePortionChapter(plan) {
+  if (!plan || plan.owed == null || plan.owed <= 0) return plan;
+  plan.owed -= 1;
+  plan.doneToday = (plan.doneToday || 0) + 1;
+  savePlan(plan);
+  return plan;
+}
+
+export function resetPlanProgress(plan) {
+  const quota = dailyQuota(plan);
+  const next = {
+    ...plan,
+    day: todayKey(),
+    readToday: [],
+    cursor: 0,
+    owed: plan.enabled ? quota : null,
+    pile: plan.enabled ? quota : null,
+    beyond: false,
+    doneToday: 0,
     startNotifiedDay: null,
   };
   savePlan(next);
@@ -79,13 +173,44 @@ export function dailyQuota(plan) {
   return Math.max(1, Math.round(Number(plan.chaptersPerDay) || 1));
 }
 
-/** Szacunek czasu czytania — etykietę formatuje UI (`copy.etaMinutes`). */
+/** Szacunek czasu czytania — w górę, co najmniej 1 min, gdy jest co czytać. */
 export function estimateMinutesFromVerses(verses) {
   const text = verses.map((v) => String(v.t || "").replace(/<[^>]+>/g, "")).join(" ");
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-  const mins = words / WPM;
-  if (mins < 1.5) return { minutes: 1, words };
-  return { minutes: Math.max(1, Math.round(mins)), words };
+  if (!words) return { minutes: 1, words: 0 };
+  return { minutes: Math.max(1, Math.ceil(words / WPM)), words };
+}
+
+/** Minuty porcji. `null`, gdy nie ma już nic do czytania — bez „0 min”. */
+export function readingMinutes(chapters, plan) {
+  const n = Number(chapters) || 0;
+  if (n <= 0) return null;
+  const quota = dailyQuota(plan);
+  const raw =
+    plan.mode === "time"
+      ? (Number(plan.minutesPerDay) / quota) * n
+      : n * AVG_CHAPTER_MIN;
+  return Math.max(1, Math.ceil(raw));
+}
+
+export function pileStatus(plan) {
+  const quota = dailyQuota(plan);
+  const owed = plan.owed == null ? Math.max(0, quota - (plan.readToday || []).length) : plan.owed;
+  const pile = plan.pile || Math.max(quota, owed);
+  const done = Math.max(0, pile - owed);
+  const behind = Math.max(0, pile - quota);
+  return { quota, owed, pile, done, behind };
+}
+
+/** Dzień domknięcia celu, licząc od dziś. Ułamek dnia to cały dzień. */
+export function planFinishDate(books, plan, today = new Date()) {
+  const list = buildChapterList(books, plan);
+  const remaining = Math.max(0, list.length - (plan.cursor || 0));
+  if (!remaining) return null;
+  const days = Math.max(1, Math.ceil(remaining / dailyQuota(plan)));
+  const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  d.setDate(d.getDate() + days - 1);
+  return d;
 }
 
 function goalBounds(books, plan) {
@@ -145,11 +270,16 @@ export function buildChapterList(books, plan) {
 
 export function isDailyPlanComplete(plan) {
   if (!plan.enabled) return false;
+  if (plan.owed != null) return plan.owed <= 0;
   return plan.readToday.length >= dailyQuota(plan);
 }
 
 export function progressPct(plan) {
   if (!plan.enabled) return null;
+  if (plan.owed != null && plan.pile) {
+    const done = Math.max(0, plan.pile - plan.owed);
+    return Math.min(100, Math.round((done / plan.pile) * 100));
+  }
   const q = dailyQuota(plan);
   const n = plan.readToday.length;
   return Math.min(100, Math.round((n / q) * 100));
@@ -211,7 +341,8 @@ export function isExtraCredit(plan, bookId, chapter) {
   const key = chapKey(bookId, chapter);
   const idx = plan.readToday.indexOf(key);
   if (idx < 0) return false;
-  return idx >= dailyQuota(plan);
+  const pile = plan.pile || dailyQuota(plan);
+  return idx >= pile;
 }
 
 export function nextUnreadInGoal(books, plan) {
@@ -340,13 +471,12 @@ export function todayAssignment(books, plan, toRoman) {
   const list = buildChapterList(books, plan);
   if (!list.length) return null;
 
-  const quota = dailyQuota(plan);
-  const done = plan.readToday.length;
-  if (done >= quota) {
-    return { done: true, minutes: 0, range: null, href: null, started: true };
+  const status = pileStatus(plan);
+  if (status.owed <= 0) {
+    return { done: true, minutes: null, range: null, href: null, started: true };
   }
 
-  const remaining = quota - done;
+  const remaining = status.owed;
   const target = nextMarkTarget(books, plan);
   if (!target) return null;
 
@@ -361,20 +491,15 @@ export function todayAssignment(books, plan, toRoman) {
   const end = refLabel(books, slice[slice.length - 1], toRoman);
   const range = start === end ? start : `${start}–${end}`;
 
-  let minutes;
-  if (plan.mode === "time") {
-    const per = Number(plan.minutesPerDay) / quota;
-    minutes = Math.max(1, Math.round(per * remaining));
-  } else {
-    minutes = Math.max(1, Math.round(remaining * AVG_CHAPTER_MIN));
-  }
-
   return {
     done: false,
-    started: done > 0,
-    minutes,
+    started: status.done > 0,
+    minutes: readingMinutes(slice.length, plan),
     range,
     chapters: slice.length,
-    href: `/czytaj/${target.book}/${target.chapter}`,
+    href: `/porcja/${target.book}/${target.chapter}`,
+    behind: status.behind,
+    owed: status.owed,
+    pile: status.pile,
   };
 }

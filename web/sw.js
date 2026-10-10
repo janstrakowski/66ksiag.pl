@@ -1,5 +1,5 @@
 /* Shell cache + Background Fetch (Scourby) → Cache Storage */
-const CACHE = "ksiag-v8";
+const CACHE = "ksiag-v11";
 const AUDIO_CACHE = "ksiag-scourby-mp3-v1";
 const SHELL = [
   "/",
@@ -8,6 +8,9 @@ const SHELL = [
   "/styles.css",
   "/app.js",
   "/plan.js",
+  "/place.js",
+  "/cloud.js",
+  "/vendor/uqr.js",
   "/notify.js",
   "/editions.js",
   "/i18n.js",
@@ -136,6 +139,7 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/api/")) return;
 
   // MP3 — Cache Storage z aplikacji / Background Fetch, nie shell precache
   if (url.pathname.endsWith(".mp3")) return;

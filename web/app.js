@@ -17,9 +17,18 @@ import {
   todayKey,
   resetPlanProgress,
   resetPlanAll,
+  onPlanSaved,
+  armFreshPlan,
+  notePortionChapter,
+  pileStatus,
+  readingMinutes,
+  planFinishDate,
 } from "./plan.js";
+import { loadPlace, rememberPlace } from "./place.js";
+import * as cloud from "./cloud.js";
 import {
   ensureNotifyPermission,
+  effectiveNotifyPermission,
   ensureServiceWorker,
   notifyStartReading,
   notifyProgress,
@@ -81,7 +90,8 @@ async function ensureAudioModule() {
 const DEFAULT_READ = { book: "01-gen", chapter: 1, verse: 1 };
 let edition = loadEditionChoice();
 let pendingAudioAutoplay = false;
-let audioMode = "idle"; // idle | plan | beyond
+let audioMode = "idle"; // idle | plan | portion | beyond | single
+let readerMode = null; // "read" | "portion" | null
 
 const audioEl = document.getElementById("scourby-audio");
 const audioBar = document.getElementById("audio-bar");
@@ -316,20 +326,36 @@ async function playChapterAudio(bookId, chapter, mode) {
   await audioPlayer.load(editionPath(), bookId, chapter);
 }
 
-function navigateToChapter(bookId, chapter, { autoplay = false } = {}) {
+function navigateToChapter(bookId, chapter, { autoplay = false, portion = false } = {}) {
   pendingAudioAutoplay = autoplay;
-  const path = `/czytaj/${bookId}/${chapter}`;
+  const inPortion = portion || audioMode === "plan" || audioMode === "portion";
+  const path = inPortion ? `/porcja/${bookId}/${chapter}` : `/czytaj/${bookId}/${chapter}`;
   history.pushState(null, "", path);
   route();
 }
 
 async function handleAudioChapterEnded({ bookId, chapter }) {
   if (!bookId || !chapter) return;
+  if (audioMode === "single") {
+    audioMode = "idle";
+    audioPlayer?.stop();
+    return;
+  }
+
   await creditChapterFromAudio(bookId, chapter);
 
   const books = window.__reader?.books || (await loadBooks());
   const copy = t(edition);
   plan = loadPlan();
+  if (audioMode === "plan" || audioMode === "portion") plan = notePortionChapter(plan);
+
+  if (audioMode === "portion" && plan.enabled) {
+    const next = nextMarkTarget(books, plan);
+    if (next) {
+      navigateToChapter(next.book, next.chapter, { autoplay: true, portion: true });
+      return;
+    }
+  }
 
   if (audioMode === "plan" && plan.enabled) {
     if (isDailyPlanComplete(plan)) {
@@ -372,18 +398,35 @@ function setCanonical(path) {
   canonical.setAttribute("href", `${location.origin}${path}`);
 }
 
+function portionStatusLine(books, current = plan) {
+  const copy = t(edition);
+  const finish = books ? planFinishDate(books, current) : null;
+  const finishText = finish ? copy.planFinish(finish) : "";
+  if (current.beyond) return [copy.beyondPlan, finishText].filter(Boolean).join(" · ");
+  const st = pileStatus(current);
+  if (st.owed <= 0) return "";
+  const mins = readingMinutes(st.owed, current);
+  return [
+    copy.pileProgress(st.done, st.pile),
+    st.behind > 0 ? copy.behindToday(st.behind, st.quota) : "",
+    mins ? copy.etaMinutes(mins) : "",
+    finishText,
+  ].filter(Boolean).join(" · ");
+}
+
 function refreshPlanBanner() {
   plan = loadPlan();
-  const pct = progressPct(plan);
-  if (pct === null || pct >= 100) {
+  const onPortion =
+    readerMode === "portion" && document.getElementById("reader").classList.contains("is-on");
+  if (!plan.enabled || !onPortion) {
     planBanner.hidden = true;
     document.body.classList.remove("has-plan-banner");
     return;
   }
-  const copy = t(edition);
-  planBanner.innerHTML = `${copy.bannerBefore}<span id="plan-banner-pct">${pct}</span>${copy.bannerAfter}`;
-  planBanner.hidden = false;
-  document.body.classList.add("has-plan-banner");
+  const text = portionStatusLine(window.__reader?.books, plan);
+  planBanner.textContent = text;
+  planBanner.hidden = !text;
+  document.body.classList.toggle("has-plan-banner", !!text);
 }
 
 function parseRoute(pathname) {
@@ -393,6 +436,14 @@ function parseRoute(pathname) {
   if (parts.length === 0) return { name: edition ? "home" : "pick" };
   if (parts[0] === "ksiegi" || parts[0] === "books") return { name: "books" };
   if (parts[0] === "plan") return { name: "plan" };
+  if (parts[0] === "synchronizacja" || parts[0] === "sync") return { name: "sync" };
+  if (parts[0] === "porcja" || parts[0] === "portion") {
+    return {
+      name: "portion",
+      bookKey: parts[1] || null,
+      chapter: parts[2] ? Number(parts[2]) : null,
+    };
+  }
 
   if (parts[0] === "czytaj" && parts[1]) {
     return {
@@ -489,7 +540,7 @@ function updateMarkReadUi(bookId, chapter, books = window.__reader?.books) {
 }
 
 /** Buduje całe folio jako jeden HTML, potem jedna podmiana — bez pustego layoutu. */
-function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy }) {
+function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy, portion = false }) {
   const est = estimateMinutesFromVerses(data.verses);
   const wrapWords = editionSupportsAudio();
   const versesHtml = data.verses
@@ -498,15 +549,19 @@ function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy })
       return `<li data-v="${v.n}" class="${sel.trim()}"><span class="n">${v.n}</span>${verseHtml(v.t, wrapWords)}</li>`;
     })
     .join("");
-  const prev =
-    chapter > 1
+  const prev = portion
+    ? ""
+    : chapter > 1
       ? `<a class="tablet ital" href="/czytaj/${book.id}/${chapter - 1}">← Cap. ${toRoman(chapter - 1)}</a>`
       : `<span></span>`;
-  const next =
-    chapter < book.chapters
+  const next = portion
+    ? ""
+    : chapter < book.chapters
       ? `<a class="tablet ital" href="/czytaj/${book.id}/${chapter + 1}">Cap. ${toRoman(chapter + 1)} →</a>`
       : nextBookLink(books, book);
-  const mark = computeMarkReadUi(book.id, chapter, books);
+  const mark = portion
+    ? { hidden: false, classes: [], text: copy.chapterDone }
+    : { hidden: true, classes: [], text: copy.markRead };
   const markClass = ["chapter-done", ...mark.classes].join(" ");
   const showAudio = editionSupportsAudio() && hasAudio;
   const stopHidden = audioPlayer?.current?.()?.playing ? "" : " hidden";
@@ -532,7 +587,7 @@ function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy })
           <div class="${markClass}" id="chapter-done"${mark.hidden ? " hidden" : ""}>
             <button type="button" class="tablet" id="mark-read-btn">${escapeHtml(mark.text)}</button>
           </div>
-          <div class="folio-nav" id="folio-nav">${prev}${next}</div>`;
+          <div class="folio-nav" id="folio-nav"${portion ? " hidden" : ""}>${prev}${next}</div>`;
 
   document.querySelector("#reader .moulding-inner.reader").innerHTML = html;
   selectedVerse = verse;
@@ -540,11 +595,21 @@ function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy })
   return { showAudio };
 }
 
-async function renderReader(route) {
+async function askContinuePortion() {
+  const copy = t(edition);
+  return askConfirm(copy.portionDoneTitle, copy.portionDoneBody, {
+    ok: copy.portionContinue,
+    cancel: copy.portionHome,
+  });
+}
+
+async function renderReader(route, { portion = false } = {}) {
   if (!edition) return renderPick();
   const gen = ++readerLoadGen;
+  readerMode = portion ? "portion" : "read";
   const copy = t(edition);
   const folio = document.querySelector("#reader .moulding-inner.reader");
+  document.getElementById("reader").classList.toggle("is-plan", portion);
 
   try {
     // Równolegle: books + domysł rozdziału (gdy bookKey == id)
@@ -563,19 +628,51 @@ async function renderReader(route) {
     const [books, earlyData, hasAudio] = await Promise.all([booksP, earlyChapterP, audioPrepP]);
     if (gen !== readerLoadGen) return;
 
-    const book = resolveBook(books, route.bookKey);
-    if (!book) throw new Error(copy.unknownBook(route.bookKey));
-
-    const chapter = route.chapter;
+    plan = loadPlan();
+    let book;
+    let chapter;
+    if (portion) {
+      if (!plan.enabled) {
+        history.replaceState(null, "", "/");
+        readerMode = null;
+        return renderHome();
+      }
+      const finished = plan.owed != null && plan.owed <= 0 && !plan.beyond;
+      const target = nextMarkTarget(books, plan);
+      if (!target) {
+        history.replaceState(null, "", "/");
+        readerMode = null;
+        return renderHome();
+      }
+      if (finished) {
+        const stay = await askContinuePortion();
+        if (gen !== readerLoadGen) return;
+        if (!stay) {
+          history.replaceState(null, "", "/");
+          readerMode = null;
+          return renderHome();
+        }
+        plan.beyond = true;
+        savePlan(plan);
+      }
+      book = resolveBook(books, target.book);
+      chapter = target.chapter;
+    } else {
+      book = resolveBook(books, route.bookKey);
+      chapter = route.chapter;
+    }
+    if (!book) throw new Error(copy.unknownBook(route.bookKey || ""));
     if (!chapter || chapter < 1 || chapter > book.chapters) {
       throw new Error(copy.missingChapter(chapter));
     }
 
     const canonPath = `${editionPath()}/${book.id}/${chapter}`;
-    const nice = `/czytaj/${book.id}/${chapter}${route.verse ? `/${route.verse}` : ""}`;
+    const nice = portion
+      ? `/porcja/${book.id}/${chapter}`
+      : `/czytaj/${book.id}/${chapter}${route.verse ? `/${route.verse}` : ""}`;
 
     let data = earlyData;
-    if (data && book.id === route.bookKey) {
+    if (data && book.id === route.bookKey && chapter === Number(route.chapter)) {
       rememberChapter(`${canonPath}.json`, data);
     } else {
       try {
@@ -592,10 +689,12 @@ async function renderReader(route) {
     }
 
     // Poprzedni ekran zostaje widoczny, aż tu jest komplet — potem jeden reveal
-    document.querySelector("#reader .topbar .linkish").textContent = copy.backBooks;
+    const back = document.getElementById("reader-back");
+    back.href = portion ? "/" : "/ksiegi";
+    back.textContent = portion ? copy.backTitle : copy.backBooks;
     document.getElementById("share-btn").textContent = copy.share;
     document.querySelector('#reader a[href="/plan"]').textContent = copy.plan;
-    setCanonical(route.verse ? `${canonPath}/${route.verse}` : canonPath);
+    setCanonical(portion ? canonPath : route.verse ? `${canonPath}/${route.verse}` : canonPath);
     if (location.pathname !== nice) {
       history.replaceState(null, "", nice);
     }
@@ -605,11 +704,14 @@ async function renderReader(route) {
       chapter,
       data,
       books,
-      verse: route.verse,
+      verse: portion ? null : route.verse,
       hasAudio,
       copy,
+      portion,
     });
+    if (!portion) rememberPlace(edition.id, book.id, chapter);
     show("reader");
+    refreshPlanBanner();
 
     // Prefetch sąsiadów — kolejna nawigacja z cache
     if (chapter > 1) prefetchChapter(`${editionPath()}/${book.id}/${chapter - 1}`);
@@ -618,13 +720,16 @@ async function renderReader(route) {
 
     if (pendingAudioAutoplay && showAudio) {
       pendingAudioAutoplay = false;
-      const mode = audioMode === "plan" || audioMode === "beyond" ? audioMode : "beyond";
+      let mode = audioMode;
+      if (mode !== "plan" && mode !== "beyond" && mode !== "portion") {
+        mode = portion ? (plan.beyond ? "portion" : "plan") : "single";
+      }
       playChapterAudio(book.id, chapter, mode).catch(() => flash(t(edition).audioUnavailable));
     } else {
       pendingAudioAutoplay = false;
     }
 
-    if (route.verse) {
+    if (!portion && route.verse) {
       const el = document.querySelector(`#verses li[data-v="${route.verse}"]`);
       if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     }
@@ -693,69 +798,101 @@ function isInstalledDisplay() {
   );
 }
 
-/**
- * Link do ustawień powiadomień.
- * TWA blokuje surowe intent:android.settings.* — celujemy w Activity w APK
- * (ksiag:// → pl.ksiag.app/.NotificationSettingsActivity).
- */
-function androidNotificationSettingsHref() {
-  return "intent://notification-settings#Intent;scheme=ksiag;package=pl.ksiag.app;end";
+/** Deep linki do Activity w APK (TWA nie otwiera surowych intent:settings). */
+function ksiagIntentHref(host) {
+  return `intent://${host}#Intent;scheme=ksiag;package=pl.ksiag.app;end`;
 }
 
-function wireAndroidSettingsLink(androidLink, label) {
-  if (!androidLink) return;
-  androidLink.hidden = false;
-  androidLink.textContent = label || androidLink.textContent;
-  androidLink.href = androidNotificationSettingsHref();
-  androidLink.setAttribute("rel", "noopener");
+function wireKsiagLink(el, host, label) {
+  if (!el) return;
+  el.hidden = false;
+  if (label) el.textContent = label;
+  el.href = ksiagIntentHref(host);
+  el.setAttribute("rel", "noopener");
 }
 
-function syncNotifyPermissionUi() {
+function hideNotifyHelpLinks() {
+  for (const id of ["notify-android-settings", "notify-site-settings", "notify-recheck"]) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  }
+}
+
+function isTwaLike() {
+  return isAndroidDevice() && isInstalledDisplay();
+}
+
+async function syncNotifyPermissionUi() {
   const blocked = document.getElementById("notify-blocked");
   const hint = document.getElementById("notify-hint");
   const androidLink = document.getElementById("notify-android-settings");
+  const siteLink = document.getElementById("notify-site-settings");
+  const recheckBtn = document.getElementById("notify-recheck");
   const wanted = document.getElementById("plan-notify-on").checked;
   const pc = planCopy(edition);
   if (!("Notification" in window)) {
     blocked.hidden = true;
-    if (androidLink) androidLink.hidden = true;
+    hideNotifyHelpLinks();
     hint.textContent = pc.notifyUnsupported;
     return;
   }
-  if (wanted && Notification.permission === "denied") {
+
+  // TWA: „managed by app” — nie ufaj samym permission===denied; sprawdź dostawę
+  let blockedByBrowser = wanted && Notification.permission === "denied";
+  if (blockedByBrowser && isTwaLike()) {
+    const eff = await effectiveNotifyPermission({ allowDelegatedProbe: true });
+    if (eff === "granted") blockedByBrowser = false;
+  }
+
+  if (blockedByBrowser) {
     blocked.hidden = false;
     hint.textContent = pc.notifyBlockedWanted;
-    const useApp = isAndroidDevice() && isInstalledDisplay();
     const titleEl = document.querySelector("[data-i18n-blocked-title]");
     const extraEl = document.querySelector("[data-i18n-blocked-extra]");
     const stepsEl = document.querySelector("[data-i18n-blocked-steps]");
-    if (useApp) {
+    if (isAndroidDevice()) {
       if (titleEl) titleEl.textContent = pc.blockedTitleApp || pc.blockedTitle;
       if (extraEl) extraEl.textContent = pc.blockedExtraApp || pc.blockedExtra;
       if (stepsEl && pc.blockedStepsApp) {
         stepsEl.innerHTML = pc.blockedStepsApp.map((s) => `<li>${s}</li>`).join("");
       }
-      wireAndroidSettingsLink(androidLink, pc.blockedAndroidLink);
-    } else if (isAndroidDevice()) {
-      // Chrome w przeglądarce (nie TWA) — też pokaż link; custom scheme zadziała po zainstalowaniu APK
-      if (titleEl) titleEl.textContent = pc.blockedTitleApp || pc.blockedTitle;
-      if (extraEl) extraEl.textContent = pc.blockedExtraApp || pc.blockedExtra;
-      if (stepsEl && pc.blockedStepsApp) {
-        stepsEl.innerHTML = pc.blockedStepsApp.map((s) => `<li>${s}</li>`).join("");
+      // Priorytet: ustawienia Androida (delegacja TWA)
+      wireKsiagLink(androidLink, "notification-settings", pc.blockedAndroidLink);
+      wireKsiagLink(siteLink, "site-settings", pc.blockedSiteLink);
+      if (recheckBtn) {
+        recheckBtn.hidden = false;
+        recheckBtn.textContent = pc.notifyRecheck || "Sprawdź ponownie";
       }
-      wireAndroidSettingsLink(androidLink, pc.blockedAndroidLink);
     } else {
       if (titleEl) titleEl.textContent = pc.blockedTitle;
       if (extraEl) extraEl.textContent = pc.blockedExtra;
       if (stepsEl && pc.blockedSteps) {
         stepsEl.innerHTML = pc.blockedSteps.map((s) => `<li>${s}</li>`).join("");
       }
-      if (androidLink) androidLink.hidden = true;
+      hideNotifyHelpLinks();
     }
   } else {
     blocked.hidden = true;
-    if (androidLink) androidLink.hidden = true;
+    hideNotifyHelpLinks();
     hint.textContent = pc.notifyHint;
+  }
+}
+
+async function recheckNotifyPermission() {
+  const pc = planCopy(edition);
+  const perm = await effectiveNotifyPermission({ allowDelegatedProbe: isTwaLike() });
+  await syncNotifyPermissionUi();
+  if (perm === "granted") {
+    const shown = await notifyEnabledConfirm(t(edition));
+    flash(shown ? pc.notifyEnabledFlash : pc.notifyFailedFlash);
+    try {
+      const books = await loadBooks();
+      await maybeNotifyStart(books, { force: true });
+    } catch {
+      /* ignore */
+    }
+  } else if (perm === "denied") {
+    flash(pc.notifyDeniedFlash);
   }
 }
 
@@ -764,7 +901,9 @@ async function maybeNotifyStart(books, { force = false } = {}) {
   if (!notificationsWanted(plan)) return false;
   if (!force && plan.startNotifiedDay === todayKey()) return false;
   if (isDailyPlanComplete(plan)) return false;
-  if (!("Notification" in window) || Notification.permission !== "granted") return false;
+  if (!("Notification" in window)) return false;
+  const perm = await effectiveNotifyPermission({ allowDelegatedProbe: isTwaLike() });
+  if (perm !== "granted") return false;
   const asg = todayAssignment(books, plan, toRoman);
   // force: po włączeniu w ustawieniach — także gdy już zaczął czytać (continue)
   if (!asg || asg.done) return false;
@@ -777,44 +916,89 @@ async function maybeNotifyStart(books, { force = false } = {}) {
   return ok;
 }
 
+function paintHomeColophon(copy) {
+  const el = document.getElementById("home-colophon");
+  el.replaceChildren();
+  if (!copy.homeSourceUrl) {
+    el.textContent = copy.homeColophon;
+    return;
+  }
+  el.append(document.createTextNode(`${copy.homeColophon} · `));
+  const a = document.createElement("a");
+  a.href = copy.homeSourceUrl;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.textContent = copy.homeSourceName;
+  el.append(a);
+}
+
+function paintOrdinaryRead(el, books) {
+  const copy = t(edition);
+  const place = loadPlace(edition.id);
+  const book = place && books?.find((b) => b.id === place.book);
+  if (place && book) {
+    el.href = `/czytaj/${place.book}/${place.chapter}`;
+    el.innerHTML = `<span class="cta-main">${copy.continueRead}</span><span class="cta-sub">${escapeHtml(book.name)} ${toRoman(place.chapter)}</span>`;
+    return;
+  }
+  el.href = `/czytaj/${DEFAULT_READ.book}/${DEFAULT_READ.chapter}`;
+  el.innerHTML = `<span class="cta-main">${copy.startRead}</span><span class="cta-sub">${copy.startGenesis}</span>`;
+}
+
+function paintPortionCta(el, books) {
+  const copy = t(edition);
+  if (!plan.enabled) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  const asg = todayAssignment(books, plan, toRoman);
+  const finish = planFinishDate(books, plan);
+  const finishText = finish ? copy.planFinish(finish) : "";
+  if (!asg || asg.done) {
+    el.href = "/porcja";
+    el.dataset.finished = plan.beyond ? "" : "1";
+    el.innerHTML = `<span class="cta-main">${copy.homePlanDone}</span><span class="cta-sub">${escapeHtml(finishText || copy.portionContinue)}</span>`;
+    return;
+  }
+  el.dataset.finished = "";
+  el.href = asg.href;
+  const today = asg.pile - asg.behind;
+  const sub = [
+    asg.behind > 0 ? copy.behindToday(asg.behind, today) : "",
+    asg.minutes ? copy.etaMinutes(asg.minutes) : "",
+    asg.range || "",
+    finishText,
+  ].filter(Boolean).join(" · ");
+  el.innerHTML = `<span class="cta-main">${copy.homePlan}</span><span class="cta-sub">${escapeHtml(sub)}</span>`;
+}
+
 async function renderHome() {
   if (!edition) return renderPick();
   applyTheme();
   const copy = t(edition);
   const cta = document.getElementById("home-read-cta");
+  const portionCta = document.getElementById("home-plan-cta");
 
-  // CTA i audio — policz zanim pokażemy home
   try {
     const books = await loadBooks();
     plan = loadPlan();
-    if (plan.enabled) {
-      await maybeNotifyStart(books);
-      const asg = todayAssignment(books, plan, toRoman);
-      if (asg && !asg.done) {
-        setStartCta(cta, asg);
-      } else if (asg?.done) {
-        const next = nextMarkTarget(books, plan);
-        cta.href = next
-          ? `/czytaj/${next.book}/${next.chapter}`
-          : `/czytaj/${DEFAULT_READ.book}/${DEFAULT_READ.chapter}`;
-        cta.innerHTML = `<span class="cta-main">${copy.planDone}</span><span class="cta-sub">${copy.readOn}</span>`;
-      } else {
-        setStartCta(cta, null);
-      }
-    } else {
-      setStartCta(cta, null);
-    }
+    paintOrdinaryRead(cta, books);
+    paintPortionCta(portionCta, books);
+    if (plan.enabled) await maybeNotifyStart(books);
   } catch {
-    setStartCta(cta, null);
+    paintOrdinaryRead(cta, null);
+    if (portionCta) portionCta.hidden = true;
   }
 
   document.getElementById("home-eyebrow").textContent = copy.homeEyebrow;
   document.getElementById("home-title").textContent = copy.homeTitle;
   document.getElementById("home-sub").innerHTML = copy.homeSub;
   document.getElementById("home-meta").textContent = copy.homeMeta;
-  document.getElementById("home-colophon").textContent = copy.homeColophon;
+  paintHomeColophon(copy);
   document.getElementById("home-books").textContent = copy.booksLink;
   document.getElementById("home-plan").textContent = copy.planLink;
+  document.getElementById("home-sync").textContent = copy.syncLink;
   document.getElementById("home-change-edition").textContent = copy.changeEdition;
 
   const continueBtn = document.getElementById("home-audio-continue");
@@ -921,22 +1105,24 @@ async function renderPlan() {
   }
   syncPlanFormUi();
 
+  const eta = document.getElementById("plan-eta");
   if (plan.enabled) {
+    const line = portionStatusLine(books, plan);
+    eta.hidden = !line;
+    eta.textContent = line;
     const asg = todayAssignment(books, plan, toRoman);
-    if (asg && !asg.done) {
-      setStartCta(cont, asg);
-      cont.hidden = false;
-    } else if (asg?.done) {
-      const next = nextMarkTarget(books, plan);
-      cont.hidden = !next;
-      if (next) {
-        cont.href = `/czytaj/${next.book}/${next.chapter}`;
-        cont.innerHTML = `<span class="cta-main">${pc.planDone}</span><span class="cta-sub">${pc.readOn}</span>`;
-      }
-    } else {
-      cont.hidden = true;
+    const next = nextMarkTarget(books, plan);
+    cont.hidden = !next;
+    if (next) {
+      cont.href = asg && !asg.done ? asg.href : "/porcja";
+      const sub = asg && !asg.done
+        ? [asg.minutes ? pc.etaMinutes(asg.minutes) : "", asg.range || ""].filter(Boolean).join(" · ")
+        : pc.portionContinue;
+      const main = asg && !asg.done ? (asg.started ? pc.continueRead : pc.startRead) : pc.homePlanDone;
+      cont.innerHTML = `<span class="cta-main">${main}</span><span class="cta-sub">${escapeHtml(sub)}</span>`;
     }
   } else {
+    eta.hidden = true;
     setStartCta(cont, null);
     cont.hidden = false;
   }
@@ -945,14 +1131,182 @@ async function renderPlan() {
   show("plan");
 }
 
+async function renderSync() {
+  if (!edition) return renderPick();
+  const pc = planCopy(edition);
+  document.querySelector("#sync .topbar strong").textContent = pc.syncNav;
+  document.querySelector("#sync .topbar .linkish").textContent = t(edition).titleCard;
+  document.querySelector("#sync .index-head .label").textContent = pc.cloudTitle;
+  document.querySelectorAll("#sync [data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (typeof pc[key] === "string") el.textContent = pc[key];
+  });
+  setCanonical("/synchronizacja");
+  show("sync");
+  await renderCloudPanel();
+}
+
+let pendingCloud = null;
+let lastCloudPull = 0;
+let cloudQrGen = 0;
+let scanStream = null;
+let scanTimer = null;
+let lastCloudToast = "";
+
+function cloudStatusText(code) {
+  const pc = planCopy(edition);
+  return (
+    {
+      saved: pc.cloudStatusSaved,
+      joined: pc.cloudStatusJoined,
+      uploaded: pc.cloudStatusUploaded,
+      offline: pc.cloudStatusOffline,
+      bad: pc.cloudStatusBad,
+      error: pc.cloudStatusError,
+    }[code] || ""
+  );
+}
+
+async function renderCloudPanel() {
+  const gen = ++cloudQrGen;
+  const state = cloud.loadCloud();
+  const box = document.getElementById("cloud-enabled");
+  const panel = document.getElementById("cloud-panel");
+  if (!box || !panel) return;
+  if (box.checked !== !!state.enabled) box.checked = !!state.enabled;
+  const show = !!(state.enabled && state.token);
+  panel.hidden = !show;
+  const scanBtn = document.getElementById("cloud-scan");
+  if (scanBtn) scanBtn.hidden = !("BarcodeDetector" in window);
+  if (!show) return;
+  document.getElementById("cloud-code").textContent = cloud.formatToken(state.token);
+  const status = document.getElementById("cloud-status");
+  if (status) status.textContent = cloudStatusText(cloud.lastSyncStatus());
+  const host = document.getElementById("cloud-qr");
+  host.setAttribute("aria-label", planCopy(edition).cloudQr);
+  try {
+    const svg = await cloud.qrSvg(cloud.pairingUrl(state.token));
+    if (gen !== cloudQrGen) return;
+    host.innerHTML = svg;
+  } catch {
+    if (gen === cloudQrGen) host.replaceChildren();
+  }
+}
+
+async function joinCloud(raw) {
+  const books = await loadBooks();
+  const status = await cloud.joinToken(raw, books);
+  plan = loadPlan();
+  const text = cloudStatusText(status);
+  if (text) flash(text);
+  return status;
+}
+
+async function consumeCloudHash() {
+  const fromHash = cloud.tokenFromHash(location.hash);
+  if (fromHash) history.replaceState(null, "", location.pathname + location.search);
+  const token = fromHash || pendingCloud;
+  if (!token) return false;
+  if (!edition) {
+    pendingCloud = token;
+    return false;
+  }
+  pendingCloud = null;
+  await joinCloud(token);
+  return true;
+}
+
+async function refreshCloud({ force = false } = {}) {
+  if (!edition || !cloud.isEnabled()) return "off";
+  const now = Date.now();
+  if (!force && now - lastCloudPull < 15000) return "skip";
+  lastCloudPull = now;
+  try {
+    const books = await loadBooks();
+    const status = await cloud.pull(books);
+    if (status === "remote") plan = loadPlan();
+    return status;
+  } catch {
+    lastCloudPull = 0;
+    return "error";
+  }
+}
+
+function stopCloudScan() {
+  clearTimeout(scanTimer);
+  scanTimer = null;
+  if (scanStream) {
+    for (const track of scanStream.getTracks()) track.stop();
+    scanStream = null;
+  }
+  const video = document.getElementById("cloud-scan-video");
+  if (video) video.srcObject = null;
+  const overlay = document.getElementById("cloud-scan-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+async function startCloudScan() {
+  if (!("BarcodeDetector" in window) || !navigator.mediaDevices?.getUserMedia) {
+    flash(planCopy(edition).cloudScanUnavailable);
+    return;
+  }
+  const overlay = document.getElementById("cloud-scan-overlay");
+  const video = document.getElementById("cloud-scan-video");
+  const title = document.getElementById("cloud-scan-title");
+  const pc = planCopy(edition);
+  if (title) title.textContent = pc.cloudScan;
+  const closeBtn = document.getElementById("cloud-scan-close");
+  if (closeBtn) closeBtn.textContent = pc.cloudScanClose;
+  overlay.hidden = false;
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false,
+    });
+  } catch {
+    stopCloudScan();
+    flash(pc.cloudScanUnavailable);
+    return;
+  }
+  video.srcObject = scanStream;
+  await video.play();
+  const detector = new BarcodeDetector({ formats: ["qr_code"] });
+  const tick = async () => {
+    if (overlay.hidden) return;
+    try {
+      const codes = await detector.detect(video);
+      const raw = codes[0]?.rawValue;
+      if (raw && cloud.parseToken(raw)) {
+        stopCloudScan();
+        const status = await joinCloud(raw);
+        if (status === "joined" || status === "uploaded") {
+          refreshPlanBanner();
+          await renderSync();
+        }
+        return;
+      }
+    } catch {
+      /* klatka jeszcze niegotowa */
+    }
+    scanTimer = setTimeout(tick, 280);
+  };
+  tick();
+}
+
 async function route() {
-  refreshPlanBanner();
+  await consumeCloudHash();
   const r = parseRoute(location.pathname);
+  await refreshCloud({ force: r.name === "plan" || r.name === "sync" });
+  plan = loadPlan();
+  readerMode = r.name === "portion" ? "portion" : r.name === "reader" ? "read" : null;
+  refreshPlanBanner();
   if (!edition && r.name !== "pick") return renderPick();
   if (r.name === "pick") return renderPick();
   if (r.name === "books") return renderBooks();
   if (r.name === "reader") return renderReader(r);
+  if (r.name === "portion") return renderReader(r, { portion: true });
   if (r.name === "plan") return renderPlan();
+  if (r.name === "sync") return renderSync();
   return renderHome();
 }
 
@@ -965,31 +1319,50 @@ document.getElementById("reader").addEventListener("click", async (e) => {
     selectedVerse = n;
     document.querySelectorAll("#verses li").forEach((x) => x.classList.remove("is-sel"));
     li.classList.add("is-sel");
-    const path = `/czytaj/${ctx.book.id}/${ctx.chapter}/${n}`;
+    const path = readerMode === "portion"
+      ? `/porcja/${ctx.book.id}/${ctx.chapter}`
+      : `/czytaj/${ctx.book.id}/${ctx.chapter}/${n}`;
     history.replaceState(null, "", path);
-    setCanonical(`${editionPath()}/${ctx.book.id}/${ctx.chapter}/${n}`);
+    setCanonical(
+      readerMode === "portion"
+        ? `${editionPath()}/${ctx.book.id}/${ctx.chapter}`
+        : `${editionPath()}/${ctx.book.id}/${ctx.chapter}/${n}`
+    );
     return;
   }
 
   if (e.target.closest("#mark-read-btn")) {
     const ctx = window.__reader;
-    if (!ctx || !plan.enabled) return;
+    if (!ctx || readerMode !== "portion" || !plan.enabled) return;
     const result = markChapterRead(plan, ctx.book.id, ctx.chapter, ctx.books);
     plan = result.plan;
     if (result.kind === "already" || result.kind === "off" || result.kind === "skip") return;
     plan = advanceCursor(plan, ctx.books);
-    updateMarkReadUi(ctx.book.id, ctx.chapter, ctx.books);
+    plan = notePortionChapter(plan);
     refreshPlanBanner();
     const pct = progressPct(plan);
-    const copy = t(edition);
-    if (result.kind === "extra") {
-      flash(copy.beyondPlan);
-      return;
+    if (result.kind !== "extra" && notificationsWanted(plan) && pct != null) {
+      await notifyProgress(pct, t(edition));
     }
-    if (notificationsWanted(plan)) await notifyProgress(pct, copy);
-    if (pct >= 100) flash(copy.planFinished);
-    else flash(copy.planPct(pct));
-    return;
+    if (plan.owed != null && plan.owed <= 0 && !plan.beyond) {
+      const stay = await askContinuePortion();
+      if (!stay) {
+        history.pushState(null, "", "/");
+        readerMode = null;
+        refreshPlanBanner();
+        return renderHome();
+      }
+      plan.beyond = true;
+      savePlan(plan);
+    }
+    const next = nextMarkTarget(ctx.books, plan);
+    if (!next) {
+      history.pushState(null, "", "/");
+      readerMode = null;
+      return renderHome();
+    }
+    history.pushState(null, "", `/porcja/${next.book}/${next.chapter}`);
+    return renderReader({ name: "portion", bookKey: next.book, chapter: next.chapter }, { portion: true });
   }
 
   if (e.target.closest("#audio-play-btn")) {
@@ -1011,7 +1384,9 @@ document.getElementById("reader").addEventListener("click", async (e) => {
       return;
     }
     plan = loadPlan();
-    const mode = plan.enabled && !isDailyPlanComplete(plan) ? "plan" : "beyond";
+    const mode = readerMode === "portion"
+      ? (plan.beyond || isDailyPlanComplete(plan) ? "portion" : "plan")
+      : "single";
     try {
       await playChapterAudio(ctx.book.id, ctx.chapter, mode);
     } catch {
@@ -1058,6 +1433,9 @@ document.getElementById("share-btn").addEventListener("click", async () => {
 const planForm = document.getElementById("plan-form");
 planForm.addEventListener("change", syncPlanFormUi);
 planForm.addEventListener("input", syncPlanFormUi);
+document.getElementById("notify-recheck")?.addEventListener("click", () => {
+  recheckNotifyPermission().catch(() => {});
+});
 planForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(planForm);
@@ -1072,7 +1450,7 @@ planForm.addEventListener("submit", async (e) => {
   plan.chaptersPerDay = Number(fd.get("chaptersPerDay")) || 3;
   plan.minutesPerDay = Number(fd.get("minutesPerDay")) || 15;
   plan.notifications = fd.get("notifications") === "on";
-  plan.cursor = 0;
+  plan = armFreshPlan(plan);
 
   const pc = planCopy(edition);
   let justEnabledNotify = false;
@@ -1110,7 +1488,7 @@ planForm.addEventListener("submit", async (e) => {
   renderPlan();
 });
 
-function askConfirm(title, body) {
+function askConfirm(title, body, labels = {}) {
   const overlay = document.getElementById("confirm-overlay");
   const titleEl = document.getElementById("confirm-title");
   const bodyEl = document.getElementById("confirm-body");
@@ -1119,8 +1497,8 @@ function askConfirm(title, body) {
   const copy = t(edition);
   titleEl.textContent = title;
   bodyEl.textContent = body;
-  okBtn.textContent = copy.confirmOk;
-  cancelBtn.textContent = copy.confirmCancel;
+  okBtn.textContent = labels.ok || copy.confirmOk;
+  cancelBtn.textContent = labels.cancel || copy.confirmCancel;
   overlay.hidden = false;
   okBtn.focus();
 
@@ -1158,6 +1536,66 @@ document.getElementById("plan-reset-progress").addEventListener("click", async (
   renderPlan();
 });
 
+document.getElementById("cloud-enabled").addEventListener("change", async () => {
+  const on = document.getElementById("cloud-enabled").checked;
+  if (!on) {
+    cloud.disableCloud();
+    await renderCloudPanel();
+    return;
+  }
+  const had = !!cloud.loadCloud().token;
+  await cloud.enableCloud();
+  if (had) {
+    const books = await loadBooks();
+    const pulled = await cloud.pull(books);
+    if (pulled === "remote") {
+      plan = loadPlan();
+      refreshPlanBanner();
+      await renderSync();
+      return;
+    }
+  }
+  await renderCloudPanel();
+});
+
+document.getElementById("cloud-copy").addEventListener("click", async () => {
+  const state = cloud.loadCloud();
+  if (!state.token) return;
+  try {
+    await navigator.clipboard.writeText(cloud.formatToken(state.token));
+    flash(planCopy(edition).cloudCopied);
+  } catch {
+    flash(planCopy(edition).cloudStatusError);
+  }
+});
+
+document.getElementById("cloud-join").addEventListener("click", async () => {
+  const input = document.getElementById("cloud-join-input");
+  const status = await joinCloud(input.value);
+  if (status === "joined" || status === "uploaded") {
+    input.value = "";
+    refreshPlanBanner();
+    await renderSync();
+  }
+});
+
+document.getElementById("cloud-new").addEventListener("click", async () => {
+  const pc = planCopy(edition);
+  const ok = await askConfirm(pc.cloudNewTitle, pc.cloudNewBody);
+  if (!ok) return;
+  await cloud.rotateToken();
+  await renderCloudPanel();
+});
+
+document.getElementById("cloud-scan").addEventListener("click", () => {
+  startCloudScan().catch(() => flash(planCopy(edition).cloudScanUnavailable));
+});
+
+document.getElementById("cloud-scan-close").addEventListener("click", stopCloudScan);
+document.getElementById("cloud-scan-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "cloud-scan-overlay") stopCloudScan();
+});
+
 document.getElementById("plan-reset-all").addEventListener("click", async () => {
   const pc = planCopy(edition);
   const ok = await askConfirm(pc.resetAllTitle, pc.resetAllBody);
@@ -1172,6 +1610,19 @@ document.getElementById("pick-choices").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-pick]");
   if (!btn) return;
   selectEdition(btn.getAttribute("data-pick"));
+});
+
+document.getElementById("home-plan-cta").addEventListener("click", async (e) => {
+  if (e.currentTarget.dataset.finished !== "1") return;
+  e.preventDefault();
+  e.stopPropagation();
+  const stay = await askContinuePortion();
+  if (!stay) return;
+  plan = loadPlan();
+  plan.beyond = true;
+  savePlan(plan);
+  history.pushState(null, "", "/porcja");
+  route();
 });
 
 document.getElementById("home-change-edition").addEventListener("click", () => {
@@ -1332,6 +1783,21 @@ if (isDevHost()) {
     .then((m) => m.mountDevConsole())
     .catch((e) => console.warn("[66ksiąg] Dev console:", e));
 }
+
+onPlanSaved(() => {
+  cloud.schedulePush();
+});
+
+cloud.setStatusListener((code) => {
+  const text = cloudStatusText(code);
+  const el = document.getElementById("cloud-status");
+  if (el && text && !document.getElementById("cloud-panel")?.hidden) el.textContent = text;
+  if ((code === "offline" || code === "error") && text && code !== lastCloudToast) {
+    lastCloudToast = code;
+    flash(text);
+  }
+  if (code === "saved") lastCloudToast = "";
+});
 
 refreshPlanBanner();
 route();

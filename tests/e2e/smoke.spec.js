@@ -89,12 +89,13 @@ test.describe("daily plan", () => {
     await expect(page.locator("#toast")).toBeVisible({ timeout: 5000 });
     await page.goto("/czytaj/40-mat/1");
     await expect(page.locator("#reader")).toBeVisible();
-    // mark read if button visible (plan enabled)
-    const mark = page.locator("#mark-read-btn");
-    await expect(mark).toBeVisible();
-    await mark.click();
-    await expect(page.locator("#plan-banner")).toBeVisible();
-    await expect(page.locator("#plan-banner")).toContainText(/%/);
+    await expect(page.locator("#chapter-done")).toBeHidden();
+    await page.goto("/porcja");
+    await expect(page).toHaveURL(/\/porcja\/40-mat\/1$/);
+    await expect(page.locator("#mark-read-btn")).toBeVisible();
+    await expect(page.locator("#plan-banner")).toContainText(/0 z 2|0 of 2/);
+    await page.locator("#mark-read-btn").click();
+    await expect(page.locator("#plan-banner")).toContainText(/1 z 2|1 of 2/);
   });
 });
 

@@ -21,34 +21,43 @@ async function readToday(page) {
   });
 }
 
-test("mark button only on the next chapter after last credited", async ({ page }) => {
+test("the ordinary reader never shows the portion button", async ({ page }) => {
   await pickBg(page);
   await enablePlan(page, 1);
 
   await page.goto("/czytaj/01-gen/2");
   await expect(page.locator("#chapter-done")).toBeHidden();
-
   await page.goto("/czytaj/01-gen/1");
-  await expect(page.locator("#chapter-done")).toBeVisible();
-  await page.locator("#mark-read-btn").click();
-  await expect(page.locator("#plan-banner")).toBeHidden();
-
-  await page.goto("/czytaj/01-gen/5");
   await expect(page.locator("#chapter-done")).toBeHidden();
+  await expect(page.locator("#folio-nav")).toBeVisible();
 
-  await page.goto("/czytaj/01-gen/2");
+  await page.goto("/porcja");
+  await expect(page).toHaveURL(/\/porcja\/01-gen\/1$/);
   await expect(page.locator("#chapter-done")).toBeVisible();
-  await expect(page.locator("#mark-read-btn")).toContainText(/ponad plan|beyond/i);
-  await page.locator("#mark-read-btn").click();
-  await expect(page.locator("#mark-read-btn")).toContainText(/Przeczytany|Read\./i);
+  await expect(page.locator("#folio-nav")).toBeHidden();
+  await expect(page.locator("#reader-back")).toHaveAttribute("href", "/");
 });
 
-test("after reset mark button only on goal start, not chapter 2", async ({ page }) => {
+test("reading past the portion stays in the portion reader", async ({ page }) => {
   await pickBg(page);
   await enablePlan(page, 1);
 
-  await page.goto("/czytaj/01-gen/1");
+  await page.goto("/porcja");
   await page.locator("#mark-read-btn").click();
+  await expect(page.locator("#confirm-overlay")).toBeVisible();
+  await page.locator("#confirm-ok").click();
+  await expect(page).toHaveURL(/\/porcja\/01-gen\/2$/);
+  await expect(page.locator("#mark-read-btn")).toContainText(/Rozdział przeczytany|This chapter is read/i);
+  await expect(page.locator("#plan-banner")).toContainText(/Ponad plan|Beyond the portion/i);
+  await expect(page.locator("#plan-banner")).not.toContainText(/0 min/);
+});
+
+test("after reset the portion opens the goal start", async ({ page }) => {
+  await pickBg(page);
+  await enablePlan(page, 1);
+  await page.goto("/porcja");
+  await page.locator("#mark-read-btn").click();
+  await page.locator("#confirm-cancel").click();
 
   await page.goto("/plan");
   await page.locator("#plan-reset-progress").click();
@@ -57,10 +66,9 @@ test("after reset mark button only on goal start, not chapter 2", async ({ page 
 
   await page.goto("/czytaj/01-gen/2");
   await expect(page.locator("#chapter-done")).toBeHidden();
-
-  await page.goto("/czytaj/01-gen/1");
-  await expect(page.locator("#chapter-done")).toBeVisible();
-  await expect(page.locator("#mark-read-btn")).toContainText(/Oznacz|Mark|Reckon the chapter/i);
+  await page.goto("/porcja");
+  await expect(page).toHaveURL(/\/porcja\/01-gen\/1$/);
+  await expect(page.locator("#mark-read-btn")).toBeVisible();
 });
 
 test("folio next only navigates and does not mark the chapter", async ({ page }) => {
@@ -68,44 +76,38 @@ test("folio next only navigates and does not mark the chapter", async ({ page })
   await enablePlan(page, 2);
 
   await page.goto("/czytaj/01-gen/1");
-  await expect(page.locator("#chapter-done")).toBeVisible();
+  await expect(page.locator("#chapter-done")).toBeHidden();
   await page.locator("#folio-nav a[href='/czytaj/01-gen/2']").click();
   await expect(page).toHaveURL(/\/czytaj\/01-gen\/2$/);
-
   expect(await readToday(page)).toEqual([]);
   await expect(page.locator("#chapter-done")).toBeHidden();
-
-  await page.goto("/czytaj/01-gen/1");
-  await expect(page.locator("#chapter-done")).toBeVisible();
-  expect(await readToday(page)).toEqual([]);
 });
 
-test("home Continue goes to next after last marked, not last browsed", async ({ page }) => {
+test("home continue follows the last opened chapter, the portion follows the plan", async ({ page }) => {
   await pickBg(page);
   await enablePlan(page, 3);
 
-  await page.goto("/czytaj/01-gen/1");
+  await page.goto("/porcja");
   await page.locator("#mark-read-btn").click();
   expect(await readToday(page)).toEqual(["01-gen/1"]);
-  await expect(page.locator("#mark-read-btn")).toContainText(/Przeczytany|Read\./i);
 
-  // przeglądanie dalej bez oznaczania
   await page.goto("/czytaj/01-gen/5");
   await expect(page.locator("#chapter-done")).toBeHidden();
-  expect(await readToday(page)).toEqual(["01-gen/1"]);
 
   await page.goto("/");
-  const cta = page.locator("#home-read-cta");
-  await expect(cta.locator(".cta-main")).toContainText(/Kontynuuj|Go on/i);
-  await expect(cta).toHaveAttribute("href", "/czytaj/01-gen/2");
+  const read = page.locator("#home-read-cta");
+  await expect(read.locator(".cta-main")).toContainText(/Kontynuuj|Go on/i);
+  await expect(read).toHaveAttribute("href", "/czytaj/01-gen/5");
 
-  await cta.click();
-  await expect(page).toHaveURL(/\/czytaj\/01-gen\/2$/);
+  const portion = page.locator("#home-plan-cta");
+  await expect(portion).toHaveAttribute("href", /\/porcja\/01-gen\/2$/);
+  await portion.click();
+  await expect(page).toHaveURL(/\/porcja\/01-gen\/2$/);
   await expect(page.locator("#chapter-done")).toBeVisible();
-  await expect(page.locator("#mark-read-btn")).toContainText(/Oznacz|Account this chapter/i);
+  await expect(page.locator("#folio-nav")).toBeHidden();
 });
 
-test("outside goal range has no mark UI; credited in-range shows Przeczytany", async ({ page }) => {
+test("a New Testament goal opens that portion, not Genesis", async ({ page }) => {
   await pickBg(page);
   await page.goto("/plan");
   await page.locator("#plan-enabled").check();
@@ -117,16 +119,8 @@ test("outside goal range has no mark UI; credited in-range shows Przeczytany", a
   await page.goto("/czytaj/01-gen/1");
   await expect(page.locator("#chapter-done")).toBeHidden();
 
-  await page.goto("/czytaj/40-mat/1");
-  await expect(page.locator("#chapter-done")).toBeVisible();
+  await page.goto("/porcja");
+  await expect(page).toHaveURL(/\/porcja\/40-mat\/1$/);
   await page.locator("#mark-read-btn").click();
-  await expect(page.locator("#mark-read-btn")).toContainText(/Przeczytany|Read\./i);
-
-  await page.goto("/czytaj/40-mat/2");
-  await expect(page.locator("#chapter-done")).toBeVisible();
-  await page.locator("#mark-read-btn").click();
-
-  // wcześniejszy w zakresie nadal „Przeczytany.”
-  await page.goto("/czytaj/40-mat/1");
-  await expect(page.locator("#mark-read-btn")).toContainText(/Przeczytany|Read\./i);
+  await expect(page).toHaveURL(/\/porcja\/40-mat\/2$/);
 });

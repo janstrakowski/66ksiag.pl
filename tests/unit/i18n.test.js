@@ -19,6 +19,9 @@ describe("i18n", () => {
     expect(t(kjv).htmlLang).toBe("en");
     expect(t(bg).startRead).toMatch(/Zacznij|czytać/i);
     expect(t(kjv).startRead).toMatch(/Begin|read/i);
+    expect(t(bg).homeSourceUrl).toBe("https://github.com/UczenJezusa/biblia-druk-tekst");
+    expect(t(bg).homeSourceName).toBe("Uczeń Jezusa");
+    expect(t(kjv).homeSourceUrl).toBeUndefined();
   });
 
   it("eta and quota formatters differ by language", () => {
@@ -33,6 +36,10 @@ describe("i18n", () => {
     const en = planCopy(kjv);
     expect(pl.enablePlan).toBeTruthy();
     expect(en.enablePlan).toBeTruthy();
+    expect(pl.cloudHint).toMatch(/chmurze/);
+    expect(pl.cloudHint).toMatch(/szyfrowane/);
+    expect(en.cloudHint).toMatch(/cloud/i);
+    expect(en.cloudHint).toMatch(/ciphered/);
     expect(en.blockedSteps).toHaveLength(4);
     expect(pl.blockedSteps).toHaveLength(4);
     expect(en.audioDownloadProgress(1, 10, 10, "about 2 min left")).toMatch(/1/);

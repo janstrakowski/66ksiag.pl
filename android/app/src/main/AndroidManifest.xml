@@ -179,6 +179,21 @@
             </intent-filter>
         </activity>
 
+        <!-- ksiag://site-settings → ManageDataLauncherActivity (powiadomienia strony w Chrome/TWA) -->
+        <activity
+            android:name=".SiteSettingsActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ksiag" android:host="site-settings" />
+            </intent-filter>
+        </activity>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="@string/providerAuthority"
