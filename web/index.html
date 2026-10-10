@@ -34,7 +34,7 @@
               </button>
               <button type="button" class="tablet ital" data-pick="kjv-1769">
                 <span class="cta-main">King James Version</span>
-                <span class="cta-sub">English · 1611 style (WIP)</span>
+                <span class="cta-sub">English · after the manner of the 1611 (WIP)</span>
               </button>
             </div>
           </div>
@@ -82,33 +82,33 @@
           <form id="plan-form" class="plan-form">
             <label class="plan-check">
               <input type="checkbox" name="enabled" id="plan-enabled" />
-              Włącz dzienny plan
+              <span data-i18n="enablePlan">Włącz dzienny plan</span>
             </label>
 
             <fieldset>
-              <legend>Cel</legend>
+              <legend data-i18n="goal">Cel</legend>
               <label class="plan-radio">
                 <input type="radio" name="goal" value="bible" checked />
-                Cała Biblia
+                <span data-i18n="wholeBible">Cała Biblia</span>
               </label>
               <label class="plan-radio">
                 <input type="radio" name="goal" value="st" />
-                Stary Testament
+                <span data-i18n="oldTestament">Stary Testament</span>
               </label>
               <label class="plan-radio">
                 <input type="radio" name="goal" value="nt" />
-                Nowy Testament
+                <span data-i18n="newTestament">Nowy Testament</span>
               </label>
               <label class="plan-radio">
                 <input type="radio" name="goal" value="range" />
-                Zakres
+                <span data-i18n="range">Zakres</span>
               </label>
               <div class="plan-range" id="plan-range" hidden>
-                <label>Od
+                <label><span data-i18n="from">Od</span>
                   <select name="fromBook" id="plan-from-book"></select>
                   <input type="number" name="fromChapter" id="plan-from-ch" min="1" value="1" />
                 </label>
-                <label>Do
+                <label><span data-i18n="to">Do</span>
                   <select name="toBook" id="plan-to-book"></select>
                   <input type="number" name="toChapter" id="plan-to-ch" min="1" value="1" />
                 </label>
@@ -116,53 +116,53 @@
             </fieldset>
 
             <fieldset>
-              <legend>Dziennie</legend>
+              <legend data-i18n="daily">Dziennie</legend>
               <label class="plan-radio">
                 <input type="radio" name="mode" value="chapters" checked />
-                Liczba rozdziałów
+                <span data-i18n="byChapters">Liczba rozdziałów</span>
               </label>
               <label class="plan-field" id="field-chapters">
                 <input type="number" name="chaptersPerDay" id="plan-chapters" min="1" max="50" value="3" />
-                rozdz. / dzień
+                <span data-i18n="chaptersUnit">rozdz. / dzień</span>
               </label>
               <label class="plan-radio">
                 <input type="radio" name="mode" value="time" />
-                Czas czytania
+                <span data-i18n="byTime">Czas czytania</span>
               </label>
               <label class="plan-field" id="field-time" hidden>
                 <input type="number" name="minutesPerDay" id="plan-minutes" min="3" max="180" step="1" value="15" />
-                min / dzień
+                <span data-i18n="minutesUnit">min / dzień</span>
               </label>
               <p class="plan-hint" id="plan-preview">3 rozdz. / dzień</p>
-              <p class="plan-hint faint">Czas zaokrąglamy do pełnych rozdziałów (średnio ok. 3 min na rozdział).</p>
+              <p class="plan-hint faint" data-i18n="timeHint">Czas zaokrąglamy do pełnych rozdziałów (średnio ok. 3 min na rozdział).</p>
             </fieldset>
 
             <fieldset>
-              <legend>Powiadomienia</legend>
+              <legend data-i18n="notifications">Powiadomienia</legend>
               <label class="plan-radio">
                 <input type="radio" name="notifications" value="on" id="plan-notify-on" />
-                Włączone
+                <span data-i18n="on">Włączone</span>
               </label>
               <label class="plan-radio">
                 <input type="radio" name="notifications" value="off" id="plan-notify-off" checked />
-                Wyłączone
+                <span data-i18n="off">Wyłączone</span>
               </label>
-              <p class="plan-hint faint" id="notify-hint">
+              <p class="plan-hint faint" id="notify-hint" data-i18n="notifyHint">
                 Przypomnienie „Zacznij czytać…” oraz postęp „Przeczytałeś …%”.
               </p>
               <div class="notify-blocked" id="notify-blocked" hidden>
-                <p class="plan-hint">Powiadomienia są zablokowane w przeglądarce.</p>
-                <ol class="notify-unblock">
+                <p class="plan-hint" data-i18n-blocked-title>Powiadomienia są zablokowane w przeglądarce.</p>
+                <ol class="notify-unblock" data-i18n-blocked-steps>
                   <li>Kliknij ikonę kłódki (lub tunera) po lewej stronie paska adresu.</li>
                   <li>Znajdź <em>Powiadomienia</em> / <em>Notifications</em>.</li>
                   <li>Ustaw na <em>Zezwól</em> / <em>Allow</em>.</li>
                   <li>Odśwież stronę i włącz powiadomienia ponownie tutaj.</li>
                 </ol>
-                <p class="plan-hint faint">Firefox: ikona uprawnień w pasku adresu → Uprawnienia → Powiadomienia. Chromium: Ustawienia strony → Powiadomienia.</p>
+                <p class="plan-hint faint" data-i18n-blocked-extra>Firefox: ikona uprawnień w pasku adresu → Uprawnienia → Powiadomienia. Chromium: Ustawienia strony → Powiadomienia.</p>
               </div>
             </fieldset>
 
-            <button type="submit" class="tablet">Zapisz plan</button>
+            <button type="submit" class="tablet" data-i18n="savePlan">Zapisz plan</button>
             <a class="tablet ital" id="plan-continue" href="/czytaj/01-gen/1">
               <span class="cta-main">Zacznij czytać</span>
               <span class="cta-sub">Rodzaju I</span>
@@ -170,16 +170,16 @@
           </form>
 
           <div class="plan-reset-block">
-            <p class="plan-reset-label">Reset</p>
+            <p class="plan-reset-label" data-i18n="reset">Reset</p>
             <div class="plan-reset-actions">
-              <button type="button" class="tablet ital" id="plan-reset-progress">
+              <button type="button" class="tablet ital" id="plan-reset-progress" data-i18n="resetProgress">
                 Resetuj postęp
               </button>
-              <p class="plan-hint faint">Zeruje dzisiejsze zaliczenia i wraca na początek celu. Ustawienia zostają.</p>
-              <button type="button" class="tablet ital" id="plan-reset-all">
+              <p class="plan-hint faint" data-i18n="resetProgressHint">Zeruje dzisiejsze zaliczenia i wraca na początek celu. Ustawienia zostają.</p>
+              <button type="button" class="tablet ital" id="plan-reset-all" data-i18n="resetAll">
                 Przywróć domyślne
               </button>
-              <p class="plan-hint faint">Wyłącza plan i czyści cel, limity oraz powiadomienia.</p>
+              <p class="plan-hint faint" data-i18n="resetAllHint">Wyłącza plan i czyści cel, limity oraz powiadomienia.</p>
             </div>
           </div>
         </div>

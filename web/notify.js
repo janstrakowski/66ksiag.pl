@@ -7,7 +7,7 @@ export async function ensureNotifyPermission() {
   return Notification.requestPermission();
 }
 
-export async function showSystemNotify(title, body, tag = "ksiag-plan") {
+export async function showSystemNotify(title, body, tag = "ksiag-plan", lang = "pl") {
   if (!("Notification" in window)) return false;
   if (Notification.permission !== "granted") return false;
 
@@ -16,7 +16,7 @@ export async function showSystemNotify(title, body, tag = "ksiag-plan") {
     tag,
     renotify: true,
     icon: "/assets/icon-192.png",
-    lang: "pl",
+    lang,
   };
 
   try {
@@ -38,21 +38,28 @@ export async function showSystemNotify(title, body, tag = "ksiag-plan") {
   }
 }
 
-export async function notifyStartReading(assignment) {
+export async function notifyStartReading(assignment, ui) {
   if (!assignment || assignment.done) return false;
-  const title = assignment.started ? "Kontynuuj czytanie" : "Zacznij czytać";
+  const title = assignment.started
+    ? ui?.continueRead || "Kontynuuj czytanie"
+    : ui?.startRead || "Zacznij czytać";
   const body = `${assignment.minutes} min · ${assignment.range}`;
-  return showSystemNotify(title, body, "ksiag-start");
+  return showSystemNotify(title, body, "ksiag-start", ui?.htmlLang || "pl");
 }
 
-export async function notifyProgress(pct) {
+export async function notifyProgress(pct, ui) {
   if (pct == null) return false;
+  const lang = ui?.htmlLang || "pl";
   if (pct >= 100) {
-    return showSystemNotify("Plan dzienny", "Przeczytałeś 100% dziennego planu.", "ksiag-progress");
+    return showSystemNotify(
+      ui?.planNav || "Plan dzienny",
+      ui?.planFinished || "Przeczytałeś 100% dziennego planu.",
+      "ksiag-progress",
+      lang
+    );
   }
-  return showSystemNotify(
-    "Plan dzienny",
-    `Przeczytałeś ${pct}% dziennego planu.`,
-    "ksiag-progress"
-  );
+  const body = ui
+    ? `${ui.bannerBefore}${pct}${ui.bannerAfter}`
+    : `Przeczytałeś ${pct}% dziennego planu.`;
+  return showSystemNotify(ui?.planNav || "Plan dzienny", body, "ksiag-progress", lang);
 }

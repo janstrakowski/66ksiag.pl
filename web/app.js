@@ -144,10 +144,8 @@ function refreshPlanBanner() {
     document.body.classList.remove("has-plan-banner");
     return;
   }
-  const en = edition?.language === "en";
-  planBanner.innerHTML = en
-    ? `You have read <span id="plan-banner-pct">${pct}</span>% of today’s plan.`
-    : `Przeczytałeś <span id="plan-banner-pct">${pct}</span>% dziennego planu.`;
+  const copy = t(edition);
+  planBanner.innerHTML = `${copy.bannerBefore}<span id="plan-banner-pct">${pct}</span>${copy.bannerAfter}`;
   planBanner.hidden = false;
   document.body.classList.add("has-plan-banner");
 }
@@ -403,7 +401,7 @@ async function maybeNotifyStart(books) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   const asg = todayAssignment(books, plan, toRoman);
   if (!asg || asg.done || asg.started) return;
-  const ok = await notifyStartReading(asg);
+  const ok = await notifyStartReading(asg, t(edition));
   if (ok) {
     plan.startNotifiedDay = todayKey();
     savePlan(plan);
@@ -488,6 +486,18 @@ async function renderPlan() {
   document.querySelector("#plan .topbar strong").textContent = pc.planNav;
   document.querySelector("#plan .topbar .linkish").textContent = t(edition).titleCard;
   document.querySelector("#plan .index-head .label").textContent = pc.dailyPlan;
+  document.querySelectorAll("#plan [data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (pc[key] != null) el.textContent = pc[key];
+  });
+  const blockedTitle = document.querySelector("[data-i18n-blocked-title]");
+  if (blockedTitle) blockedTitle.textContent = pc.blockedTitle;
+  const blockedExtra = document.querySelector("[data-i18n-blocked-extra]");
+  if (blockedExtra) blockedExtra.textContent = pc.blockedExtra;
+  const steps = document.querySelector("[data-i18n-blocked-steps]");
+  if (steps && pc.blockedSteps) {
+    steps.innerHTML = pc.blockedSteps.map((s) => `<li>${s}</li>`).join("");
+  }
 
   document.getElementById("plan-enabled").checked = !!plan.enabled;
   document.querySelector(`input[name="goal"][value="${plan.goal}"]`).checked = true;
@@ -516,7 +526,7 @@ async function renderPlan() {
       cont.hidden = !next;
       if (next) {
         cont.href = `/czytaj/${next.book}/${next.chapter}`;
-        cont.innerHTML = `<span class="cta-main">Plan na dziś ukończony</span><span class="cta-sub">Czytaj dalej</span>`;
+        cont.innerHTML = `<span class="cta-main">${pc.planDone}</span><span class="cta-sub">${pc.readOn}</span>`;
       }
     } else {
       cont.hidden = true;
@@ -562,13 +572,14 @@ document.getElementById("mark-read-btn").addEventListener("click", async () => {
   updateMarkReadUi(ctx.book.id, ctx.chapter);
   refreshPlanBanner();
   const pct = progressPct(plan);
+  const copy = t(edition);
   if (result.kind === "extra") {
-    flash("Ponad plan");
+    flash(copy.beyondPlan);
     return;
   }
-  if (notificationsWanted(plan)) await notifyProgress(pct);
-  if (pct >= 100) flash("Dzienny plan ukończony");
-  else flash(`Plan · ${pct}%`);
+  if (notificationsWanted(plan)) await notifyProgress(pct, copy);
+  if (pct >= 100) flash(copy.planFinished);
+  else flash(copy.planPct(pct));
 });
 
 document.getElementById("share-btn").addEventListener("click", async () => {
@@ -726,7 +737,7 @@ document.addEventListener("click", (e) => {
       plan = result.plan;
       plan = advanceCursor(plan, ctx.books);
       if (result.kind === "plan" && notificationsWanted(plan)) {
-        notifyProgress(progressPct(plan));
+        notifyProgress(progressPct(plan), t(edition));
       }
     }
   }
