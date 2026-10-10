@@ -45,6 +45,18 @@ test.describe("reader", () => {
     await expect(page.locator("#audio-play-btn")).toBeVisible();
   });
 
+  test("BG Gdańsk reader has no Listen button", async ({ page }) => {
+    await page.goto("/wybor");
+    await page.locator('[data-pick="bg-1879"]').click();
+    await page.goto("/czytaj/01-gen/1");
+    await expect(page.locator("#reader")).toBeVisible();
+    await expect(page.locator("#verses li").first()).toBeVisible();
+    await expect(page.locator("#audio-controls")).toBeHidden();
+    await expect(page.locator("#audio-play-btn")).toBeHidden();
+    await expect(page.locator("body")).toContainText(/Rodzaju|Rozdział|początku|poczatku/i);
+    await expect(page.locator("#audio-play-btn")).not.toBeVisible();
+  });
+
   test("selecting a verse updates URL", async ({ page }) => {
     await page.goto("/czytaj/01-gen/1");
     await page.locator('#verses li[data-v="16"]').click();

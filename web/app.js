@@ -169,10 +169,17 @@ function verseHtml(raw, withWords = false) {
 }
 
 function editionSupportsAudio() {
-  return edition?.language === "en";
+  // Tylko KJV (editions.js: audio: true) — nigdy BG / Gdańska
+  return !!edition?.audio;
 }
 
 function syncAudioChrome(state) {
+  if (!editionSupportsAudio()) {
+    audioBar.hidden = true;
+    audioControls.hidden = true;
+    document.body.classList.remove("has-audio-bar");
+    return;
+  }
   const copy = t(edition);
   const playing = !!state?.playing;
   if (playing || audioPlayer.current().bookId) {
@@ -469,18 +476,25 @@ async function renderReader(route) {
     window.__reader = { book, chapter, data, books };
     updateMarkReadUi(book.id, chapter);
 
-    const hasAudio = editionSupportsAudio() && (await chapterHasAudio(book.id, chapter));
-    audioControls.hidden = !hasAudio;
-    audioPlayBtn.textContent = t(edition).audioListen;
-    audioStopBtn.textContent = t(edition).audioStop;
-    audioStopBtn.hidden = !audioPlayer.current().playing;
-
-    if (pendingAudioAutoplay && hasAudio) {
+    audioControls.hidden = true;
+    audioStopBtn.hidden = true;
+    if (!editionSupportsAudio()) {
       pendingAudioAutoplay = false;
-      const mode = audioMode === "plan" || audioMode === "beyond" ? audioMode : "beyond";
-      playChapterAudio(book.id, chapter, mode).catch(() => flash(t(edition).audioUnavailable));
+      if (audioPlayer.current().bookId) audioPlayer.stop();
     } else {
-      pendingAudioAutoplay = false;
+      const hasAudio = await chapterHasAudio(book.id, chapter);
+      audioControls.hidden = !hasAudio;
+      audioPlayBtn.textContent = t(edition).audioListen;
+      audioStopBtn.textContent = t(edition).audioStop;
+      audioStopBtn.hidden = !audioPlayer.current().playing;
+
+      if (pendingAudioAutoplay && hasAudio) {
+        pendingAudioAutoplay = false;
+        const mode = audioMode === "plan" || audioMode === "beyond" ? audioMode : "beyond";
+        playChapterAudio(book.id, chapter, mode).catch(() => flash(t(edition).audioUnavailable));
+      } else {
+        pendingAudioAutoplay = false;
+      }
     }
   } catch (e) {
     versesEl.innerHTML = `<li class="error-box">${e.message}</li>`;
@@ -1015,6 +1029,7 @@ document.getElementById("home-audio-clear")?.addEventListener("click", async () 
 });
 
 audioPlayBtn.addEventListener("click", async () => {
+  if (!editionSupportsAudio()) return;
   const ctx = window.__reader;
   if (!ctx) return;
   if (audioPlayer.isPlaying() && audioPlayer.current().bookId === ctx.book.id && audioPlayer.current().chapter === ctx.chapter) {

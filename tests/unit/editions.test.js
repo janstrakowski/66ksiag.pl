@@ -15,6 +15,11 @@ describe("editions storage", () => {
     expect(findEdition("nope")).toBeNull();
   });
 
+  it("only KJV has audio flag — never BG/Gdańsk", () => {
+    expect(findEdition("kjv-1769")?.audio).toBe(true);
+    expect(findEdition("bg-1879")?.audio).toBeFalsy();
+  });
+
   it("save/load/clear choice", () => {
     expect(loadEditionChoice()).toBeNull();
     saveEditionChoice(EDITIONS[1]);

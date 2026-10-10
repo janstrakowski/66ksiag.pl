@@ -436,11 +436,21 @@
       transition: width 0.25s ease;
     }
 
+    /* BG / Gdańska — zero UI audio (Scourby tylko KJV) */
+    body.theme-bg #audio-controls,
+    body.theme-bg #audio-bar,
+    body.theme-bg #home-audio-download-wrap {
+      display: none !important;
+    }
+
     .audio-controls {
       display: flex;
       gap: 0.4rem;
       justify-content: center;
       margin: 0.55rem 0 0;
+    }
+    .audio-controls[hidden] {
+      display: none !important;
     }
     .audio-controls .tablet {
       width: auto;
