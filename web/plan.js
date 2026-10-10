@@ -210,6 +210,18 @@ export function nextUnreadInGoal(books, plan) {
   return { book, chapter: Number(ch), index: idx };
 }
 
+/** Następny rozdział w całej Biblii (kolejność books.json), lub null na końcu. */
+export function nextChapterInBible(books, bookId, chapter) {
+  const i = books.findIndex((b) => b.id === bookId);
+  if (i < 0) return null;
+  const book = books[i];
+  if (chapter < book.chapters) {
+    return { book: bookId, chapter: chapter + 1 };
+  }
+  if (i + 1 >= books.length) return null;
+  return { book: books[i + 1].id, chapter: 1 };
+}
+
 export function advanceCursor(plan, books) {
   const list = buildChapterList(books, plan);
   let cursor = plan.cursor || 0;

@@ -7,6 +7,7 @@ import {
   isChapterReadToday,
   isExtraCredit,
   nextUnreadInGoal,
+  nextChapterInBible,
   advanceCursor,
   quotaPreview,
   todayAssignment,
@@ -28,9 +29,34 @@ import {
   findEdition,
 } from "./editions.js";
 import { t, planCopy } from "./i18n.js";
+import {
+  createAudioController,
+  chapterHasAudio,
+  loadAudioSession,
+  saveAudioSession,
+  verseHtmlWithWords,
+} from "./audio.js";
 
 const DEFAULT_READ = { book: "01-gen", chapter: 1, verse: 1 };
 let edition = loadEditionChoice();
+let pendingAudioAutoplay = false;
+let audioMode = "idle"; // idle | plan | beyond
+
+const audioEl = document.getElementById("scourby-audio");
+const audioBar = document.getElementById("audio-bar");
+const audioBarLabel = document.getElementById("audio-bar-label");
+const audioBarToggle = document.getElementById("audio-bar-toggle");
+const audioControls = document.getElementById("audio-controls");
+const audioPlayBtn = document.getElementById("audio-play-btn");
+const audioStopBtn = document.getElementById("audio-stop-btn");
+
+const audioPlayer = createAudioController({
+  audioEl,
+  hooks: {
+    onChapterEnded: handleAudioChapterEnded,
+    onState: syncAudioChrome,
+  },
+});
 
 function editionPath() {
   return edition?.path || "/bg/1879";
@@ -119,8 +145,8 @@ function stripTags(html) {
   return html.replace(/<[^>]+>/g, "");
 }
 
-function verseHtml(t) {
-  return t
+function verseHtml(raw, withWords = false) {
+  const escaped = String(raw)
     .split(/(<\/?i>)/i)
     .map((part) => {
       if (/^<\/?i>$/i.test(part)) return part.toLowerCase();
@@ -130,6 +156,122 @@ function verseHtml(t) {
         .replace(/>/g, "&gt;");
     })
     .join("");
+  return withWords ? verseHtmlWithWords(escaped, 0) : escaped;
+}
+
+function editionSupportsAudio() {
+  return edition?.language === "en";
+}
+
+function syncAudioChrome(state) {
+  const copy = t(edition);
+  const playing = !!state?.playing;
+  if (playing || audioPlayer.current().bookId) {
+    audioBar.hidden = false;
+    document.body.classList.add("has-audio-bar");
+    audioBarLabel.textContent = playing ? copy.audioBarListening : copy.audioBarPaused;
+    audioBarToggle.textContent = playing ? copy.audioPause : copy.audioResume;
+    audioStopBtn.hidden = false;
+    audioPlayBtn.textContent = playing ? copy.audioPause : copy.audioListen;
+  } else {
+    audioBar.hidden = true;
+    document.body.classList.remove("has-audio-bar");
+    audioStopBtn.hidden = true;
+    audioPlayBtn.textContent = copy.audioListen;
+  }
+}
+
+async function creditChapterFromAudio(bookId, chapter) {
+  plan = loadPlan();
+  if (!plan.enabled) return { kind: "off" };
+  const ctxBooks = window.__reader?.books;
+  const result = markChapterRead(plan, bookId, chapter);
+  plan = result.plan;
+  if (result.kind === "already" || result.kind === "off") return result;
+  if (ctxBooks) plan = advanceCursor(plan, ctxBooks);
+  refreshPlanBanner();
+  const pct = progressPct(plan);
+  const copy = t(edition);
+  if (result.kind === "extra") {
+    flash(copy.beyondPlan);
+  } else if (pct >= 100) {
+    flash(copy.planFinished);
+    if (notificationsWanted(plan)) await notifyProgress(pct, copy);
+  } else {
+    flash(copy.planPct(pct));
+    if (notificationsWanted(plan)) await notifyProgress(pct, copy);
+  }
+  return result;
+}
+
+async function playChapterAudio(bookId, chapter, mode) {
+  if (!editionSupportsAudio()) {
+    flash(t(edition).audioOnlyKjv);
+    return;
+  }
+  const ok = await chapterHasAudio(editionPath(), bookId, chapter);
+  if (!ok) {
+    flash(t(edition).audioUnavailable);
+    return;
+  }
+  audioMode = mode || audioMode || "beyond";
+  const sess = loadAudioSession();
+  sess.mode = audioMode;
+  sess.offerContinue = false;
+  saveAudioSession(sess);
+  await audioPlayer.load(editionPath(), bookId, chapter);
+}
+
+function navigateToChapter(bookId, chapter, { autoplay = false } = {}) {
+  pendingAudioAutoplay = autoplay;
+  const path = `/czytaj/${bookId}/${chapter}`;
+  history.pushState(null, "", path);
+  route();
+}
+
+async function handleAudioChapterEnded({ bookId, chapter }) {
+  if (!bookId || !chapter) return;
+  await creditChapterFromAudio(bookId, chapter);
+
+  const books = window.__reader?.books || (await loadBooks());
+  const copy = t(edition);
+  plan = loadPlan();
+
+  if (audioMode === "plan" && plan.enabled) {
+    if (isDailyPlanComplete(plan)) {
+      const next = nextChapterInBible(books, bookId, chapter);
+      saveAudioSession({
+        mode: "idle",
+        offerContinue: !!next,
+        nextBook: next?.book || null,
+        nextChapter: next?.chapter || null,
+      });
+      audioMode = "idle";
+      audioPlayer.stop();
+      flash(copy.audioSessionEnded);
+      return;
+    }
+    const next = nextUnreadInGoal(books, plan);
+    if (next) {
+      navigateToChapter(next.book, next.chapter, { autoplay: true });
+      return;
+    }
+  }
+
+  if (audioMode === "beyond" || (audioMode === "plan" && !plan.enabled)) {
+    const next = nextChapterInBible(books, bookId, chapter);
+    if (next) {
+      navigateToChapter(next.book, next.chapter, { autoplay: true });
+      return;
+    }
+    saveAudioSession({ mode: "idle", offerContinue: false, nextBook: null, nextChapter: null });
+    audioMode = "idle";
+    audioPlayer.stop();
+    flash(copy.audioBibleEnded);
+    return;
+  }
+
+  audioPlayer.stop();
 }
 
 function setCanonical(path) {
@@ -291,10 +433,11 @@ async function renderReader(route) {
     document.getElementById("chap-book").textContent = book.name;
 
     selectedVerse = route.verse;
+    const wrapWords = editionSupportsAudio();
     versesEl.innerHTML = data.verses
       .map((v) => {
         const sel = selectedVerse === v.n ? " is-sel" : "";
-        return `<li data-v="${v.n}" class="${sel.trim()}"><span class="n">${v.n}</span>${verseHtml(v.t)}</li>`;
+        return `<li data-v="${v.n}" class="${sel.trim()}"><span class="n">${v.n}</span>${verseHtml(v.t, wrapWords)}</li>`;
       })
       .join("");
 
@@ -316,11 +459,26 @@ async function renderReader(route) {
 
     window.__reader = { book, chapter, data, books };
     updateMarkReadUi(book.id, chapter);
+
+    const hasAudio = editionSupportsAudio() && (await chapterHasAudio(editionPath(), book.id, chapter));
+    audioControls.hidden = !hasAudio;
+    audioPlayBtn.textContent = t(edition).audioListen;
+    audioStopBtn.textContent = t(edition).audioStop;
+    audioStopBtn.hidden = !audioPlayer.current().playing;
+
+    if (pendingAudioAutoplay && hasAudio) {
+      pendingAudioAutoplay = false;
+      const mode = audioMode === "plan" || audioMode === "beyond" ? audioMode : "beyond";
+      playChapterAudio(book.id, chapter, mode).catch(() => flash(t(edition).audioUnavailable));
+    } else {
+      pendingAudioAutoplay = false;
+    }
   } catch (e) {
     versesEl.innerHTML = `<li class="error-box">${e.message}</li>`;
     document.getElementById("folio-nav").innerHTML = "";
     document.getElementById("read-time").hidden = true;
     document.getElementById("chapter-done").hidden = true;
+    audioControls.hidden = true;
   }
 }
 
@@ -417,6 +575,19 @@ async function renderHome() {
   document.getElementById("home-change-edition").textContent = copy.changeEdition;
 
   const cta = document.getElementById("home-read-cta");
+  const continueBtn = document.getElementById("home-audio-continue");
+  const audioSess = loadAudioSession();
+  const showContinue =
+    editionSupportsAudio() &&
+    audioSess.offerContinue &&
+    audioSess.nextBook &&
+    audioSess.nextChapter;
+  continueBtn.hidden = !showContinue;
+  if (showContinue) {
+    document.getElementById("home-audio-continue-main").textContent = copy.audioContinueMain;
+    document.getElementById("home-audio-continue-sub").textContent = copy.audioContinueSub;
+  }
+
   try {
     const books = await loadBooks();
     plan = loadPlan();
@@ -712,6 +883,51 @@ document.getElementById("home-change-edition").addEventListener("click", () => {
   applyTheme();
   history.pushState(null, "", "/wybor");
   route();
+});
+
+document.getElementById("home-audio-continue").addEventListener("click", () => {
+  const sess = loadAudioSession();
+  if (!sess.nextBook || !sess.nextChapter) return;
+  sess.offerContinue = false;
+  sess.mode = "beyond";
+  saveAudioSession(sess);
+  audioMode = "beyond";
+  navigateToChapter(sess.nextBook, sess.nextChapter, { autoplay: true });
+});
+
+audioPlayBtn.addEventListener("click", async () => {
+  const ctx = window.__reader;
+  if (!ctx) return;
+  if (audioPlayer.isPlaying() && audioPlayer.current().bookId === ctx.book.id && audioPlayer.current().chapter === ctx.chapter) {
+    audioPlayer.pause();
+    return;
+  }
+  if (
+    !audioPlayer.isPlaying() &&
+    audioPlayer.current().bookId === ctx.book.id &&
+    audioPlayer.current().chapter === ctx.chapter &&
+    audioEl.src
+  ) {
+    await audioPlayer.resume();
+    return;
+  }
+  plan = loadPlan();
+  const mode = plan.enabled && !isDailyPlanComplete(plan) ? "plan" : "beyond";
+  try {
+    await playChapterAudio(ctx.book.id, ctx.chapter, mode);
+  } catch {
+    flash(t(edition).audioUnavailable);
+  }
+});
+
+audioStopBtn.addEventListener("click", () => {
+  audioMode = "idle";
+  audioPlayer.stop();
+});
+
+audioBarToggle.addEventListener("click", async () => {
+  if (audioPlayer.isPlaying()) audioPlayer.pause();
+  else await audioPlayer.resume();
 });
 
 window.addEventListener("popstate", () => route());

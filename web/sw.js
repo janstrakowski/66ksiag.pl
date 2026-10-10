@@ -1,5 +1,5 @@
 /* Minimal SW: cache shell + visited chapters */
-const CACHE = "ksiag-v1";
+const CACHE = "ksiag-v2";
 const SHELL = [
   "/",
   "/index.html",
@@ -9,6 +9,7 @@ const SHELL = [
   "/notify.js",
   "/editions.js",
   "/i18n.js",
+  "/audio.js",
   "/manifest.webmanifest",
   "/assets/orn-pair.svg",
 ];
@@ -48,7 +49,11 @@ self.addEventListener("fetch", (event) => {
       const cache = await caches.open(CACHE);
       try {
         const net = await fetch(req);
-        if (net.ok && (url.pathname.startsWith("/bg/") || SHELL.includes(url.pathname))) {
+        const cacheable =
+          url.pathname.startsWith("/bg/") ||
+          (url.pathname.startsWith("/kjv/") && !url.pathname.endsWith(".mp3")) ||
+          SHELL.includes(url.pathname);
+        if (net.ok && cacheable) {
           cache.put(req, net.clone());
         }
         return net;

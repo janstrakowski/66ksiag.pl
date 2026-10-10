@@ -6,7 +6,7 @@ Polska Biblia jako **statyczne API**, **CLI** i **PWA**.
 - Agenci: [AGENTS.md](./AGENTS.md)
 - llms.txt: [llms.txt](./llms.txt)
 
-Wydania: **BG 1879** (PL) i **KJV** (EN, `/kjv/1769`). Wspólna numeracja KJV; jeden plan dzienny na obie. Hosting: Cloudflare Workers + Static Assets.
+Wydania: **BG 1879** (PL) i **KJV** (EN, `/kjv/1769`). Wspólna numeracja KJV; jeden plan dzienny na obie. KJV ma audio Scourby’ego (podświetlanie słów, zaliczanie do planu) — patrz `tools/audio-kjv/`. Hosting: Cloudflare Workers + Static Assets.
 
 ## Szybki start
 
@@ -41,6 +41,7 @@ bash scripts/dev-serve.sh
 | `web/` | PWA (miedzioryt UI) |
 | `worker/` | Krótkie aliasy URL (`/j/3/16` → `/czytaj/…`) |
 | `demos/` | Iteracje UI (referencja) |
+| `tools/audio-kjv/` | Fetch/align Scourby → `data/kjv/1769/*.mp3` + `.words.json` |
 
 ## Deploy (Cloudflare)
 

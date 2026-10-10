@@ -21,27 +21,34 @@ DATA = ROOT / "data"
 PORT = ${PORT}
 
 class Handler(SimpleHTTPRequestHandler):
+    def _data_candidate(self, parsed):
+        if parsed.startswith("/bg/") or parsed.startswith("/kjv/"):
+            return DATA / parsed.lstrip("/")
+        if parsed == "/translations.json":
+            return DATA / "translations.json"
+        return None
+
     def translate_path(self, path):
         parsed = urllib.parse.urlparse(path).path
-        # API / static data
-        if parsed.startswith("/bg/") or parsed.startswith("/kjv/"):
-            # /bg/1879/... or /kjv/1769/...
-            candidate = DATA / parsed.lstrip("/")
-            if candidate.is_file():
-                return str(candidate)
-            if candidate.is_dir():
-                return str(candidate)
-        if parsed == "/translations.json":
-            candidate = DATA / "translations.json"
-            if candidate.is_file():
-                return str(candidate)
-        # app shell
+        data = self._data_candidate(parsed)
+        if data is not None:
+            if data.is_file():
+                return str(data)
+            # missing API/data file → real 404 (not SPA shell)
+            return str(DATA / "__missing__")
         rel = parsed.lstrip("/") or "index.html"
         candidate = WEB / rel
         if candidate.is_file():
             return str(candidate)
-        # SPA fallback
         return str(WEB / "index.html")
+
+    def send_head(self):
+        parsed = urllib.parse.urlparse(self.path).path
+        data = self._data_candidate(parsed)
+        if data is not None and not data.is_file():
+            self.send_error(404, "File not found")
+            return None
+        return super().send_head()
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")

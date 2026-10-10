@@ -70,6 +70,18 @@ const PL = {
   unknownBook: (key) => `Nieznana księga: ${key}`,
   missingChapter: (n) => `Brak rozdziału ${n}`,
   loadFailed: "Nie udało się wczytać rozdziału.",
+  audioListen: "Słuchaj",
+  audioPause: "Pauza",
+  audioResume: "Wznów",
+  audioStop: "Stop",
+  audioBarListening: "Słuchanie…",
+  audioBarPaused: "Wstrzymano",
+  audioSessionEnded: "Sesja odsłuchu zakończona",
+  audioBibleEnded: "Koniec Biblii",
+  audioContinueMain: "Słuchaj dalej",
+  audioContinueSub: "Ponad plan · kolejne rozdziały",
+  audioUnavailable: "Brak audio dla tego rozdziału",
+  audioOnlyKjv: "Audio (Scourby) tylko w KJV",
 };
 
 /** English UI in the tongue of the KJV (thou/ye, -eth, appointed portion). */
@@ -144,6 +156,18 @@ const EN = {
   unknownBook: (key) => `Unknown book: ${key}`,
   missingChapter: (n) => `No such chapter ${n}`,
   loadFailed: "The chapter could not be fetched.",
+  audioListen: "Hear",
+  audioPause: "Pause",
+  audioResume: "Go on",
+  audioStop: "Cease",
+  audioBarListening: "Hearing…",
+  audioBarPaused: "Stayed",
+  audioSessionEnded: "The hearing is finished for this day",
+  audioBibleEnded: "The end of the Scripture",
+  audioContinueMain: "Hear yet further",
+  audioContinueSub: "Beyond the portion · the next chapters",
+  audioUnavailable: "No audio for this chapter",
+  audioOnlyKjv: "Scourby audio is for the KJV alone",
 };
 
 export function t(edition) {

@@ -22,6 +22,7 @@ export const EDITIONS = [
     short: "KJV",
     path: "/kjv/1769",
     theme: "theme-kjv",
+    audio: true, // Alexander Scourby — tylko KJV
   },
 ];
 

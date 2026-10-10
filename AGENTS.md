@@ -47,6 +47,19 @@ cargo run -p ksiag-import-kjv --release -- \
   --source /tmp/Bible-kjv --out data --commit <sha>
 ```
 
+## Audio KJV (Scourby)
+
+```bash
+export PATH="$HOME/.local/share/mise/installs/python/3.12.15/bin:$PATH"
+python3 -m pip install -r tools/audio-kjv/requirements.txt
+python3 tools/audio-kjv/fetch_scourby.py          # ~1189 MP3 → vendor/scourby/raw
+python3 tools/audio-kjv/install_layout.py --link  # → data/kjv/1769/{book}/{ch}.mp3
+python3 tools/audio-kjv/align_whisper.py --book 01-gen --chapter 1 --model base.en
+python3 tools/audio-kjv/align_whisper.py --all --model base.en
+```
+
+Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3.
+
 ## Front
 
 `web/` czyta wyłącznie warstwę `data/` (te same kontrakty co CLI).

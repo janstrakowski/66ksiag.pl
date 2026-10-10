@@ -178,11 +178,25 @@ Szkic komend:
 
 Tekst historyczny BG jest w domenie publicznej; cyfrowa korekta pochodzi z zewnętrznego repo bez pliku LICENSE. W UI i `manifest.json` podajemy źródło; przed szerszą publikacją warto potwierdzić republishing u maintainerów źródła.
 
+## Audio (tylko KJV)
+
+Narracja **Alexander Scourby** — tylko dla `kjv/1769` (BG nie ma audio).
+
+```
+/kjv/1769/audio-manifest.json
+/kjv/1769/{book}/{chapter}.mp3
+/kjv/1769/{book}/{chapter}.words.json   # timestamps słów (lokalny Whisper)
+```
+
+Pipeline: `tools/audio-kjv/` (fetch → layout → align). MP3 są w `data/` / `vendor/` (gitignore). Scourby jest chroniony prawem autorskim — lokalnie OK do developmentu; publiczny CDN wymaga licencji.
+
+PWA: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po końcu audio, auto-next w ramach dziennej quoty, stop po 100%, CTA „słuchaj dalej” (tryb beyond → aż do Apokalipsy).
+
 ## Świadomie odłożone
 
-- Wybór wielu tłumaczeń / wydań w UI
 - Wyszukiwanie pełnotekstowe w CLI/API
-- Konta, sync, push (codzienne czytanie)
+- Konta, sync, push między urządzeniami
 - Pakiet do Google Play (PWA przez Trusted Web Activity / Bubblewrap lub PWABuilder — bez przepisywania na native)
 - Opakowanie Capacitor / inne sklepy
 - OpenAPI (można dodać jako opis tych samych ścieżek statycznych)
+- Oficjalna licencja Scourby + hosting audio na R2 dla produkcji

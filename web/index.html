@@ -57,6 +57,10 @@
                 <span class="cta-main">Zacznij czytać</span>
                 <span class="cta-sub">Rodzaju I</span>
               </a>
+              <button type="button" class="tablet ital" id="home-audio-continue" hidden>
+                <span class="cta-main" id="home-audio-continue-main">Continue listening</span>
+                <span class="cta-sub" id="home-audio-continue-sub"></span>
+              </button>
               <a class="tablet ital" id="home-books" href="/ksiegi">Spis ksiąg świętych</a>
               <a class="tablet ital" id="home-plan" href="/plan">Plan dzienny</a>
               <button type="button" class="linkish home-change-edition" id="home-change-edition">Zmień wersję</button>
@@ -223,6 +227,10 @@
             <h1 id="chap-heading">Rozdział</h1>
             <p id="chap-book">—</p>
             <p class="read-time" id="read-time" hidden></p>
+            <div class="audio-controls" id="audio-controls" hidden>
+              <button type="button" class="tablet" id="audio-play-btn">Listen</button>
+              <button type="button" class="tablet ital" id="audio-stop-btn" hidden>Stop</button>
+            </div>
           </header>
           <ol class="verses" id="verses"></ol>
           <div class="chapter-done" id="chapter-done">
@@ -238,6 +246,11 @@
     Przeczytałeś <span id="plan-banner-pct">0</span>% dziennego planu.
   </div>
   <div class="toast" id="toast" role="status"></div>
+  <audio id="scourby-audio" preload="none"></audio>
+  <div class="audio-bar" id="audio-bar" hidden role="status">
+    <span id="audio-bar-label">Listening…</span>
+    <button type="button" class="linkish" id="audio-bar-toggle">Pause</button>
+  </div>
 
   <div class="confirm-overlay" id="confirm-overlay" hidden>
     <div class="confirm-dialog moulding" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body">
