@@ -1,0 +1,12 @@
+{
+  "name": "66ksiag",
+  "private": true,
+  "scripts": {
+    "build": "bash scripts/build-dist.sh",
+    "dev": "bash scripts/dev-serve.sh",
+    "deploy": "npm run build && npx wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.42.0"
+  }
+}

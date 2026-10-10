@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#100c09" />
+  <meta name="description" content="66ksiąg — Biblia Gdańska 1879" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/assets/icon-192.png" />
+  <title>66ksiąg</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link id="canonical" rel="canonical" href="/" />
+</head>
+<body>
+  <div class="shell" id="shell">
+
+    <section class="screen is-on" id="home" aria-label="Karta tytułowa">
+      <div class="moulding">
+        <div class="moulding-inner">
+          <div class="underplate">
+            <div class="fleurons" aria-hidden="true">
+              <img src="/assets/orn-pair.svg" width="960" height="108" alt="" />
+            </div>
+            <p class="eyebrow">Gdańsk · MDCXXXII</p>
+            <h1 class="title-main">Biblia Święta</h1>
+            <p class="brand-sub">to jest<br />Księgi Starego y Nowego Przymierza</p>
+            <hr class="rules" />
+            <p class="meta">Tekst według wydania 1879</p>
+            <div class="cta-row">
+              <a class="tablet" id="home-read-cta" href="/czytaj/01-gen/1">
+                <span class="cta-main">Zacznij czytać</span>
+                <span class="cta-sub">Rodzaju I</span>
+              </a>
+              <a class="tablet ital" href="/ksiegi">Spis ksiąg świętych</a>
+              <a class="tablet ital" href="/plan">Plan dzienny</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="colophon">BG 1879 · źródło: biblia-druk-tekst</p>
+    </section>
+
+    <section class="screen" id="plan" aria-label="Plan dzienny">
+      <div class="topbar">
+        <strong>Plan</strong>
+        <a class="linkish" href="/">karta tytułowa</a>
+      </div>
+      <div class="moulding">
+        <div class="moulding-inner plan-panel">
+          <div class="index-head">
+            <span class="label">Codzienne czytanie</span>
+          </div>
+          <form id="plan-form" class="plan-form">
+            <label class="plan-check">
+              <input type="checkbox" name="enabled" id="plan-enabled" />
+              Włącz dzienny plan
+            </label>
+
+            <fieldset>
+              <legend>Cel</legend>
+              <label class="plan-radio">
+                <input type="radio" name="goal" value="bible" checked />
+                Cała Biblia
+              </label>
+              <label class="plan-radio">
+                <input type="radio" name="goal" value="st" />
+                Stary Testament
+              </label>
+              <label class="plan-radio">
+                <input type="radio" name="goal" value="nt" />
+                Nowy Testament
+              </label>
+              <label class="plan-radio">
+                <input type="radio" name="goal" value="range" />
+                Zakres
+              </label>
+              <div class="plan-range" id="plan-range" hidden>
+                <label>Od
+                  <select name="fromBook" id="plan-from-book"></select>
+                  <input type="number" name="fromChapter" id="plan-from-ch" min="1" value="1" />
+                </label>
+                <label>Do
+                  <select name="toBook" id="plan-to-book"></select>
+                  <input type="number" name="toChapter" id="plan-to-ch" min="1" value="1" />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Dziennie</legend>
+              <label class="plan-radio">
+                <input type="radio" name="mode" value="chapters" checked />
+                Liczba rozdziałów
+              </label>
+              <label class="plan-field" id="field-chapters">
+                <input type="number" name="chaptersPerDay" id="plan-chapters" min="1" max="50" value="3" />
+                rozdz. / dzień
+              </label>
+              <label class="plan-radio">
+                <input type="radio" name="mode" value="time" />
+                Czas czytania
+              </label>
+              <label class="plan-field" id="field-time" hidden>
+                <input type="number" name="minutesPerDay" id="plan-minutes" min="3" max="180" step="1" value="15" />
+                min / dzień
+              </label>
+              <p class="plan-hint" id="plan-preview">3 rozdz. / dzień</p>
+              <p class="plan-hint faint">Czas zaokrąglamy do pełnych rozdziałów (średnio ok. 3 min na rozdział).</p>
+            </fieldset>
+
+            <fieldset>
+              <legend>Powiadomienia</legend>
+              <label class="plan-radio">
+                <input type="radio" name="notifications" value="on" id="plan-notify-on" />
+                Włączone
+              </label>
+              <label class="plan-radio">
+                <input type="radio" name="notifications" value="off" id="plan-notify-off" checked />
+                Wyłączone
+              </label>
+              <p class="plan-hint faint" id="notify-hint">
+                Przypomnienie „Zacznij czytać…” oraz postęp „Przeczytałeś …%”.
+              </p>
+              <div class="notify-blocked" id="notify-blocked" hidden>
+                <p class="plan-hint">Powiadomienia są zablokowane w przeglądarce.</p>
+                <ol class="notify-unblock">
+                  <li>Kliknij ikonę kłódki (lub tunera) po lewej stronie paska adresu.</li>
+                  <li>Znajdź <em>Powiadomienia</em> / <em>Notifications</em>.</li>
+                  <li>Ustaw na <em>Zezwól</em> / <em>Allow</em>.</li>
+                  <li>Odśwież stronę i włącz powiadomienia ponownie tutaj.</li>
+                </ol>
+                <p class="plan-hint faint">Firefox: ikona uprawnień w pasku adresu → Uprawnienia → Powiadomienia. Chromium: Ustawienia strony → Powiadomienia.</p>
+              </div>
+            </fieldset>
+
+            <button type="submit" class="tablet">Zapisz plan</button>
+            <a class="tablet ital" id="plan-continue" href="/czytaj/01-gen/1">
+              <span class="cta-main">Zacznij czytać</span>
+              <span class="cta-sub">Rodzaju I</span>
+            </a>
+          </form>
+
+          <div class="plan-reset-block">
+            <p class="plan-reset-label">Reset</p>
+            <div class="plan-reset-actions">
+              <button type="button" class="tablet ital" id="plan-reset-progress">
+                Resetuj postęp
+              </button>
+              <p class="plan-hint faint">Zeruje dzisiejsze zaliczenia i wraca na początek celu. Ustawienia zostają.</p>
+              <button type="button" class="tablet ital" id="plan-reset-all">
+                Przywróć domyślne
+              </button>
+              <p class="plan-hint faint">Wyłącza plan i czyści cel, limity oraz powiadomienia.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="books" aria-label="Spis ksiąg">
+      <div class="topbar">
+        <strong>Index</strong>
+        <a class="linkish" href="/">karta tytułowa</a>
+      </div>
+      <div class="moulding">
+        <div class="moulding-inner">
+          <div class="index-head">
+            <div class="fleurons" aria-hidden="true" style="margin:0">
+              <img src="/assets/orn-pair.svg" width="960" height="108" alt="" />
+            </div>
+            <span class="label">Księgi Pisma Świętego</span>
+          </div>
+          <div id="book-list-root">
+            <p class="error-box">Ładowanie spisu…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="reader" aria-label="Czytnik">
+      <div class="topbar">
+        <a class="linkish" href="/ksiegi">← spis</a>
+        <span class="topbar-actions">
+          <a class="linkish" href="/plan">plan</a>
+          <button type="button" class="linkish" id="share-btn">udostępnij</button>
+        </span>
+      </div>
+      <div class="moulding">
+        <div class="moulding-inner reader">
+          <div class="running" id="running">
+            <span>—</span>
+            <span>—</span>
+            <span>BG 1879</span>
+          </div>
+          <header class="chap-title">
+            <h1 id="chap-heading">Rozdział</h1>
+            <p id="chap-book">—</p>
+            <p class="read-time" id="read-time" hidden></p>
+          </header>
+          <ol class="verses" id="verses"></ol>
+          <div class="chapter-done" id="chapter-done">
+            <button type="button" class="tablet" id="mark-read-btn">Oznacz rozdział jako przeczytany</button>
+          </div>
+          <div class="folio-nav" id="folio-nav"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="plan-banner" id="plan-banner" hidden role="status">
+    Przeczytałeś <span id="plan-banner-pct">0</span>% dziennego planu.
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="confirm-overlay" id="confirm-overlay" hidden>
+    <div class="confirm-dialog moulding" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body">
+      <div class="moulding-inner confirm-inner">
+        <p class="confirm-title" id="confirm-title">Potwierdzenie</p>
+        <p class="confirm-body" id="confirm-body"></p>
+        <div class="confirm-actions">
+          <button type="button" class="tablet ital" id="confirm-cancel">Anuluj</button>
+          <button type="button" class="tablet" id="confirm-ok">Potwierdź</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

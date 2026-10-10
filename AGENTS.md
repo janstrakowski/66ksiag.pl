@@ -32,11 +32,23 @@ Preferuj lokalne `data/`; HTTP tylko na kanoniczne URL-e.
 ## Import tekstu
 
 Źródło: https://github.com/UczenJezusa/biblia-druk-tekst (folder `1879`).  
-Pipeline: `tools/import` → `data/bg/1879/...`.
+Pipeline: `tools/import` → `data/bg/1879/...` (katalog `data/` jest w `.gitignore`).
+
+```bash
+cargo run -p ksiag-import --release -- \
+  --source /tmp/biblia-druk-tekst/1879 \
+  --out data \
+  --commit <sha>
+```
 
 ## Front
 
 `web/` czyta wyłącznie warstwę `data/` (te same kontrakty co CLI).
+
+```bash
+bash scripts/dev-serve.sh          # http://127.0.0.1:8787
+npm run build && npx wrangler deploy
+```
 
 ## Dokumentacja dla LLM
 

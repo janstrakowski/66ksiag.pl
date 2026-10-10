@@ -1,0 +1,58 @@
+/** Systemowe powiadomienia (Notification API). Działa na localhost / HTTPS. */
+
+export async function ensureNotifyPermission() {
+  if (!("Notification" in window)) return "unsupported";
+  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
+  return Notification.requestPermission();
+}
+
+export async function showSystemNotify(title, body, tag = "ksiag-plan") {
+  if (!("Notification" in window)) return false;
+  if (Notification.permission !== "granted") return false;
+
+  const opts = {
+    body,
+    tag,
+    renotify: true,
+    icon: "/assets/icon-192.png",
+    lang: "pl",
+  };
+
+  try {
+    if (navigator.serviceWorker?.ready) {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(title, opts);
+      return true;
+    }
+  } catch {
+    /* fallback below */
+  }
+
+  try {
+    // eslint-disable-next-line no-new
+    new Notification(title, opts);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function notifyStartReading(assignment) {
+  if (!assignment || assignment.done) return false;
+  const title = assignment.started ? "Kontynuuj czytanie" : "Zacznij czytać";
+  const body = `${assignment.minutes} min · ${assignment.range}`;
+  return showSystemNotify(title, body, "ksiag-start");
+}
+
+export async function notifyProgress(pct) {
+  if (pct == null) return false;
+  if (pct >= 100) {
+    return showSystemNotify("Plan dzienny", "Przeczytałeś 100% dziennego planu.", "ksiag-progress");
+  }
+  return showSystemNotify(
+    "Plan dzienny",
+    `Przeczytałeś ${pct}% dziennego planu.`,
+    "ksiag-progress"
+  );
+}
