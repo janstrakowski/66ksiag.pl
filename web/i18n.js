@@ -43,6 +43,33 @@ const PL = {
   beyondPlan: "Ponad plan",
   planFinished: "Dzienny plan ukończony",
   planPct: (n) => `Plan · ${n}%`,
+  chapterWord: "Rozdział",
+  chapterAbbrev: (roman) => `Rozd. ${roman}`,
+  etaMinutes: (n) => (n === 1 ? "ok. 1 min" : `ok. ${n} min`),
+  minutesWithRange: (m, range) => `${m}\u00a0min · ${range}`,
+  quotaChapters: (q) => `${q} rozdz. / dzień`,
+  quotaTime: (mins, q) => `${mins} min ≈ ${q} rozdz. / dzień`,
+  planSaved: (preview) => `Plan zapisany · ${preview}`,
+  planDisabled: "Plan wyłączony",
+  notifyUnsupported: "Ta przeglądarka nie obsługuje powiadomień systemowych.",
+  notifyBlockedWanted: "Włączone w planie, ale zablokowane przez przeglądarkę.",
+  notifyDeniedFlash: "Powiadomienia zablokowane w przeglądarce",
+  notifyUnsupportedFlash: "Przeglądarka nie obsługuje powiadomień",
+  copied: (path) => `Skopiowano · ${path}`,
+  cancelled: "Anulowano",
+  progressResetFlash: "Postęp zresetowany",
+  planDefaultsFlash: "Plan przywrócony do domyślnych",
+  resetProgressTitle: "Reset postępu",
+  resetProgressBody:
+    "Zresetować postęp planu? Dzisiejsze zaliczenia i pozycja wrócą na początek. Cel i limity zostaną.",
+  resetAllTitle: "Przywróć domyślne",
+  resetAllBody:
+    "Przywrócić domyślne ustawienia? To wyłączy plan i wyczyści cel, limity oraz powiadomienia.",
+  confirmOk: "Potwierdź",
+  confirmCancel: "Anuluj",
+  unknownBook: (key) => `Nieznana księga: ${key}`,
+  missingChapter: (n) => `Brak rozdziału ${n}`,
+  loadFailed: "Nie udało się wczytać rozdziału.",
 };
 
 /** English UI in the tongue of the KJV (thou/ye, -eth, appointed portion). */
@@ -80,7 +107,7 @@ const EN = {
   markedPlan: "Reckoned to this day’s portion",
   markExtra: "Reckon beyond the portion",
   markedExtra: "Reckoned beyond the portion",
-  readingEta: "About the reading",
+  readingEta: "Reading",
   planNav: "Portion",
   loading: "Tarry a little…",
   loadingBooks: "Gathering the books…",
@@ -89,6 +116,34 @@ const EN = {
   beyondPlan: "Beyond the portion",
   planFinished: "This day’s portion is fulfilled",
   planPct: (n) => `Portion · ${n}%`,
+  chapterWord: "Chapter",
+  chapterAbbrev: (roman) => `Ch. ${roman}`,
+  etaMinutes: (n) => (n === 1 ? "about a minute" : `about ${n} minutes`),
+  minutesWithRange: (m, range) =>
+    m === 1 ? `1\u00a0minute · ${range}` : `${m}\u00a0minutes · ${range}`,
+  quotaChapters: (q) => `${q} chapters / day`,
+  quotaTime: (mins, q) => `${mins} minutes ≈ ${q} chapters / day`,
+  planSaved: (preview) => `Portion kept · ${preview}`,
+  planDisabled: "The portion is put off",
+  notifyUnsupported: "This browser hath no watchwords.",
+  notifyBlockedWanted: "Appointed in the portion, yet stopped by the browser.",
+  notifyDeniedFlash: "Watchwords are stopped in the browser",
+  notifyUnsupportedFlash: "This browser hath no watchwords",
+  copied: (path) => `Copied · ${path}`,
+  cancelled: "Left undone",
+  progressResetFlash: "The progress is blotted out",
+  planDefaultsFlash: "Restored as at the first",
+  resetProgressTitle: "Blot out the progress",
+  resetProgressBody:
+    "Blot out the progress of the portion? This day’s reckoning and place return unto the beginning. The bound and the measure remain.",
+  resetAllTitle: "Restore as at the first",
+  resetAllBody:
+    "Restore the first settings? This putteth off the portion and wipeth clean the bound, the measure, and the watchwords.",
+  confirmOk: "Yea",
+  confirmCancel: "Nay",
+  unknownBook: (key) => `Unknown book: ${key}`,
+  missingChapter: (n) => `No such chapter ${n}`,
+  loadFailed: "The chapter could not be fetched.",
 };
 
 export function t(edition) {
@@ -121,9 +176,11 @@ export function planCopy(edition) {
       savePlan: "Keep this appointment",
       reset: "Reset",
       resetProgress: "Blot out the progress",
-      resetProgressHint: "Cleareth this day’s reckoning and returneth to the beginning of the bound. The appointment remaineth.",
+      resetProgressHint:
+        "Cleareth this day’s reckoning and returneth to the beginning of the bound. The appointment remaineth.",
       resetAll: "Restore as at the first",
-      resetAllHint: "Putteth off the portion and wipeth clean the bound, the measure, and the watchwords.",
+      resetAllHint:
+        "Putteth off the portion and wipeth clean the bound, the measure, and the watchwords.",
       blockedTitle: "Watchwords are stopped in the browser.",
       blockedSteps: [
         "Click the lock (or permissions) beside the address.",

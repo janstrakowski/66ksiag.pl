@@ -91,7 +91,7 @@ function toRoman(n) {
 }
 
 function chapterLabel(n) {
-  return edition?.language === "en" ? `Ch. ${toRoman(n)}` : `Rozd. ${toRoman(n)}`;
+  return t(edition).chapterAbbrev(toRoman(n));
 }
 
 async function loadBooks() {
@@ -259,11 +259,11 @@ async function renderReader(route) {
   try {
     const books = await loadBooks();
     const book = resolveBook(books, route.bookKey);
-    if (!book) throw new Error(`Nieznana księga: ${route.bookKey}`);
+    if (!book) throw new Error(copy.unknownBook(route.bookKey));
 
     const chapter = route.chapter;
     if (!chapter || chapter < 1 || chapter > book.chapters) {
-      throw new Error(`Brak rozdziału ${chapter}`);
+      throw new Error(copy.missingChapter(chapter));
     }
 
     const canonPath = `${editionPath()}/${book.id}/${chapter}`;
@@ -275,21 +275,19 @@ async function renderReader(route) {
     }
 
     const res = await fetch(`${canonPath}.json`);
-    if (!res.ok) throw new Error("chapter");
+    if (!res.ok) throw new Error(copy.loadFailed);
     const data = await res.json();
-    const copy = t(edition);
 
     const est = estimateMinutesFromVerses(data.verses);
     const timeEl = document.getElementById("read-time");
     timeEl.hidden = false;
-    timeEl.textContent = `${copy.readingEta} · ${est.label}`;
+    timeEl.textContent = `${copy.readingEta} · ${copy.etaMinutes(est.minutes)}`;
 
-    const chapWord = edition?.language === "en" ? "Chapter" : "Rozdział";
     document.getElementById("running").innerHTML = `
       <span>${chapterLabel(chapter)}</span>
       <span>${book.short}</span>
       <span>${editionLabel()}</span>`;
-    document.getElementById("chap-heading").textContent = `${chapWord} ${toRoman(chapter)}`;
+    document.getElementById("chap-heading").textContent = `${copy.chapterWord} ${toRoman(chapter)}`;
     document.getElementById("chap-book").textContent = book.name;
 
     selectedVerse = route.verse;
@@ -342,7 +340,10 @@ function setStartCta(el, assignment) {
   }
   el.href = assignment.href;
   const verb = assignment.started ? copy.continueRead : copy.startRead;
-  el.innerHTML = `<span class="cta-main">${verb}</span><span class="cta-sub">${assignment.minutes}&nbsp;min · ${assignment.range}</span>`;
+  el.innerHTML = `<span class="cta-main">${verb}</span><span class="cta-sub">${copy.minutesWithRange(
+    assignment.minutes,
+    assignment.range
+  )}</span>`;
 }
 
 function renderPick() {
@@ -370,17 +371,18 @@ function syncNotifyPermissionUi() {
   const blocked = document.getElementById("notify-blocked");
   const hint = document.getElementById("notify-hint");
   const wanted = document.getElementById("plan-notify-on").checked;
+  const pc = planCopy(edition);
   if (!("Notification" in window)) {
     blocked.hidden = true;
-    hint.textContent = "Ta przeglądarka nie obsługuje powiadomień systemowych.";
+    hint.textContent = pc.notifyUnsupported;
     return;
   }
   if (wanted && Notification.permission === "denied") {
     blocked.hidden = false;
-    hint.textContent = "Włączone w planie, ale zablokowane przez przeglądarkę.";
+    hint.textContent = pc.notifyBlockedWanted;
   } else {
     blocked.hidden = true;
-    hint.textContent = "Przypomnienie „Zacznij czytać…” oraz postęp „Przeczytałeś …%”.";
+    hint.textContent = pc.notifyHint;
   }
 }
 
@@ -462,7 +464,7 @@ function syncPlanFormUi() {
     chaptersPerDay: Number(document.getElementById("plan-chapters").value) || 3,
     minutesPerDay: Number(document.getElementById("plan-minutes").value) || 15,
   };
-  document.getElementById("plan-preview").textContent = quotaPreview(draft);
+  document.getElementById("plan-preview").textContent = quotaPreview(draft, planCopy(edition));
   syncNotifyPermissionUi();
 }
 
@@ -595,10 +597,10 @@ document.getElementById("share-btn").addEventListener("click", async () => {
       });
     } else {
       await navigator.clipboard.writeText(text);
-      flash(`Skopiowano · /${shortAlias}/${ctx.chapter}/${n}`);
+      flash(t(edition).copied(`/${shortAlias}/${ctx.chapter}/${n}`));
     }
   } catch {
-    flash("Anulowano");
+    flash(t(edition).cancelled);
   }
 });
 
@@ -621,20 +623,21 @@ planForm.addEventListener("submit", async (e) => {
   plan.notifications = fd.get("notifications") === "on";
   plan.cursor = 0;
 
+  const pc = planCopy(edition);
   if (plan.notifications) {
     const perm = await ensureNotifyPermission();
     if (perm === "denied") {
       // Preferencja zostaje „włączone”, ale UI pokaże instrukcję odblokowania.
-      flash("Powiadomienia zablokowane w przeglądarce");
+      flash(pc.notifyDeniedFlash);
     } else if (perm === "unsupported") {
       plan.notifications = false;
-      flash("Przeglądarka nie obsługuje powiadomień");
+      flash(pc.notifyUnsupportedFlash);
     }
   }
 
   savePlan(plan);
   refreshPlanBanner();
-  flash(plan.enabled ? `Plan zapisany · ${quotaPreview(plan)}` : "Plan wyłączony");
+  flash(plan.enabled ? pc.planSaved(quotaPreview(plan, pc)) : pc.planDisabled);
   renderPlan();
 });
 
@@ -644,8 +647,11 @@ function askConfirm(title, body) {
   const bodyEl = document.getElementById("confirm-body");
   const okBtn = document.getElementById("confirm-ok");
   const cancelBtn = document.getElementById("confirm-cancel");
+  const copy = t(edition);
   titleEl.textContent = title;
   bodyEl.textContent = body;
+  okBtn.textContent = copy.confirmOk;
+  cancelBtn.textContent = copy.confirmCancel;
   overlay.hidden = false;
   okBtn.focus();
 
@@ -674,26 +680,22 @@ function askConfirm(title, body) {
 }
 
 document.getElementById("plan-reset-progress").addEventListener("click", async () => {
-  const ok = await askConfirm(
-    "Reset postępu",
-    "Zresetować postęp planu? Dzisiejsze zaliczenia i pozycja wrócą na początek. Cel i limity zostaną."
-  );
+  const pc = planCopy(edition);
+  const ok = await askConfirm(pc.resetProgressTitle, pc.resetProgressBody);
   if (!ok) return;
   plan = resetPlanProgress(loadPlan());
   refreshPlanBanner();
-  flash("Postęp zresetowany");
+  flash(pc.progressResetFlash);
   renderPlan();
 });
 
 document.getElementById("plan-reset-all").addEventListener("click", async () => {
-  const ok = await askConfirm(
-    "Przywróć domyślne",
-    "Przywrócić domyślne ustawienia? To wyłączy plan i wyczyści cel, limity oraz powiadomienia."
-  );
+  const pc = planCopy(edition);
+  const ok = await askConfirm(pc.resetAllTitle, pc.resetAllBody);
   if (!ok) return;
   plan = resetPlanAll();
   refreshPlanBanner();
-  flash("Plan przywrócony do domyślnych");
+  flash(pc.planDefaultsFlash);
   renderPlan();
 });
 

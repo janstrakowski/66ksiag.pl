@@ -43,7 +43,9 @@ export async function notifyStartReading(assignment, ui) {
   const title = assignment.started
     ? ui?.continueRead || "Kontynuuj czytanie"
     : ui?.startRead || "Zacznij czytać";
-  const body = `${assignment.minutes} min · ${assignment.range}`;
+  const body = ui?.minutesWithRange
+    ? ui.minutesWithRange(assignment.minutes, assignment.range)
+    : `${assignment.minutes} min · ${assignment.range}`;
   return showSystemNotify(title, body, "ksiag-start", ui?.htmlLang || "pl");
 }
 

@@ -79,14 +79,13 @@ export function dailyQuota(plan) {
   return Math.max(1, Math.round(Number(plan.chaptersPerDay) || 1));
 }
 
+/** Szacunek czasu czytania — etykietę formatuje UI (`copy.etaMinutes`). */
 export function estimateMinutesFromVerses(verses) {
   const text = verses.map((v) => String(v.t || "").replace(/<[^>]+>/g, "")).join(" ");
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
   const mins = words / WPM;
-  if (mins < 0.75) return { minutes: 1, label: "ok. 1 min", words };
-  if (mins < 1.5) return { minutes: 1, label: "ok. 1 min", words };
-  const rounded = Math.round(mins);
-  return { minutes: rounded, label: `ok. ${rounded} min`, words };
+  if (mins < 1.5) return { minutes: 1, words };
+  return { minutes: Math.max(1, Math.round(mins)), words };
 }
 
 function goalBounds(books, plan) {
@@ -222,12 +221,13 @@ export function advanceCursor(plan, books) {
   return plan;
 }
 
-export function quotaPreview(plan) {
+/** Podgląd quoty — `copy` z `planCopy` / `t` (quotaTime / quotaChapters). */
+export function quotaPreview(plan, copy) {
   const q = dailyQuota(plan);
   if (plan.mode === "time") {
-    return `${plan.minutesPerDay} min ≈ ${q} rozdz. / dzień`;
+    return copy.quotaTime(Number(plan.minutesPerDay), q);
   }
-  return `${q} rozdz. / dzień`;
+  return copy.quotaChapters(q);
 }
 
 function refLabel(books, key, toRoman) {
