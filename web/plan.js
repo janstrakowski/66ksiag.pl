@@ -187,6 +187,25 @@ export function isChapterReadToday(plan, bookId, chapter) {
   return plan.readToday.includes(chapKey(bookId, chapter));
 }
 
+/** Czy rozdział leży w zakresie celu planu. */
+export function isInGoalRange(books, plan, bookId, chapter) {
+  if (!plan?.enabled || !books?.length) return false;
+  return buildChapterList(books, plan).includes(chapKey(bookId, chapter));
+}
+
+/**
+ * Czy rozdział w celu jest już zaliczony (kursor z poprzednich dni lub dziś).
+ * Poza zakresem — zawsze false.
+ */
+export function isChapterCredited(books, plan, bookId, chapter) {
+  const list = buildChapterList(books, plan);
+  const key = chapKey(bookId, chapter);
+  const idx = list.indexOf(key);
+  if (idx < 0) return false;
+  if (idx < (plan.cursor || 0)) return true;
+  return (plan.readToday || []).includes(key);
+}
+
 /** Czy zaliczenie tego rozdziału jest poza dzisiejszą quotą (kolejność w readToday). */
 export function isExtraCredit(plan, bookId, chapter) {
   const key = chapKey(bookId, chapter);
@@ -248,25 +267,25 @@ export function furthestCredited(books, plan) {
 }
 
 /**
- * Jedyny rozdział do zaliczenia: następny po najdalej zaliczonym.
- * Bez zaliczeń — rozdział na kursorze w celu (po resecie: początek).
+ * Jedyny rozdział do zaliczenia w zakresie celu:
+ * następny po dzisiejszym najdalej zaliczonym, albo pozycja kursora (gdy dziś pusto).
  */
 export function nextMarkTarget(books, plan) {
   if (!plan?.enabled || !books?.length) return null;
+  const list = buildChapterList(books, plan);
+  if (!list.length) return null;
+
   const last = furthestCredited(books, plan);
-  if (!last) {
-    const list = buildChapterList(books, plan);
-    if (!list.length) return null;
-    const idx = Math.min(Math.max(0, plan.cursor || 0), list.length - 1);
-    const key = list[idx];
-    if (!plan.readToday.includes(key)) {
-      const [book, ch] = key.split("/");
-      return { book, chapter: Number(ch) };
-    }
-    const unread = nextUnreadInGoal(books, plan);
-    return unread ? { book: unread.book, chapter: unread.chapter } : null;
+  if (last) {
+    const next = nextChapterInBible(books, last.book, last.chapter);
+    if (next && isInGoalRange(books, plan, next.book, next.chapter)) return next;
+    return null;
   }
-  return nextChapterInBible(books, last.book, last.chapter);
+
+  const idx = plan.cursor || 0;
+  if (idx >= list.length) return null;
+  const [book, ch] = list[idx].split("/");
+  return { book, chapter: Number(ch) };
 }
 
 export function canMarkChapter(books, plan, bookId, chapter) {

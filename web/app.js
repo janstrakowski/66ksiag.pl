@@ -4,7 +4,8 @@ import {
   estimateMinutesFromVerses,
   progressPct,
   markChapterRead,
-  isChapterReadToday,
+  isChapterCredited,
+  isInGoalRange,
   isExtraCredit,
   nextMarkTarget,
   nextChapterInBible,
@@ -381,26 +382,28 @@ function updateMarkReadUi(bookId, chapter, books = window.__reader?.books) {
   const wrap = document.getElementById("chapter-done");
   const btn = document.getElementById("mark-read-btn");
   const copy = t(edition);
-  if (!plan.enabled) {
+  if (!plan.enabled || !books) {
     wrap.hidden = true;
     return;
   }
   wrap.classList.remove("is-done", "is-extra", "is-extra-action");
 
-  if (isChapterReadToday(plan, bookId, chapter)) {
-    wrap.hidden = false;
-    wrap.classList.add("is-done");
-    if (isExtraCredit(plan, bookId, chapter)) {
-      wrap.classList.add("is-extra");
-      btn.textContent = copy.markedExtra;
-    } else {
-      btn.textContent = copy.markedPlan;
-    }
+  // Poza zakresem celu — bez przycisku i statusu
+  if (!isInGoalRange(books, plan, bookId, chapter)) {
+    wrap.hidden = true;
     return;
   }
 
-  // Tylko następny rozdział po ostatnim zaliczonym (po resecie — początek celu)
-  if (!books || !canMarkChapter(books, plan, bookId, chapter)) {
+  if (isChapterCredited(books, plan, bookId, chapter)) {
+    wrap.hidden = false;
+    wrap.classList.add("is-done");
+    if (isExtraCredit(plan, bookId, chapter)) wrap.classList.add("is-extra");
+    btn.textContent = copy.markedPlan;
+    return;
+  }
+
+  // Tylko następny rozdział do kontynuacji w zakresie
+  if (!canMarkChapter(books, plan, bookId, chapter)) {
     wrap.hidden = true;
     return;
   }

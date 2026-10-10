@@ -6,9 +6,11 @@ import {
   dailyQuota,
   defaultPlan,
   estimateMinutesFromVerses,
+  isChapterCredited,
   isChapterReadToday,
   isDailyPlanComplete,
   isExtraCredit,
+  isInGoalRange,
   loadPlan,
   markChapterRead,
   canMarkChapter,
@@ -274,5 +276,33 @@ describe("marking progress", () => {
     expect(canMarkChapter(books, plan, "01-gen", 2)).toBe(false);
     expect(markChapterRead(plan, "01-gen", 2, books).kind).toBe("skip");
     expect(markChapterRead(plan, "01-gen", 1, books).kind).toBe("plan");
+  });
+
+  it("credited chapters in goal stay read via cursor; outside goal never", () => {
+    let plan = enabledPlan({ chaptersPerDay: 2, goal: "nt" });
+    expect(isInGoalRange(books, plan, "01-gen", 1)).toBe(false);
+    expect(isInGoalRange(books, plan, "40-mat", 1)).toBe(true);
+    expect(canMarkChapter(books, plan, "01-gen", 1)).toBe(false);
+    expect(nextMarkTarget(books, plan)).toEqual({ book: "40-mat", chapter: 1 });
+
+    plan = markChapterRead(plan, "40-mat", 1, books).plan;
+    plan = advanceCursor(plan, books);
+    expect(isChapterCredited(books, plan, "40-mat", 1)).toBe(true);
+
+    // nowy dzień: readToday puste, kursor zostaje — nadal „Przeczytany”
+    plan = { ...plan, day: todayKey(), readToday: [] };
+    expect(isChapterCredited(books, plan, "40-mat", 1)).toBe(true);
+    expect(nextMarkTarget(books, plan)).toEqual({ book: "40-mat", chapter: 2 });
+  });
+
+  it("nextMarkTarget stays inside goal range", () => {
+    let plan = enabledPlan({ chaptersPerDay: 1, goal: "nt" });
+    plan = markChapterRead(plan, "40-mat", 1, books).plan;
+    plan = markChapterRead(plan, "40-mat", 2, books).plan;
+    plan = markChapterRead(plan, "66-apo", 1, books).plan;
+    plan = markChapterRead(plan, "66-apo", 2, books).plan;
+    expect(isDailyPlanComplete(plan)).toBe(true);
+    // po ostatnim rozdziale celu — brak kolejnego do zaliczenia
+    expect(nextMarkTarget(books, plan)).toBeNull();
   });
 });

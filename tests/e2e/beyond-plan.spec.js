@@ -40,7 +40,7 @@ test("mark button only on the next chapter after last credited", async ({ page }
   await expect(page.locator("#chapter-done")).toBeVisible();
   await expect(page.locator("#mark-read-btn")).toContainText(/ponad plan|beyond/i);
   await page.locator("#mark-read-btn").click();
-  await expect(page.locator("#mark-read-btn")).toContainText(/ponad plan|beyond|Zaliczone|Reckoned/i);
+  await expect(page.locator("#mark-read-btn")).toContainText(/Przeczytany|Read\./i);
 });
 
 test("after reset mark button only on goal start, not chapter 2", async ({ page }) => {
@@ -87,6 +87,7 @@ test("home Continue goes to next after last marked, not last browsed", async ({ 
   await page.goto("/czytaj/01-gen/1");
   await page.locator("#mark-read-btn").click();
   expect(await readToday(page)).toEqual(["01-gen/1"]);
+  await expect(page.locator("#mark-read-btn")).toContainText(/Przeczytany|Read\./i);
 
   // przeglądanie dalej bez oznaczania
   await page.goto("/czytaj/01-gen/5");
@@ -101,5 +102,31 @@ test("home Continue goes to next after last marked, not last browsed", async ({ 
   await cta.click();
   await expect(page).toHaveURL(/\/czytaj\/01-gen\/2$/);
   await expect(page.locator("#chapter-done")).toBeVisible();
-  await expect(page.locator("#mark-read-btn")).toContainText(/Oznacz|Mark|Reckon the chapter/i);
+  await expect(page.locator("#mark-read-btn")).toContainText(/Oznacz|Account this chapter/i);
+});
+
+test("outside goal range has no mark UI; credited in-range shows Przeczytany", async ({ page }) => {
+  await pickBg(page);
+  await page.goto("/plan");
+  await page.locator("#plan-enabled").check();
+  await page.locator('input[name="goal"][value="nt"]').check();
+  await page.locator("#plan-chapters").fill("2");
+  await page.locator('#plan-form button[type="submit"]').click();
+  await expect(page.locator("#toast")).toBeVisible();
+
+  await page.goto("/czytaj/01-gen/1");
+  await expect(page.locator("#chapter-done")).toBeHidden();
+
+  await page.goto("/czytaj/40-mat/1");
+  await expect(page.locator("#chapter-done")).toBeVisible();
+  await page.locator("#mark-read-btn").click();
+  await expect(page.locator("#mark-read-btn")).toContainText(/Przeczytany|Read\./i);
+
+  await page.goto("/czytaj/40-mat/2");
+  await expect(page.locator("#chapter-done")).toBeVisible();
+  await page.locator("#mark-read-btn").click();
+
+  // wcześniejszy w zakresie nadal „Przeczytany.”
+  await page.goto("/czytaj/40-mat/1");
+  await expect(page.locator("#mark-read-btn")).toContainText(/Przeczytany|Read\./i);
 });
