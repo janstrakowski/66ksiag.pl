@@ -31,22 +31,50 @@ import {
   findEdition,
 } from "./editions.js";
 import { t, planCopy } from "./i18n.js";
-import {
-  createAudioController,
-  chapterHasAudio,
-  loadAudioSession,
-  saveAudioSession,
-  verseHtmlWithWords,
-  loadAudioCatalog,
-  downloadAllAudio,
-  clearDownloadedAudio,
-  countCachedChapters,
-  abortAudioDownload,
-  ensureAudioServiceWorker,
-  supportsBackgroundFetch,
-} from "./audio.js";
 
 let audioDownloadAbort = null;
+/** Lazy — BG nie ładuje audio.js (~16 KB) ani katalogu (~193 KB). */
+let audioMod = null;
+let audioPlayer = null;
+let verseHtmlWithWordsFn = null;
+
+const AUDIO_SESSION_KEY = "ksiag-audio-v1";
+
+function loadAudioSession() {
+  try {
+    const raw = localStorage.getItem(AUDIO_SESSION_KEY);
+    if (!raw) {
+      return { mode: "idle", offerContinue: false, nextBook: null, nextChapter: null };
+    }
+    return {
+      mode: "idle",
+      offerContinue: false,
+      nextBook: null,
+      nextChapter: null,
+      ...JSON.parse(raw),
+    };
+  } catch {
+    return { mode: "idle", offerContinue: false, nextBook: null, nextChapter: null };
+  }
+}
+
+function saveAudioSession(session) {
+  localStorage.setItem(AUDIO_SESSION_KEY, JSON.stringify(session));
+}
+
+async function ensureAudioModule() {
+  if (audioMod) return audioMod;
+  audioMod = await import("./audio.js");
+  verseHtmlWithWordsFn = audioMod.verseHtmlWithWords;
+  audioPlayer = audioMod.createAudioController({
+    audioEl,
+    hooks: {
+      onChapterEnded: handleAudioChapterEnded,
+      onState: syncAudioChrome,
+    },
+  });
+  return audioMod;
+}
 
 const DEFAULT_READ = { book: "01-gen", chapter: 1, verse: 1 };
 let edition = loadEditionChoice();
@@ -61,14 +89,6 @@ const audioBarToggle = document.getElementById("audio-bar-toggle");
 const audioControls = () => document.getElementById("audio-controls");
 const audioPlayBtn = () => document.getElementById("audio-play-btn");
 const audioStopBtn = () => document.getElementById("audio-stop-btn");
-
-const audioPlayer = createAudioController({
-  audioEl,
-  hooks: {
-    onChapterEnded: handleAudioChapterEnded,
-    onState: syncAudioChrome,
-  },
-});
 
 function editionPath() {
   return edition?.path || "/bg/1879";
@@ -99,6 +119,9 @@ let toastTimer;
 let plan = loadPlan();
 /** Generacja ładowania czytnika — odrzuca przestarzałe odpowiedzi przy szybkim przewijaniu. */
 let readerLoadGen = 0;
+/** Cache JSON rozdziałów (nawigacja wstecz / prefetch). */
+const chapterCache = new Map();
+const CHAPTER_CACHE_MAX = 48;
 
 function flash(msg) {
   toastEl.textContent = msg;
@@ -144,6 +167,39 @@ async function loadBooks() {
   return booksCache.books;
 }
 
+function rememberChapter(url, data) {
+  chapterCache.set(url, data);
+  if (chapterCache.size > CHAPTER_CACHE_MAX) {
+    const oldest = chapterCache.keys().next().value;
+    chapterCache.delete(oldest);
+  }
+}
+
+async function fetchChapterJson(canonPath) {
+  const url = `${canonPath}.json`;
+  if (chapterCache.has(url)) return chapterCache.get(url);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("chapter");
+  const data = await res.json();
+  rememberChapter(url, data);
+  return data;
+}
+
+function prefetchChapter(canonPath) {
+  const url = `${canonPath}.json`;
+  if (chapterCache.has(url)) return;
+  const run = () => {
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) rememberChapter(url, data);
+      })
+      .catch(() => {});
+  };
+  if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 1200 });
+  else setTimeout(run, 0);
+}
+
 function resolveBook(books, key) {
   const k = key.toLowerCase();
   return books.find(
@@ -170,7 +226,7 @@ function verseHtml(raw, withWords = false) {
         .replace(/>/g, "&gt;");
     })
     .join("");
-  return withWords ? verseHtmlWithWords(escaped, 0) : escaped;
+  return withWords && verseHtmlWithWordsFn ? verseHtmlWithWordsFn(escaped, 0) : escaped;
 }
 
 function editionSupportsAudio() {
@@ -190,7 +246,8 @@ function syncAudioChrome(state) {
   }
   const copy = t(edition);
   const playing = !!state?.playing;
-  if (playing || audioPlayer.current().bookId) {
+  const cur = audioPlayer?.current?.();
+  if (playing || cur?.bookId) {
     audioBar.hidden = false;
     document.body.classList.add("has-audio-bar");
     audioBarLabel.textContent = playing ? copy.audioBarListening : copy.audioBarPaused;
@@ -243,7 +300,8 @@ async function playChapterAudio(bookId, chapter, mode) {
     flash(t(edition).audioOnlyKjv);
     return;
   }
-  const ok = await chapterHasAudio(bookId, chapter);
+  const mod = await ensureAudioModule();
+  const ok = await mod.chapterHasAudio(bookId, chapter);
   if (!ok) {
     flash(t(edition).audioUnavailable);
     return;
@@ -281,7 +339,7 @@ async function handleAudioChapterEnded({ bookId, chapter }) {
         nextChapter: next?.chapter || null,
       });
       audioMode = "idle";
-      audioPlayer.stop();
+      audioPlayer?.stop();
       flash(copy.audioSessionEnded);
       return;
     }
@@ -300,12 +358,12 @@ async function handleAudioChapterEnded({ bookId, chapter }) {
     }
     saveAudioSession({ mode: "idle", offerContinue: false, nextBook: null, nextChapter: null });
     audioMode = "idle";
-    audioPlayer.stop();
+    audioPlayer?.stop();
     flash(copy.audioBibleEnded);
     return;
   }
 
-  audioPlayer.stop();
+  audioPlayer?.stop();
 }
 
 function setCanonical(path) {
@@ -449,7 +507,7 @@ function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy })
   const mark = computeMarkReadUi(book.id, chapter, books);
   const markClass = ["chapter-done", ...mark.classes].join(" ");
   const showAudio = editionSupportsAudio() && hasAudio;
-  const stopHidden = audioPlayer.current().playing ? "" : " hidden";
+  const stopHidden = audioPlayer?.current?.()?.playing ? "" : " hidden";
   const heading = `${copy.chapterWord} ${toRoman(chapter)}`;
   const timeText = `${copy.readingEta} · ${copy.etaMinutes(est.minutes)}`;
 
@@ -487,7 +545,20 @@ async function renderReader(route) {
   const folio = document.querySelector("#reader .moulding-inner.reader");
 
   try {
-    const books = await loadBooks();
+    // Równolegle: books + domysł rozdziału (gdy bookKey == id)
+    const guessUrl = `${editionPath()}/${route.bookKey}/${route.chapter}.json`;
+    const earlyChapterP = chapterCache.has(guessUrl)
+      ? Promise.resolve(chapterCache.get(guessUrl))
+      : fetch(guessUrl)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+
+    const booksP = loadBooks();
+    const audioPrepP = editionSupportsAudio()
+      ? ensureAudioModule().then(() => true)
+      : Promise.resolve(false);
+
+    const [books, earlyData, hasAudio] = await Promise.all([booksP, earlyChapterP, audioPrepP]);
     if (gen !== readerLoadGen) return;
 
     const book = resolveBook(books, route.bookKey);
@@ -501,18 +572,21 @@ async function renderReader(route) {
     const canonPath = `${editionPath()}/${book.id}/${chapter}`;
     const nice = `/czytaj/${book.id}/${chapter}${route.verse ? `/${route.verse}` : ""}`;
 
-    const res = await fetch(`${canonPath}.json`);
-    if (!res.ok) throw new Error(copy.loadFailed);
-    const data = await res.json();
+    let data = earlyData;
+    if (data && book.id === route.bookKey) {
+      rememberChapter(`${canonPath}.json`, data);
+    } else {
+      try {
+        data = await fetchChapterJson(canonPath);
+      } catch {
+        throw new Error(copy.loadFailed);
+      }
+    }
     if (gen !== readerLoadGen) return;
 
-    let hasAudio = false;
-    if (!editionSupportsAudio()) {
+    if (!hasAudio) {
       pendingAudioAutoplay = false;
-      if (audioPlayer.current().bookId) audioPlayer.stop();
-    } else {
-      hasAudio = await chapterHasAudio(book.id, chapter);
-      if (gen !== readerLoadGen) return;
+      if (audioPlayer?.current?.()?.bookId) audioPlayer.stop();
     }
 
     // Poprzedni ekran zostaje widoczny, aż tu jest komplet — potem jeden reveal
@@ -534,6 +608,11 @@ async function renderReader(route) {
       copy,
     });
     show("reader");
+
+    // Prefetch sąsiadów — kolejna nawigacja z cache
+    if (chapter > 1) prefetchChapter(`${editionPath()}/${book.id}/${chapter - 1}`);
+    const nxt = nextChapterInBible(books, book.id, chapter);
+    if (nxt) prefetchChapter(`${editionPath()}/${nxt.book}/${nxt.chapter}`);
 
     if (pendingAudioAutoplay && showAudio) {
       pendingAudioAutoplay = false;
@@ -695,7 +774,11 @@ async function renderHome() {
       dlBtn.textContent = copy.audioDownload;
       const clearBtn = document.getElementById("home-audio-clear");
       if (clearBtn) clearBtn.textContent = copy.audioClear;
-      refreshAudioDownloadStatus(dlStatus, copy).catch(() => {});
+      // hint od razu; licznik cache / katalog 193 KB — w idle
+      if (dlStatus) dlStatus.textContent = copy.audioDownloadHint;
+      const idle = () => refreshAudioDownloadStatus(dlStatus, copy).catch(() => {});
+      if (typeof requestIdleCallback === "function") requestIdleCallback(idle, { timeout: 2500 });
+      else setTimeout(idle, 0);
     }
   }
 
@@ -844,6 +927,7 @@ document.getElementById("reader").addEventListener("click", async (e) => {
     if (!editionSupportsAudio()) return;
     const ctx = window.__reader;
     if (!ctx) return;
+    await ensureAudioModule();
     if (audioPlayer.isPlaying() && audioPlayer.current().bookId === ctx.book.id && audioPlayer.current().chapter === ctx.chapter) {
       audioPlayer.pause();
       return;
@@ -869,7 +953,7 @@ document.getElementById("reader").addEventListener("click", async (e) => {
 
   if (e.target.closest("#audio-stop-btn")) {
     audioMode = "idle";
-    audioPlayer.stop();
+    audioPlayer?.stop();
   }
 });
 
@@ -1007,6 +1091,7 @@ document.getElementById("home-change-edition").addEventListener("click", () => {
   clearEditionChoice();
   edition = null;
   booksCache = null;
+  chapterCache.clear();
   applyTheme();
   history.pushState(null, "", "/wybor");
   route();
@@ -1025,8 +1110,9 @@ document.getElementById("home-audio-continue").addEventListener("click", () => {
 async function refreshAudioDownloadStatus(el, copy) {
   if (!el) return;
   try {
-    const cat = await loadAudioCatalog();
-    const n = await countCachedChapters(cat);
+    const mod = await ensureAudioModule();
+    const cat = await mod.loadAudioCatalog();
+    const n = await mod.countCachedChapters(cat);
     const total = cat.count || cat.chapters.length;
     if (n <= 0) {
       el.textContent = copy.audioDownloadHint;
@@ -1042,6 +1128,7 @@ async function refreshAudioDownloadStatus(el, copy) {
 
 document.getElementById("home-audio-download")?.addEventListener("click", async () => {
   if (!editionSupportsAudio()) return;
+  const mod = await ensureAudioModule();
   const copy = t(edition);
   const dlBtn = document.getElementById("home-audio-download");
   const dlStatus = document.getElementById("home-audio-download-status");
@@ -1049,7 +1136,7 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
 
   if (audioDownloadAbort) {
     audioDownloadAbort.abort();
-    await abortAudioDownload();
+    await mod.abortAudioDownload();
     audioDownloadAbort = null;
     dlBtn.textContent = copy.audioDownload;
     return;
@@ -1070,13 +1157,13 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
     return copy.audioEtaHours(Math.max(1, Math.ceil(etaSec / 3600)));
   };
 
-  dlStatus.textContent = supportsBackgroundFetch()
+  dlStatus.textContent = mod.supportsBackgroundFetch()
     ? copy.audioDownloadSystemHint
     : copy.audioDownloadProgress(0, "…", 0, copy.audioEtaUnknown);
 
   try {
-    await ensureAudioServiceWorker();
-    await downloadAllAudio(
+    await mod.ensureAudioServiceWorker();
+    await mod.downloadAllAudio(
       ({ done, total, pct, etaSec }) => {
         const p = pct ?? (total ? Math.round((done / total) * 100) : 0);
         if (fill) fill.style.width = `${p}%`;
@@ -1113,13 +1200,15 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
 });
 
 document.getElementById("home-audio-clear")?.addEventListener("click", async () => {
+  const mod = await ensureAudioModule();
   const copy = t(edition);
-  await clearDownloadedAudio();
+  await mod.clearDownloadedAudio();
   flash(copy.audioCleared);
   await refreshAudioDownloadStatus(document.getElementById("home-audio-download-status"), copy);
 });
 
 audioBarToggle.addEventListener("click", async () => {
+  if (!audioPlayer) return;
   if (audioPlayer.isPlaying()) audioPlayer.pause();
   else await audioPlayer.resume();
 });

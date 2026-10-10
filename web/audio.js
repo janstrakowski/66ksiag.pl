@@ -11,6 +11,8 @@ const AVG_CHAPTER_BYTES = 2.2 * 1024 * 1024;
 const BF_ID_PREFIX = "ksiag-scourby-";
 
 let catalogPromise = null;
+/** @type {Map<string, object> | null} */
+let catalogByKey = null;
 let objectUrl = null;
 /** @type {BackgroundFetchRegistration | null} */
 let activeBgFetch = null;
@@ -66,10 +68,15 @@ export async function loadAudioCatalog() {
     catalogPromise = fetch(CATALOG_URL)
       .then(async (res) => {
         if (!res.ok) throw new Error("catalog");
-        return res.json();
+        const cat = await res.json();
+        catalogByKey = new Map(
+          (cat.chapters || []).map((c) => [`${c.book}/${Number(c.chapter)}`, c])
+        );
+        return cat;
       })
       .catch((e) => {
         catalogPromise = null;
+        catalogByKey = null;
         throw e;
       });
   }
@@ -77,6 +84,8 @@ export async function loadAudioCatalog() {
 }
 
 export function catalogEntry(catalog, bookId, chapter) {
+  const key = `${bookId}/${Number(chapter)}`;
+  if (catalogByKey) return catalogByKey.get(key) || null;
   return catalog?.chapters?.find((c) => c.book === bookId && c.chapter === Number(chapter)) || null;
 }
 
