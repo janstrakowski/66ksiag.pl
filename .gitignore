@@ -11,3 +11,15 @@ __pycache__/
 /playwright-report/
 /blob-report/
 /coverage/
+
+# Android / Bubblewrap
+/android/app/build/
+/android/.gradle/
+/android/build/
+/android/android.keystore
+/android/secrets/
+/android/*.apk
+/android/*.aab
+/android/app-release-signed.apk
+/android/app-release-bundle.aab
+*.idsig

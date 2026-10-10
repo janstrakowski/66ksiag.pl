@@ -20,8 +20,10 @@ import {
 } from "./plan.js";
 import {
   ensureNotifyPermission,
+  ensureServiceWorker,
   notifyStartReading,
   notifyProgress,
+  notifyEnabledConfirm,
 } from "./notify.js";
 import { isDevHost } from "./dev-host.js";
 import {
@@ -678,38 +680,101 @@ function notificationsWanted(p = plan) {
   return !!(p.enabled && p.notifications);
 }
 
+function isAndroidDevice() {
+  return /Android/i.test(navigator.userAgent || "");
+}
+
+function isInstalledDisplay() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: minimal-ui)").matches ||
+    (typeof navigator !== "undefined" && navigator.standalone === true) ||
+    (document.referrer || "").startsWith("android-app://")
+  );
+}
+
+/**
+ * Link do ustawień powiadomień.
+ * TWA blokuje surowe intent:android.settings.* — celujemy w Activity w APK
+ * (ksiag:// → pl.ksiag.app/.NotificationSettingsActivity).
+ */
+function androidNotificationSettingsHref() {
+  return "intent://notification-settings#Intent;scheme=ksiag;package=pl.ksiag.app;end";
+}
+
+function wireAndroidSettingsLink(androidLink, label) {
+  if (!androidLink) return;
+  androidLink.hidden = false;
+  androidLink.textContent = label || androidLink.textContent;
+  androidLink.href = androidNotificationSettingsHref();
+  androidLink.setAttribute("rel", "noopener");
+}
+
 function syncNotifyPermissionUi() {
   const blocked = document.getElementById("notify-blocked");
   const hint = document.getElementById("notify-hint");
+  const androidLink = document.getElementById("notify-android-settings");
   const wanted = document.getElementById("plan-notify-on").checked;
   const pc = planCopy(edition);
   if (!("Notification" in window)) {
     blocked.hidden = true;
+    if (androidLink) androidLink.hidden = true;
     hint.textContent = pc.notifyUnsupported;
     return;
   }
   if (wanted && Notification.permission === "denied") {
     blocked.hidden = false;
     hint.textContent = pc.notifyBlockedWanted;
+    const useApp = isAndroidDevice() && isInstalledDisplay();
+    const titleEl = document.querySelector("[data-i18n-blocked-title]");
+    const extraEl = document.querySelector("[data-i18n-blocked-extra]");
+    const stepsEl = document.querySelector("[data-i18n-blocked-steps]");
+    if (useApp) {
+      if (titleEl) titleEl.textContent = pc.blockedTitleApp || pc.blockedTitle;
+      if (extraEl) extraEl.textContent = pc.blockedExtraApp || pc.blockedExtra;
+      if (stepsEl && pc.blockedStepsApp) {
+        stepsEl.innerHTML = pc.blockedStepsApp.map((s) => `<li>${s}</li>`).join("");
+      }
+      wireAndroidSettingsLink(androidLink, pc.blockedAndroidLink);
+    } else if (isAndroidDevice()) {
+      // Chrome w przeglądarce (nie TWA) — też pokaż link; custom scheme zadziała po zainstalowaniu APK
+      if (titleEl) titleEl.textContent = pc.blockedTitleApp || pc.blockedTitle;
+      if (extraEl) extraEl.textContent = pc.blockedExtraApp || pc.blockedExtra;
+      if (stepsEl && pc.blockedStepsApp) {
+        stepsEl.innerHTML = pc.blockedStepsApp.map((s) => `<li>${s}</li>`).join("");
+      }
+      wireAndroidSettingsLink(androidLink, pc.blockedAndroidLink);
+    } else {
+      if (titleEl) titleEl.textContent = pc.blockedTitle;
+      if (extraEl) extraEl.textContent = pc.blockedExtra;
+      if (stepsEl && pc.blockedSteps) {
+        stepsEl.innerHTML = pc.blockedSteps.map((s) => `<li>${s}</li>`).join("");
+      }
+      if (androidLink) androidLink.hidden = true;
+    }
   } else {
     blocked.hidden = true;
+    if (androidLink) androidLink.hidden = true;
     hint.textContent = pc.notifyHint;
   }
 }
 
-async function maybeNotifyStart(books) {
+async function maybeNotifyStart(books, { force = false } = {}) {
   plan = loadPlan();
-  if (!notificationsWanted(plan)) return;
-  if (plan.startNotifiedDay === todayKey()) return;
-  if (isDailyPlanComplete(plan)) return;
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!notificationsWanted(plan)) return false;
+  if (!force && plan.startNotifiedDay === todayKey()) return false;
+  if (isDailyPlanComplete(plan)) return false;
+  if (!("Notification" in window) || Notification.permission !== "granted") return false;
   const asg = todayAssignment(books, plan, toRoman);
-  if (!asg || asg.done || asg.started) return;
+  // force: po włączeniu w ustawieniach — także gdy już zaczął czytać (continue)
+  if (!asg || asg.done) return false;
+  if (!force && asg.started) return false;
   const ok = await notifyStartReading(asg, t(edition));
   if (ok) {
     plan.startNotifiedDay = todayKey();
     savePlan(plan);
   }
+  return ok;
 }
 
 async function renderHome() {
@@ -787,10 +852,14 @@ async function renderHome() {
 }
 
 function fillBookSelects(books) {
+  // Krótsze etykiety — długie nazwy ksiąg nie rozpychają ramki planu
   const from = document.getElementById("plan-from-book");
   const to = document.getElementById("plan-to-book");
   const opts = books
-    .map((b) => `<option value="${b.id}">${b.short} — ${b.name}</option>`)
+    .map(
+      (b) =>
+        `<option value="${b.id}" title="${escapeHtml(b.name)}">${escapeHtml(b.short)}</option>`
+    )
     .join("");
   from.innerHTML = opts;
   to.innerHTML = opts;
@@ -1006,6 +1075,7 @@ planForm.addEventListener("submit", async (e) => {
   plan.cursor = 0;
 
   const pc = planCopy(edition);
+  let justEnabledNotify = false;
   if (plan.notifications) {
     const perm = await ensureNotifyPermission();
     if (perm === "denied") {
@@ -1014,12 +1084,29 @@ planForm.addEventListener("submit", async (e) => {
     } else if (perm === "unsupported") {
       plan.notifications = false;
       flash(pc.notifyUnsupportedFlash);
+    } else if (perm === "granted") {
+      justEnabledNotify = true;
+      // Pozwól ponownie wysłać „Zacznij czytać” po włączeniu w UI
+      plan.startNotifiedDay = null;
     }
   }
 
   savePlan(plan);
   refreshPlanBanner();
-  flash(plan.enabled ? pc.planSaved(quotaPreview(plan, pc)) : pc.planDisabled);
+
+  if (justEnabledNotify && plan.enabled && plan.notifications) {
+    const shown = await notifyEnabledConfirm(t(edition));
+    if (shown) flash(pc.notifyEnabledFlash);
+    else flash(pc.notifyFailedFlash);
+    try {
+      const books = await loadBooks();
+      await maybeNotifyStart(books, { force: true });
+    } catch {
+      /* ignore */
+    }
+  } else {
+    flash(plan.enabled ? pc.planSaved(quotaPreview(plan, pc)) : pc.planDisabled);
+  }
   renderPlan();
 });
 
@@ -1227,9 +1314,7 @@ document.addEventListener("click", (e) => {
 });
 
 if ("serviceWorker" in navigator && !isDevHost()) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  });
+  ensureServiceWorker().catch(() => {});
 }
 
 function refreshAll() {

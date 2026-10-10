@@ -55,6 +55,9 @@ const PL = {
   notifyBlockedWanted: "Włączone w planie, ale zablokowane przez przeglądarkę.",
   notifyDeniedFlash: "Powiadomienia zablokowane w przeglądarce",
   notifyUnsupportedFlash: "Przeglądarka nie obsługuje powiadomień",
+  notifyEnabledFlash: "Powiadomienia włączone — sprawdź pasek powiadomień",
+  notifyEnabledBody: "Powiadomienia włączone. Przypomnimy o dziennym czytaniu.",
+  notifyFailedFlash: "Nie udało się pokazać powiadomienia — sprawdź ustawienia aplikacji",
   copied: (path) => `Skopiowano · ${path}`,
   cancelled: "Anulowano",
   progressResetFlash: "Postęp zresetowany",
@@ -85,7 +88,7 @@ const PL = {
   audioDownload: "Pobierz audio",
   audioDownloadCancel: "Anuluj pobieranie",
   audioDownloadHint:
-    "Audio z serwera (Scourby). Pobierz całość na urządzenie (offline). Na Androidzie Chrome pokaże pasek w powiadomieniach.",
+    "Audio z serwera (Scourby). Pobierz całość na urządzenie (offline). Na Androidzie widać pasek w powiadomieniach systemowych.",
   audioDownloadSystemHint: "Pobieranie brakujących rozdziałów — pasek w powiadomieniach…",
   audioDownloadProgress: (done, total, pct, eta) =>
     eta
@@ -161,6 +164,9 @@ const EN = {
   notifyBlockedWanted: "Appointed in the portion, yet stopped by the browser.",
   notifyDeniedFlash: "Watchwords are stopped in the browser",
   notifyUnsupportedFlash: "This browser hath no watchwords",
+  notifyEnabledFlash: "Watchwords are on — look to the shade",
+  notifyEnabledBody: "Watchwords are on. We shall put thee in mind of the day’s portion.",
+  notifyFailedFlash: "Could not shew a watchword — look to the app settings",
   copied: (path) => `Copied · ${path}`,
   cancelled: "Left undone",
   progressResetFlash: "The progress is blotted out",
@@ -191,7 +197,7 @@ const EN = {
   audioDownload: "Download audio",
   audioDownloadCancel: "Cancel download",
   audioDownloadHint:
-    "Audio is served here (Scourby). Download all unto this device. On Android Chrome a system progress bar is shewn in the notifications.",
+    "Audio is served here (Scourby). Download all unto this device. On Android a progress bar is shewn in the system notifications.",
   audioDownloadSystemHint: "Fetching the chapters that are wanting — see the system bar…",
   audioDownloadProgress: (done, total, pct, eta) =>
     eta
@@ -253,6 +259,14 @@ export function planCopy(edition) {
         "Refresh this page and turn the watchwords on again here.",
       ],
       blockedExtra: "Firefox: permissions in the address bar. Chromium: Site settings → Notifications.",
+      blockedTitleApp: "Notifications are turned off for this app.",
+      blockedStepsApp: [
+        "Open the app notification settings (link below).",
+        "Allow notifications for 66ksiąg.",
+        "Return here and turn watchwords on again.",
+      ],
+      blockedExtraApp: "Or: Settings → Apps → 66ksiąg → Notifications.",
+      blockedAndroidLink: "Open Android notification settings",
     };
   }
   return {
@@ -291,5 +305,13 @@ export function planCopy(edition) {
     ],
     blockedExtra:
       "Firefox: ikona uprawnień w pasku adresu → Uprawnienia → Powiadomienia. Chromium: Ustawienia strony → Powiadomienia.",
+    blockedTitleApp: "Powiadomienia są wyłączone dla tej aplikacji.",
+    blockedStepsApp: [
+      "Otwórz ustawienia powiadomień aplikacji (link poniżej).",
+      "Włącz powiadomienia dla 66ksiąg.",
+      "Wróć tutaj i włącz powiadomienia w planie ponownie.",
+    ],
+    blockedExtraApp: "Albo: Ustawienia → Aplikacje → 66ksiąg → Powiadomienia.",
+    blockedAndroidLink: "Otwórz ustawienia powiadomień Androida",
   };
 }

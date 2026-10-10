@@ -198,6 +198,6 @@ PWA: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po końcu 
 
 - Wyszukiwanie pełnotekstowe w CLI/API
 - Konta, sync, push między urządzeniami
-- Pakiet do Google Play (PWA przez Trusted Web Activity / Bubblewrap lub PWABuilder — bez przepisywania na native)
+- ~~Pakiet do Google Play~~ → `android/` (Bubblewrap TWA, `pl.ksiag.app`); listing/Play App Signing fingerprint w konsoli
 - Opakowanie Capacitor / inne sklepy
 - OpenAPI (można dodać jako opis tych samych ścieżek statycznych)

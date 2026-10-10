@@ -1,0 +1,51 @@
+{
+  "packageId": "pl.ksiag.app",
+  "host": "66ksiag.pl",
+  "name": "66ksi\u0105g",
+  "launcherName": "66ksi\u0105g",
+  "display": "standalone",
+  "themeColor": "#100C09",
+  "themeColorDark": "#000000",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#CFC0A4",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://66ksiag.pl/assets/icon-512.png",
+  "maskableIconUrl": "https://66ksiag.pl/assets/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://66ksiag.pl/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://66ksiag.pl/",
+  "minSdkVersion": 24,
+  "orientation": "default",
+  "fingerprints": [
+    {
+      "value": "E3:36:8B:B6:A2:F7:3C:A8:F7:76:60:5B:DC:65:19:5F:9E:C8:14:26:96:26:46:99:1A:1B:89:D8:41:FF:BF:5B"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1.0.0"
+}

@@ -17,9 +17,45 @@ mkdir -p "$DIST"
 
 cp -a "$ROOT/web/." "$DIST/"
 mkdir -p "$DIST/bg" "$DIST/kjv"
-cp -a "$ROOT/data/bg/." "$DIST/bg/"
-# KJV tekst + words.json + self-hosted Scourby MP3 (-L: rozwiąż symlinki z vendor/)
-rsync -aL "$ROOT/data/kjv/" "$DIST/kjv/"
+
+# PWA: edition root + book/chapter JSON (+ KJV words/mp3).
+# Bez *.txt i per-verse {book}/{ch}/{v}.* — Workers Free: max 20k plików.
+# src = katalog wydania (np. data/bg/1879), dest = dist/bg/1879
+copy_pwa_edition() {
+  local src="$1" dest="$2" follow_links="${3:-0}"
+  local find_args=(.)
+  mkdir -p "$dest"
+  # Głębokość ≤2: books.json, 01-gen/1.json, 01-gen/1.mp3 — nie 01-gen/1/1.json
+  # find -L: MP3 bywają symlinkami do vendor/
+  if [[ "$follow_links" == "1" ]]; then
+    find_args=(-L .)
+  fi
+  (
+    cd "$src"
+    find "${find_args[@]}" \( -type f -o -type l \) \( -name '*.json' -o -name '*.mp3' \) \
+      | while IFS= read -r rel; do
+          depth=$(printf '%s' "$rel" | tr -cd '/' | wc -c)
+          if [[ "$depth" -gt 2 ]]; then
+            continue
+          fi
+          mkdir -p "$dest/$(dirname "$rel")"
+          if [[ "$follow_links" == "1" ]]; then
+            cp -L -- "$rel" "$dest/$rel"
+          else
+            cp -a -- "$rel" "$dest/$rel"
+          fi
+        done
+  )
+}
+
+shopt -s nullglob
+for ed in "$ROOT"/data/bg/*/; do
+  copy_pwa_edition "$ed" "$DIST/bg/$(basename "$ed")" 0
+done
+for ed in "$ROOT"/data/kjv/*/; do
+  copy_pwa_edition "$ed" "$DIST/kjv/$(basename "$ed")" 1
+done
+shopt -u nullglob
 cp -f "$ROOT/data/translations.json" "$DIST/translations.json" 2>/dev/null || true
 cp -f "$ROOT/llms.txt" "$DIST/llms.txt"
 cp -f "$ROOT/AGENTS.md" "$DIST/AGENTS.md" 2>/dev/null || true
@@ -29,9 +65,13 @@ test -f "$DIST/audio-catalog.json" || {
   exit 1
 }
 mp3_n=$(find "$DIST/kjv" -name '*.mp3' | wc -l | tr -d ' ')
+file_n=$(find "$DIST" -type f | wc -l | tr -d ' ')
 if [[ "$mp3_n" -lt 1 ]]; then
   echo "Uwaga: brak MP3 w dist — uruchom fetch_scourby.py && install_layout.py" >&2
 fi
+if [[ "$file_n" -gt 20000 ]]; then
+  echo "Uwaga: dist ma $file_n plików (>20k limit Workers Free)" >&2
+fi
 
-echo "dist gotowe: $DIST (MP3: $mp3_n)"
+echo "dist gotowe: $DIST (pliki: $file_n, MP3: $mp3_n)"
 du -sh "$DIST" "$DIST/bg" "$DIST/kjv"

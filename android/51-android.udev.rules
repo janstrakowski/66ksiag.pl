@@ -1,0 +1,3 @@
+# Samsung / Google ADB (user-install requires: sudo cp to /etc/udev/rules.d && udevadm control --reload)
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", MODE="0666", GROUP="plugdev"

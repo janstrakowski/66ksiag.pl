@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "pl.ksiag.app",
+      "sha256_cert_fingerprints": [
+        "E3:36:8B:B6:A2:F7:3C:A8:F7:76:60:5B:DC:65:19:5F:9E:C8:14:26:96:26:46:99:1A:1B:89:D8:41:FF:BF:5B"
+      ]
+    }
+  }
+]

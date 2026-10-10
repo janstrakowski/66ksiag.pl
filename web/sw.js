@@ -1,5 +1,5 @@
 /* Shell cache + Background Fetch (Scourby) → Cache Storage */
-const CACHE = "ksiag-v6";
+const CACHE = "ksiag-v8";
 const AUDIO_CACHE = "ksiag-scourby-mp3-v1";
 const SHELL = [
   "/",
@@ -47,8 +47,13 @@ async function settleAudioFetch(event, ok) {
   }
 
   try {
+    const origin = self.location.origin;
     await event.updateUI({
-      title: ok ? "KJV Audio · downloaded" : "KJV Audio · failed",
+      title: ok ? "66ksiąg · audio gotowe" : "66ksiąg · błąd pobierania",
+      icons: [
+        { src: `${origin}/assets/icon-192.png`, sizes: "192x192", type: "image/png" },
+        { src: `${origin}/assets/icon-512.png`, sizes: "512x512", type: "image/png" },
+      ],
     });
   } catch {
     /* ignore */

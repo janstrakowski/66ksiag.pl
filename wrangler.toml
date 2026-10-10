@@ -1,6 +1,17 @@
 name = "ksiag"
 main = "worker/src/index.ts"
 compatibility_date = "2025-10-01"
+workers_dev = true
+
+# Istniejące rekordy DNS na strefie — Routes zamiast Custom Domain
+# (Custom Domain wymaga pustego hostname bez A/CNAME).
+[[routes]]
+pattern = "66ksiag.pl/*"
+zone_name = "66ksiag.pl"
+
+[[routes]]
+pattern = "www.66ksiag.pl/*"
+zone_name = "66ksiag.pl"
 
 [assets]
 directory = "./dist"

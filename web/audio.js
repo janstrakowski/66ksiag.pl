@@ -11,6 +11,19 @@ const AUDIO_BASE = "/kjv/1769";
 const AVG_CHAPTER_BYTES = 2.2 * 1024 * 1024;
 const BF_ID_PREFIX = "ksiag-scourby-";
 
+/** Absolutne URL ikon — Background Fetch / Media Session na Androidzie. */
+export function appIconList() {
+  const origin = typeof location !== "undefined" ? location.origin : "";
+  return [
+    { src: `${origin}/assets/icon-192.png`, sizes: "192x192", type: "image/png" },
+    { src: `${origin}/assets/icon-512.png`, sizes: "512x512", type: "image/png" },
+  ];
+}
+
+function appIconUrl() {
+  return `${typeof location !== "undefined" ? location.origin : ""}/assets/icon-192.png`;
+}
+
 let catalogPromise = null;
 /** @type {Map<string, object> | null} */
 let catalogByKey = null;
@@ -259,8 +272,8 @@ async function downloadViaBackgroundFetch(catalog, missing, onProgress, { signal
   const startedAt = Date.now();
 
   const bg = await reg.backgroundFetch.fetch(fetchId, urls, {
-    title: title || "KJV Audio (Scourby)",
-    icons: [{ src: "/assets/icon-192.png", sizes: "192x192", type: "image/png" }],
+    title: title || "66ksiąg · KJV Audio",
+    icons: appIconList(),
     downloadTotal,
   });
   activeBgFetch = bg;
@@ -313,10 +326,11 @@ async function notifyProgress(done, total, etaSec, title, formatEta) {
       tag: "ksiag-audio-download",
       renotify: true,
       silent: done > 0 && done < total,
-      icon: "/assets/icon-192.png",
+      icon: appIconUrl(),
+      badge: appIconUrl(),
     };
-    if (reg?.showNotification) await reg.showNotification(title || "KJV Audio", opts);
-    else new Notification(title || "KJV Audio", opts);
+    if (reg?.showNotification) await reg.showNotification(title || "66ksiąg · audio", opts);
+    else new Notification(title || "66ksiąg · audio", opts);
   } catch {
     /* ignore */
   }
@@ -415,6 +429,39 @@ async function resolvePlaySrc(bookId, chapter, remoteUrl) {
   return remoteUrl;
 }
 
+function verseTextFromDom(verseNum) {
+  const li = document.querySelector(`#verses li[data-v="${verseNum}"]`);
+  if (!li) return "";
+  const clone = li.cloneNode(true);
+  clone.querySelectorAll(".vn, .num").forEach((n) => n.remove());
+  return (clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function updateMediaSession({ bookId, chapter, verse, verseText, playing }) {
+  if (!("mediaSession" in navigator)) return;
+  const ref =
+    bookId && chapter != null
+      ? verse != null
+        ? `${bookId} ${chapter}:${verse}`
+        : `${bookId} ${chapter}`
+      : "66ksiąg";
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: verseText || ref,
+      artist: verseText ? ref : "KJV · Scourby",
+      album: "66ksiąg",
+      artwork: appIconList().map((i) => ({
+        src: i.src,
+        sizes: i.sizes,
+        type: i.type,
+      })),
+    });
+    navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+  } catch {
+    /* Media Session opcjonalne */
+  }
+}
+
 export function createAudioController({ audioEl, hooks }) {
   let words = [];
   let activeIdx = -1;
@@ -422,6 +469,7 @@ export function createAudioController({ audioEl, hooks }) {
   let chapter = null;
   let raf = 0;
   let playing = false;
+  let mediaVerse = null;
 
   function clearHighlight() {
     document.querySelectorAll(".w.is-spoken").forEach((el) => el.classList.remove("is-spoken"));
@@ -450,6 +498,16 @@ export function createAudioController({ audioEl, hooks }) {
     if (el) {
       el.classList.add("is-spoken");
       el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+    if (w.v != null && w.v !== mediaVerse) {
+      mediaVerse = w.v;
+      updateMediaSession({
+        bookId,
+        chapter,
+        verse: w.v,
+        verseText: verseTextFromDom(w.v),
+        playing: true,
+      });
     }
     hooks.onTick?.({ bookId, chapter, word: w, index: idx });
   }
@@ -485,6 +543,25 @@ export function createAudioController({ audioEl, hooks }) {
 
     const src = await resolvePlaySrc(b, ch, entry.url);
     audioEl.src = src;
+    mediaVerse = null;
+    updateMediaSession({
+      bookId: b,
+      chapter: ch,
+      verse: null,
+      verseText: "",
+      playing: true,
+    });
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler("play", () => {
+          resume().catch(() => {});
+        });
+        navigator.mediaSession.setActionHandler("pause", () => pause());
+        navigator.mediaSession.setActionHandler("stop", () => stop());
+      } catch {
+        /* ignore */
+      }
+    }
     await audioEl.play();
     playing = true;
     cancelAnimationFrame(raf);
@@ -496,6 +573,13 @@ export function createAudioController({ audioEl, hooks }) {
     audioEl.pause();
     playing = false;
     cancelAnimationFrame(raf);
+    updateMediaSession({
+      bookId,
+      chapter,
+      verse: mediaVerse,
+      verseText: mediaVerse != null ? verseTextFromDom(mediaVerse) : "",
+      playing: false,
+    });
     hooks.onState?.({ playing: false, bookId, chapter });
   }
 
@@ -504,6 +588,13 @@ export function createAudioController({ audioEl, hooks }) {
       playing = true;
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(tick);
+      updateMediaSession({
+        bookId,
+        chapter,
+        verse: mediaVerse,
+        verseText: mediaVerse != null ? verseTextFromDom(mediaVerse) : "",
+        playing: true,
+      });
       hooks.onState?.({ playing: true, bookId, chapter });
     });
   }
@@ -517,6 +608,15 @@ export function createAudioController({ audioEl, hooks }) {
     words = [];
     bookId = null;
     chapter = null;
+    mediaVerse = null;
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = "none";
+      } catch {
+        /* ignore */
+      }
+    }
     hooks.onState?.({ playing: false, bookId: null, chapter: null });
   }
 

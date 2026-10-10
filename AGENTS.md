@@ -56,7 +56,7 @@ python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json 
 ```
 
 PWA czyta `/kjv/1769/…/*.mp3` z tego samego originu. „Pobierz audio” = Cache Storage.  
-Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3 (`data/`, `vendor/` w gitignore); `build-dist` je kopiuje do `dist/`.
+Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3 (`data/`, `vendor/` w gitignore); `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
 
 ## Front
 
@@ -82,3 +82,14 @@ Pierwszy raz e2e: `npx playwright install chromium`.
 ## Dokumentacja dla LLM
 
 Zobacz [llms.txt](./llms.txt).
+
+## Android (Google Play)
+
+TWA (Bubblewrap) w `android/`, package `pl.ksiag.app`, host `66ksiag.pl`.
+
+```bash
+npm run android:build     # APK + AAB
+npm run android:install   # adb install na telefonie (USB debugging)
+```
+
+Keystore i `android/secrets/` poza gitem. Asset Links: `web/.well-known/assetlinks.json`.
