@@ -63,7 +63,7 @@ def main() -> int:
         "translation": "kjv",
         "edition": "1769",
         "narrator": "Alexander Scourby",
-        "license_note": "Copyrighted narration — local/personal use unless you hold a redistribution license.",
+        "license_note": "Original Scourby KJV narration treated as public domain; remasters may carry separate rights.",
         "source": "internet-archive:19-psalm-119_202307",
         "chapters": chapters,
         "count": len(chapters),
