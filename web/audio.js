@@ -1,9 +1,14 @@
 /**
- * KJV Scourby audio — word highlight, plan credit, auto-advance.
- * Audio only for editions with language === "en" and available .mp3 + .words.json.
+ * KJV Scourby audio — stream z internetu (ECFTF), opcjonalny offline cache.
+ * MP3 nie są w bundlu aplikacji.
  */
 
 const STORAGE_KEY = "ksiag-audio-v1";
+const CACHE_NAME = "ksiag-scourby-mp3-v1";
+const CATALOG_URL = "/audio-catalog.json";
+
+let catalogPromise = null;
+let objectUrl = null;
 
 export function loadAudioSession() {
   try {
@@ -21,37 +26,121 @@ export function saveAudioSession(session) {
 
 function defaultSession() {
   return {
-    mode: "idle", // idle | plan | beyond
+    mode: "idle",
     offerContinue: false,
     nextBook: null,
     nextChapter: null,
   };
 }
 
-export function audioUrls(editionPath, bookId, chapter) {
-  const base = `${editionPath}/${bookId}/${chapter}`;
-  return { mp3: `${base}.mp3`, words: `${base}.words.json` };
+export function proxyPath(bookId, chapter) {
+  return `/audio/proxy/${bookId}/${chapter}`;
 }
 
-export async function chapterHasAudio(editionPath, bookId, chapter) {
-  const { mp3, words } = audioUrls(editionPath, bookId, chapter);
+export async function loadAudioCatalog() {
+  if (!catalogPromise) {
+    catalogPromise = fetch(CATALOG_URL)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("catalog");
+        return res.json();
+      })
+      .catch((e) => {
+        catalogPromise = null;
+        throw e;
+      });
+  }
+  return catalogPromise;
+}
+
+export function catalogEntry(catalog, bookId, chapter) {
+  return catalog?.chapters?.find((c) => c.book === bookId && c.chapter === Number(chapter)) || null;
+}
+
+export function wordsUrl(editionPath, bookId, chapter) {
+  return `${editionPath}/${bookId}/${chapter}.words.json`;
+}
+
+export async function chapterHasAudio(bookId, chapter) {
   try {
-    const w = await fetch(words);
-    if (!w.ok) return false;
-    const ct = (w.headers.get("content-type") || "").toLowerCase();
-    if (ct.includes("text/html")) return false;
-    await w.json();
-    const a = await fetch(mp3, { method: "HEAD" });
-    return a.ok;
+    const cat = await loadAudioCatalog();
+    return !!catalogEntry(cat, bookId, chapter);
   } catch {
     return false;
   }
 }
 
+async function cachedResponse(bookId, chapter) {
+  if (!("caches" in window)) return null;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    return cache.match(proxyPath(bookId, chapter));
+  } catch {
+    return null;
+  }
+}
+
+export async function isChapterCached(bookId, chapter) {
+  const res = await cachedResponse(bookId, chapter);
+  return !!res;
+}
+
+export async function countCachedChapters(catalog) {
+  if (!("caches" in window) || !catalog?.chapters?.length) return 0;
+  const cache = await caches.open(CACHE_NAME);
+  let n = 0;
+  for (const c of catalog.chapters) {
+    if (await cache.match(proxyPath(c.book, c.chapter))) n += 1;
+  }
+  return n;
+}
+
 /**
- * Create player controller bound to DOM.
- * hooks: { onChapterEnded, onTick, onState, t }
+ * Pobierz wszystkie rozdziały do Cache Storage (przez same-origin proxy — CORS).
+ * onProgress({ done, total, book, chapter })
  */
+export async function downloadAllAudio(onProgress, { signal } = {}) {
+  const catalog = await loadAudioCatalog();
+  const total = catalog.chapters.length;
+  const cache = await caches.open(CACHE_NAME);
+  let done = 0;
+  for (const c of catalog.chapters) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const key = proxyPath(c.book, c.chapter);
+    const hit = await cache.match(key);
+    if (!hit) {
+      const res = await fetch(key, { signal });
+      if (!res.ok) throw new Error(`download ${c.book}/${c.chapter}: ${res.status}`);
+      await cache.put(key, res.clone());
+    }
+    done += 1;
+    onProgress?.({ done, total, book: c.book, chapter: c.chapter });
+  }
+  return { done, total };
+}
+
+export async function clearDownloadedAudio() {
+  if (!("caches" in window)) return;
+  await caches.delete(CACHE_NAME);
+}
+
+function revokeObjectUrl() {
+  if (objectUrl) {
+    URL.revokeObjectURL(objectUrl);
+    objectUrl = null;
+  }
+}
+
+async function resolvePlaySrc(bookId, chapter, remoteUrl) {
+  revokeObjectUrl();
+  const hit = await cachedResponse(bookId, chapter);
+  if (hit) {
+    const blob = await hit.blob();
+    objectUrl = URL.createObjectURL(blob);
+    return objectUrl;
+  }
+  return remoteUrl;
+}
+
 export function createAudioController({ audioEl, hooks }) {
   let words = [];
   let activeIdx = -1;
@@ -71,7 +160,6 @@ export function createAudioController({ audioEl, hooks }) {
     if (idx < 0 || idx >= words.length || t < words[idx].s || t >= words[idx].e) {
       idx = words.findIndex((w) => t >= w.s && t < w.e);
       if (idx < 0) {
-        // between words — keep previous or find last started
         for (let i = words.length - 1; i >= 0; i--) {
           if (t >= words[i].s) {
             idx = i;
@@ -102,12 +190,27 @@ export function createAudioController({ audioEl, hooks }) {
     bookId = b;
     chapter = ch;
     clearHighlight();
-    const { mp3, words: wordsUrl } = audioUrls(editionPath, b, ch);
-    const res = await fetch(wordsUrl);
-    if (!res.ok) throw new Error("words");
-    const data = await res.json();
-    words = (data.words || []).filter((w) => w.s != null && w.e != null);
-    audioEl.src = mp3;
+    words = [];
+
+    const catalog = await loadAudioCatalog();
+    const entry = catalogEntry(catalog, b, ch);
+    if (!entry?.url) throw new Error("no-audio");
+
+    try {
+      const res = await fetch(wordsUrl(editionPath, b, ch));
+      if (res.ok) {
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+        if (!ct.includes("text/html")) {
+          const data = await res.json();
+          words = (data.words || []).filter((w) => w.s != null && w.e != null);
+        }
+      }
+    } catch {
+      /* highlight opcjonalny */
+    }
+
+    const src = await resolvePlaySrc(b, ch, entry.url);
+    audioEl.src = src;
     await audioEl.play();
     playing = true;
     cancelAnimationFrame(raf);
@@ -135,6 +238,7 @@ export function createAudioController({ audioEl, hooks }) {
     pause();
     audioEl.removeAttribute("src");
     audioEl.load();
+    revokeObjectUrl();
     clearHighlight();
     words = [];
     bookId = null;
@@ -154,8 +258,7 @@ export function createAudioController({ audioEl, hooks }) {
     playing = false;
     cancelAnimationFrame(raf);
     clearHighlight();
-    const ended = { bookId, chapter };
-    hooks.onChapterEnded?.(ended);
+    hooks.onChapterEnded?.({ bookId, chapter });
   });
 
   audioEl.addEventListener("pause", () => {
@@ -175,15 +278,12 @@ export function createAudioController({ audioEl, hooks }) {
   return { load, pause, resume, stop, isPlaying, current, clearHighlight };
 }
 
-/** Wrap verse HTML tokens in <span class="w" data-i> for highlight. */
 export function verseHtmlWithWords(rawHtml, verseNum) {
   const parts = String(rawHtml).split(/(<\/?i>)/i);
-  let inI = false;
   let wi = 0;
   const out = [];
   for (const part of parts) {
     if (/^<\/?i>$/i.test(part)) {
-      inI = part[1] !== "/";
       out.push(part.toLowerCase());
       continue;
     }

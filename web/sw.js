@@ -1,5 +1,5 @@
 /* Minimal SW: cache shell + visited chapters */
-const CACHE = "ksiag-v2";
+const CACHE = "ksiag-v3";
 const SHELL = [
   "/",
   "/index.html",
@@ -10,6 +10,7 @@ const SHELL = [
   "/editions.js",
   "/i18n.js",
   "/audio.js",
+  "/audio-catalog.json",
   "/manifest.webmanifest",
   "/assets/orn-pair.svg",
 ];

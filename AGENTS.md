@@ -50,16 +50,13 @@ cargo run -p ksiag-import-kjv --release -- \
 ## Audio KJV (Scourby)
 
 ```bash
-export PATH="$HOME/.local/share/mise/installs/python/3.12.15/bin:$PATH"
-python3 -m pip install -r tools/audio-kjv/requirements.txt
-# PD: earnestlycontendingforthefaith.com (domyślnie)
-python3 tools/audio-kjv/fetch_scourby.py
-python3 tools/audio-kjv/install_layout.py --link
-python3 tools/audio-kjv/align_whisper.py --book 01-gen --chapter 1 --model base.en
-python3 tools/audio-kjv/align_whisper.py --all --model base.en
+python3 tools/audio-kjv/build_catalog.py   # → web/audio-catalog.json (commit)
+# PWA streamuje MP3 z ECFTF; „Pobierz audio” = Cache Storage przez /audio/proxy/…
+# Opcjonalnie lokalny align słów (bez bundlowania MP3 w dist):
+#   fetch_scourby.py && install_layout.py && align_whisper.py
 ```
 
-Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3.
+Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3; `build-dist` wyklucza `*.mp3`.
 
 ## Front
 

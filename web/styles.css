@@ -411,6 +411,18 @@
       outline: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
     }
 
+    #home-audio-download-wrap {
+      display: grid;
+      gap: 0.35rem;
+      justify-items: stretch;
+    }
+    #home-audio-download-wrap[hidden] { display: none !important; }
+    #home-audio-download-status {
+      margin: 0;
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+
     .audio-controls {
       display: flex;
       gap: 0.4rem;

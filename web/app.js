@@ -35,7 +35,13 @@ import {
   loadAudioSession,
   saveAudioSession,
   verseHtmlWithWords,
+  loadAudioCatalog,
+  downloadAllAudio,
+  clearDownloadedAudio,
+  countCachedChapters,
 } from "./audio.js";
+
+let audioDownloadAbort = null;
 
 const DEFAULT_READ = { book: "01-gen", chapter: 1, verse: 1 };
 let edition = loadEditionChoice();
@@ -209,7 +215,7 @@ async function playChapterAudio(bookId, chapter, mode) {
     flash(t(edition).audioOnlyKjv);
     return;
   }
-  const ok = await chapterHasAudio(editionPath(), bookId, chapter);
+  const ok = await chapterHasAudio(bookId, chapter);
   if (!ok) {
     flash(t(edition).audioUnavailable);
     return;
@@ -460,7 +466,7 @@ async function renderReader(route) {
     window.__reader = { book, chapter, data, books };
     updateMarkReadUi(book.id, chapter);
 
-    const hasAudio = editionSupportsAudio() && (await chapterHasAudio(editionPath(), book.id, chapter));
+    const hasAudio = editionSupportsAudio() && (await chapterHasAudio(book.id, chapter));
     audioControls.hidden = !hasAudio;
     audioPlayBtn.textContent = t(edition).audioListen;
     audioStopBtn.textContent = t(edition).audioStop;
@@ -586,6 +592,19 @@ async function renderHome() {
   if (showContinue) {
     document.getElementById("home-audio-continue-main").textContent = copy.audioContinueMain;
     document.getElementById("home-audio-continue-sub").textContent = copy.audioContinueSub;
+  }
+
+  const dlWrap = document.getElementById("home-audio-download-wrap");
+  const dlBtn = document.getElementById("home-audio-download");
+  const dlStatus = document.getElementById("home-audio-download-status");
+  if (dlWrap) {
+    dlWrap.hidden = !editionSupportsAudio();
+    if (editionSupportsAudio()) {
+      dlBtn.textContent = copy.audioDownload;
+      const clearBtn = document.getElementById("home-audio-clear");
+      if (clearBtn) clearBtn.textContent = copy.audioClear;
+      refreshAudioDownloadStatus(dlStatus, copy).catch(() => {});
+    }
   }
 
   try {
@@ -893,6 +912,70 @@ document.getElementById("home-audio-continue").addEventListener("click", () => {
   saveAudioSession(sess);
   audioMode = "beyond";
   navigateToChapter(sess.nextBook, sess.nextChapter, { autoplay: true });
+});
+
+async function refreshAudioDownloadStatus(el, copy) {
+  if (!el) return;
+  try {
+    const cat = await loadAudioCatalog();
+    const n = await countCachedChapters(cat);
+    const total = cat.count || cat.chapters.length;
+    if (n <= 0) {
+      el.textContent = copy.audioDownloadHint;
+    } else if (n >= total) {
+      el.textContent = copy.audioDownloadDone(total);
+    } else {
+      el.textContent = copy.audioDownloadPartial(n, total);
+    }
+  } catch {
+    el.textContent = copy.audioDownloadHint;
+  }
+}
+
+document.getElementById("home-audio-download")?.addEventListener("click", async () => {
+  if (!editionSupportsAudio()) return;
+  const copy = t(edition);
+  const dlBtn = document.getElementById("home-audio-download");
+  const dlStatus = document.getElementById("home-audio-download-status");
+  const clearBtn = document.getElementById("home-audio-clear");
+
+  if (audioDownloadAbort) {
+    audioDownloadAbort.abort();
+    audioDownloadAbort = null;
+    dlBtn.textContent = copy.audioDownload;
+    return;
+  }
+
+  audioDownloadAbort = new AbortController();
+  dlBtn.textContent = copy.audioDownloadCancel;
+  try {
+    await downloadAllAudio(
+      ({ done, total }) => {
+        dlStatus.textContent = copy.audioDownloadProgress(done, total);
+      },
+      { signal: audioDownloadAbort.signal }
+    );
+    flash(copy.audioDownloadFinished);
+    await refreshAudioDownloadStatus(dlStatus, copy);
+  } catch (e) {
+    if (e?.name === "AbortError") {
+      dlStatus.textContent = copy.audioDownloadHint;
+    } else {
+      flash(copy.audioDownloadFailed);
+      console.error(e);
+    }
+  } finally {
+    audioDownloadAbort = null;
+    dlBtn.textContent = copy.audioDownload;
+    if (clearBtn) clearBtn.hidden = false;
+  }
+});
+
+document.getElementById("home-audio-clear")?.addEventListener("click", async () => {
+  const copy = t(edition);
+  await clearDownloadedAudio();
+  flash(copy.audioCleared);
+  await refreshAudioDownloadStatus(document.getElementById("home-audio-download-status"), copy);
 });
 
 audioPlayBtn.addEventListener("click", async () => {

@@ -188,7 +188,7 @@ Narracja **Alexander Scourby** — tylko dla `kjv/1769` (BG nie ma audio).
 /kjv/1769/{book}/{chapter}.words.json   # timestamps słów (lokalny Whisper)
 ```
 
-Pipeline: `tools/audio-kjv/` (fetch → layout → align). Domyślne źródło PD: [Earnestly Contending for the Faith](https://earnestlycontendingforthefaith.com/ListenToTheKingJamesBible.html). MP3 w `data/` / `vendor/` (gitignore). Unikamy komercyjnych remasterów. Deploy: te same pliki w `dist/` albo R2 przy większej skali.
+**MP3 nie są w bundlu.** Katalog URL-i: `web/audio-catalog.json` (`tools/audio-kjv/build_catalog.py`). Odtwarzanie streamuje z ECFTF; „Pobierz audio” ściąga całość do Cache Storage przez proxy `/audio/proxy/{book}/{chapter}` (Worker / dev-serve). Opcjonalne `.words.json` w `data/` tylko do podświetlania słów.
 
 PWA: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po końcu audio, auto-next w ramach dziennej quoty, stop po 100%, CTA „słuchaj dalej” (tryb beyond → aż do Apokalipsy).
 

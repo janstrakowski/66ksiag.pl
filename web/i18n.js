@@ -82,6 +82,16 @@ const PL = {
   audioContinueSub: "Ponad plan · kolejne rozdziały",
   audioUnavailable: "Brak audio dla tego rozdziału",
   audioOnlyKjv: "Audio (Scourby) tylko w KJV",
+  audioDownload: "Pobierz audio",
+  audioDownloadCancel: "Anuluj pobieranie",
+  audioDownloadHint: "Streaming z internetu. Pobierz całość na urządzenie (offline).",
+  audioDownloadProgress: (done, total) => `Pobieranie audio… ${done} / ${total}`,
+  audioDownloadPartial: (n, total) => `Offline: ${n} / ${total} rozdziałów`,
+  audioDownloadDone: (total) => `Audio offline · ${total} rozdziałów`,
+  audioDownloadFinished: "Audio pobrane",
+  audioDownloadFailed: "Nie udało się pobrać audio",
+  audioCleared: "Usunięto lokalne audio",
+  audioClear: "Usuń pobrane audio",
 };
 
 /** English UI in the tongue of the KJV (thou/ye, -eth, appointed portion). */
@@ -168,6 +178,16 @@ const EN = {
   audioContinueSub: "Beyond the portion · the next chapters",
   audioUnavailable: "No audio for this chapter",
   audioOnlyKjv: "Scourby audio is for the KJV alone",
+  audioDownload: "Download audio",
+  audioDownloadCancel: "Cancel download",
+  audioDownloadHint: "Streams from the net. Download all unto this device (offline).",
+  audioDownloadProgress: (done, total) => `Downloading… ${done} / ${total}`,
+  audioDownloadPartial: (n, total) => `Offline: ${n} / ${total} chapters`,
+  audioDownloadDone: (total) => `Audio offline · ${total} chapters`,
+  audioDownloadFinished: "Audio is downloaded",
+  audioDownloadFailed: "Could not download the audio",
+  audioCleared: "Local audio is wiped",
+  audioClear: "Clear downloaded audio",
 };
 
 export function t(edition) {

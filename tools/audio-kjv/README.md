@@ -8,31 +8,25 @@ Główne źródło PD (rozdziały MP3):
 
 Nowoczesne **remastery** (np. scourby.com) mogą mieć osobne prawa do masteringu — ich nie bundlujemy.
 
+**Aplikacja nie bundluje MP3.** PWA streamuje z internetu; użytkownik może „Pobierz audio” (Cache Storage).
+
 Ten katalog:
 
-1. Pobiera rozdziały → lokalne `vendor/scourby/raw/` (gitignore).
-2. Układa pod `data/kjv/1769/{book}/{chapter}.mp3`.
-3. Wyrównuje słowa lokalnie (faster-whisper) → `{chapter}.words.json`.
+1. `build_catalog.py` → `web/audio-catalog.json` (URL-e, commitowane).
+2. Opcjonalnie lokalny fetch/align do wyrównania słów (`.words.json` w `data/`, bez MP3 w `dist/`).
 
-## Wymagania
+## Katalog (wymagane do PWA)
+
+```bash
+python3 tools/audio-kjv/build_catalog.py
+```
+
+## Opcjonalnie: lokalne MP3 + align (dev)
 
 ```bash
 export PATH="$HOME/.local/share/mise/installs/python/3.12.15/bin:$PATH"
 python3 -m pip install -r tools/audio-kjv/requirements.txt
-# + ffmpeg, zaimportowany tekst w data/kjv/1769/
-```
-
-## Kroki
-
-```bash
-# 1) PD z Earnestly Contending (~1189 rozdziałów, ~2–3 GB)
 python3 tools/audio-kjv/fetch_scourby.py
-# opcjonalnie stary mirror: --source archive
-
-# 2) Layout
 python3 tools/audio-kjv/install_layout.py --link
-
-# 3) Align
 python3 tools/audio-kjv/align_whisper.py --book 01-gen --chapter 1 --model base.en
-python3 tools/audio-kjv/align_whisper.py --all --model base.en
 ```
