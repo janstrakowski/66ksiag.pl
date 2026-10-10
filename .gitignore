@@ -14,8 +14,11 @@ __pycache__/
 /coverage/
 
 # Android / Bubblewrap
+/.parity/
+/android/app/src/test/snapshots/
 /android/app/build/
 /android/.gradle/
+/android/.kotlin/
 /android/build/
 /android/android.keystore
 /android/secrets/

@@ -2,6 +2,14 @@
 
 Dla agentów AI i contributorów. Szczegóły: [ARCHITECTURE.md](./ARCHITECTURE.md).
 
+## Założenia
+
+**UI natywne = PWA.** Interfejs w `android/` ma to samo zachowanie i copy co PWA. Źródłem kontraktu zostaje `web/`.
+
+**Przed mergem udokumentuj zmiany.** Opisz, co się zmieniło i dlaczego — w commicie, opisie PR albo w docs, gdy zmienia się kontrakt.
+
+**Przed mergem zsynchronizuj kod.** Przeczytaj diff między swoim branchem a docelowym i zaktualizuj swój kod, zanim zmergujesz.
+
 ## Co to jest
 
 Statyczne API Biblii (BG 1879 + KJV) + CLI + PWA. Warstwa plików w `data/` jest źródłem prawdy.
@@ -85,7 +93,7 @@ Zobacz [llms.txt](./llms.txt).
 
 ## Android (Google Play)
 
-TWA (Bubblewrap) w `android/`, package `pl.ksiag.app`, host `66ksiag.pl`.
+Natywny klient Kotlin/Compose w `android/`, package `pl.ksiag.app`, host `66ksiag.pl`. To samo statyczne API co PWA. Nie uruchamiaj Bubblewrap — nadpisze projekt.
 
 ```bash
 npm run android:build     # APK + AAB

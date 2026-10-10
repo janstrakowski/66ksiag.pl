@@ -1,14 +1,15 @@
-# Android TWA — 66ksiąg
+# Android — 66ksiąg
 
-Trusted Web Activity (Bubblewrap) wokół PWA: https://66ksiag.pl  
+Natywny klient (Kotlin, Jetpack Compose). Czyta to samo statyczne API co strona (`https://66ksiag.pl`).  
 Package ID: `pl.ksiag.app`
+
+Nie uruchamiaj Bubblewrap (`bubblewrap build` / `update`) — nadpisze ten projekt szablonem TWA.
 
 ## Wymagania lokalne
 
 - JDK 17 (`mise use -g java@temurin-17`)
-- Android SDK w `~/Android/Sdk` (platform-tools, build-tools 36.1.0, platforms;android-34)
-- Bubblewrap: `npx @bubblewrap/cli`
-- Keystore: `android/android.keystore` + `android/secrets/keystore.env` (poza gitem)
+- Android SDK w `~/Android/Sdk` (platform-tools, build-tools 36.1.0, platforms;android-36)
+- Keystore: `android/android.keystore` + `android/secrets/keystore.env` (poza gitem; `KEYSTORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`)
 
 ## Build
 
@@ -46,12 +47,11 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 Publikowane z `web/.well-known/assetlinks.json` → https://66ksiag.pl/.well-known/assetlinks.json  
 Fingerprint z lokalnego upload key (po Play App Signing dodaj też fingerprint z konsoli Play).
 
-## Natywne dodatki (poza Bubblewrap)
+## Co jest natywne
 
-Natywne Activity (poza szablonem Bubblewrap — przywróć po `bubblewrap update`):
-
-- `NotificationSettingsActivity` — `ksiag://notification-settings` (przełącznik Androida)
-- `SiteSettingsActivity` — `ksiag://site-settings` (zgoda Chrome dla strony; to zwykle odblokowuje `Notification.permission`)
+- Czytnik, spis, karta, plan — Compose, te same kroje (Cardo, Cinzel) i kolory co `web/styles.css`
+- Powiadomienia planu: `NotificationManager` + alarm o 8:00 (`PlanAlarmReceiver`)
+- Audio KJV: Media3 (odtwarzanie w tle) i pobieranie MP3 do plików aplikacji (`AudioDownloadService`)
 
 ## Play Console
 

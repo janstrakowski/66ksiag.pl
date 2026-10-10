@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Ksiag" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:statusBarColor">#100C09</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowBackground">#CFC0A4</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
