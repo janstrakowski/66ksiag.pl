@@ -380,61 +380,110 @@ function sectionList(label, books) {
   return `<p class="testament-label">${label}</p><ul class="book-list">${items}</ul>`;
 }
 
-function updateMarkReadUi(bookId, chapter, books = window.__reader?.books) {
-  const wrap = document.getElementById("chapter-done");
-  const btn = document.getElementById("mark-read-btn");
+function computeMarkReadUi(bookId, chapter, books) {
   const copy = t(edition);
   if (!plan.enabled || !books) {
-    wrap.hidden = true;
-    return;
+    return { hidden: true, classes: [], text: copy.markRead };
   }
-  wrap.classList.remove("is-done", "is-extra", "is-extra-action");
-
-  // Poza zakresem celu — bez przycisku i statusu
   if (!isInGoalRange(books, plan, bookId, chapter)) {
-    wrap.hidden = true;
-    return;
+    return { hidden: true, classes: [], text: copy.markRead };
   }
-
   if (isChapterCredited(books, plan, bookId, chapter)) {
-    wrap.hidden = false;
-    wrap.classList.add("is-done");
-    if (isExtraCredit(plan, bookId, chapter)) wrap.classList.add("is-extra");
-    btn.textContent = copy.markedPlan;
-    return;
+    const classes = ["is-done"];
+    if (isExtraCredit(plan, bookId, chapter)) classes.push("is-extra");
+    return { hidden: false, classes, text: copy.markedPlan };
   }
-
-  // Tylko następny rozdział do kontynuacji w zakresie
   if (!canMarkChapter(books, plan, bookId, chapter)) {
-    wrap.hidden = true;
-    return;
+    return { hidden: true, classes: [], text: copy.markRead };
+  }
+  if (isDailyPlanComplete(plan)) {
+    return { hidden: false, classes: ["is-extra-action"], text: copy.markExtra };
+  }
+  return { hidden: false, classes: [], text: copy.markRead };
+}
+
+function applyMarkReadUi(state) {
+  const wrap = document.getElementById("chapter-done");
+  const btn = document.getElementById("mark-read-btn");
+  wrap.classList.remove("is-done", "is-extra", "is-extra-action");
+  for (const c of state.classes) wrap.classList.add(c);
+  wrap.hidden = state.hidden;
+  btn.textContent = state.text;
+}
+
+function updateMarkReadUi(bookId, chapter, books = window.__reader?.books) {
+  applyMarkReadUi(computeMarkReadUi(bookId, chapter, books));
+}
+
+/** Buduje cały folio poza DOM, potem jeden synchroniczny commit. */
+function paintReaderFolio({ book, chapter, data, books, verse, hasAudio, copy }) {
+  const est = estimateMinutesFromVerses(data.verses);
+  const wrapWords = editionSupportsAudio();
+  const versesHtml = data.verses
+    .map((v) => {
+      const sel = verse === v.n ? " is-sel" : "";
+      return `<li data-v="${v.n}" class="${sel.trim()}"><span class="n">${v.n}</span>${verseHtml(v.t, wrapWords)}</li>`;
+    })
+    .join("");
+  const prev =
+    chapter > 1
+      ? `<a class="tablet ital" href="/czytaj/${book.id}/${chapter - 1}">← Cap. ${toRoman(chapter - 1)}</a>`
+      : `<span></span>`;
+  const next =
+    chapter < book.chapters
+      ? `<a class="tablet ital" href="/czytaj/${book.id}/${chapter + 1}">Cap. ${toRoman(chapter + 1)} →</a>`
+      : nextBookLink(books, book);
+  const mark = computeMarkReadUi(book.id, chapter, books);
+  const runningHtml = `
+      <span>${chapterLabel(chapter)}</span>
+      <span>${book.short}</span>
+      <span>${editionLabel()}</span>`;
+  const heading = `${copy.chapterWord} ${toRoman(chapter)}`;
+  const timeText = `${copy.readingEta} · ${copy.etaMinutes(est.minutes)}`;
+  const showAudio = editionSupportsAudio() && hasAudio;
+
+  // Commit — żadnego ciężkiego CPU między zapisami do DOM
+  document.getElementById("running").innerHTML = runningHtml;
+  document.getElementById("chap-heading").textContent = heading;
+  document.getElementById("chap-book").textContent = book.name;
+  const timeEl = document.getElementById("read-time");
+  timeEl.hidden = false;
+  timeEl.textContent = timeText;
+  document.getElementById("verses").innerHTML = versesHtml;
+  document.getElementById("folio-nav").innerHTML = prev + next;
+  applyMarkReadUi(mark);
+
+  if (!editionSupportsAudio()) {
+    audioControls.hidden = true;
+    audioStopBtn.hidden = true;
+  } else {
+    audioControls.hidden = !showAudio;
+    audioPlayBtn.textContent = copy.audioListen;
+    audioStopBtn.textContent = copy.audioStop;
+    audioStopBtn.hidden = !audioPlayer.current().playing;
   }
 
-  wrap.hidden = false;
-  if (isDailyPlanComplete(plan)) {
-    wrap.classList.add("is-extra-action");
-    btn.textContent = copy.markExtra;
-  } else {
-    btn.textContent = copy.markRead;
-  }
+  selectedVerse = verse;
+  window.__reader = { book, chapter, data, books };
+  return { showAudio };
 }
 
 async function renderReader(route) {
   if (!edition) return renderPick();
   const gen = ++readerLoadGen;
   const copy = t(edition);
-  const versesEl = document.getElementById("verses");
   const readerEl = document.getElementById("reader");
-  // Przy zmianie rozdziału zostaw poprzedni folio — bez „Ładowanie…” i migania przycisków
+  const folio = document.querySelector("#reader .moulding-inner.reader");
+  // Przy zmianie rozdziału zostaw poprzedni folio do momentu pełnego painta
   const keepPrevious = readerEl.classList.contains("is-on") && !!window.__reader;
 
-  show("reader", { scroll: !keepPrevious });
+  show("reader", { scroll: false });
   document.querySelector("#reader .topbar .linkish").textContent = copy.backBooks;
   document.getElementById("share-btn").textContent = copy.share;
   document.querySelector('#reader a[href="/plan"]').textContent = copy.plan;
 
   if (!keepPrevious) {
-    versesEl.innerHTML = `<li class="error-box">${copy.loading}</li>`;
+    folio?.classList.add("is-pending");
     document.getElementById("chapter-done").hidden = true;
     audioControls.hidden = true;
   }
@@ -452,12 +501,7 @@ async function renderReader(route) {
     }
 
     const canonPath = `${editionPath()}/${book.id}/${chapter}`;
-    setCanonical(route.verse ? `${canonPath}/${route.verse}` : canonPath);
-
     const nice = `/czytaj/${book.id}/${chapter}${route.verse ? `/${route.verse}` : ""}`;
-    if (location.pathname !== nice) {
-      history.replaceState(null, "", nice);
-    }
 
     const res = await fetch(`${canonPath}.json`);
     if (!res.ok) throw new Error(copy.loadFailed);
@@ -473,68 +517,39 @@ async function renderReader(route) {
       if (gen !== readerLoadGen) return;
     }
 
-    // Jedna podmiana DOM — docelowy stan bez stanu pośredniego
-    const est = estimateMinutesFromVerses(data.verses);
-    const timeEl = document.getElementById("read-time");
-    timeEl.hidden = false;
-    timeEl.textContent = `${copy.readingEta} · ${copy.etaMinutes(est.minutes)}`;
-
-    document.getElementById("running").innerHTML = `
-      <span>${chapterLabel(chapter)}</span>
-      <span>${book.short}</span>
-      <span>${editionLabel()}</span>`;
-    document.getElementById("chap-heading").textContent = `${copy.chapterWord} ${toRoman(chapter)}`;
-    document.getElementById("chap-book").textContent = book.name;
-
-    selectedVerse = route.verse;
-    const wrapWords = editionSupportsAudio();
-    versesEl.innerHTML = data.verses
-      .map((v) => {
-        const sel = selectedVerse === v.n ? " is-sel" : "";
-        return `<li data-v="${v.n}" class="${sel.trim()}"><span class="n">${v.n}</span>${verseHtml(v.t, wrapWords)}</li>`;
-      })
-      .join("");
-
-    const nav = document.getElementById("folio-nav");
-    const prev =
-      chapter > 1
-        ? `<a class="tablet ital" href="/czytaj/${book.id}/${chapter - 1}">← Cap. ${toRoman(chapter - 1)}</a>`
-        : `<span></span>`;
-    const next =
-      chapter < book.chapters
-        ? `<a class="tablet ital" href="/czytaj/${book.id}/${chapter + 1}">Cap. ${toRoman(chapter + 1)} →</a>`
-        : nextBookLink(books, book);
-    nav.innerHTML = prev + next;
-
-    window.__reader = { book, chapter, data, books };
-    updateMarkReadUi(book.id, chapter, books);
-
-    if (!editionSupportsAudio()) {
-      audioControls.hidden = true;
-      audioStopBtn.hidden = true;
-    } else {
-      audioControls.hidden = !hasAudio;
-      audioPlayBtn.textContent = t(edition).audioListen;
-      audioStopBtn.textContent = t(edition).audioStop;
-      audioStopBtn.hidden = !audioPlayer.current().playing;
-
-      if (pendingAudioAutoplay && hasAudio) {
-        pendingAudioAutoplay = false;
-        const mode = audioMode === "plan" || audioMode === "beyond" ? audioMode : "beyond";
-        playChapterAudio(book.id, chapter, mode).catch(() => flash(t(edition).audioUnavailable));
-      } else {
-        pendingAudioAutoplay = false;
-      }
+    setCanonical(route.verse ? `${canonPath}/${route.verse}` : canonPath);
+    if (location.pathname !== nice) {
+      history.replaceState(null, "", nice);
     }
 
-    if (keepPrevious) window.scrollTo(0, 0);
-    if (selectedVerse) {
-      const el = versesEl.querySelector(`li[data-v="${selectedVerse}"]`);
+    const { showAudio } = paintReaderFolio({
+      book,
+      chapter,
+      data,
+      books,
+      verse: route.verse,
+      hasAudio,
+      copy,
+    });
+    folio?.classList.remove("is-pending");
+
+    if (pendingAudioAutoplay && showAudio) {
+      pendingAudioAutoplay = false;
+      const mode = audioMode === "plan" || audioMode === "beyond" ? audioMode : "beyond";
+      playChapterAudio(book.id, chapter, mode).catch(() => flash(t(edition).audioUnavailable));
+    } else {
+      pendingAudioAutoplay = false;
+    }
+
+    window.scrollTo(0, 0);
+    if (route.verse) {
+      const el = document.querySelector(`#verses li[data-v="${route.verse}"]`);
       if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     }
   } catch (e) {
     if (gen !== readerLoadGen) return;
-    versesEl.innerHTML = `<li class="error-box">${e.message}</li>`;
+    folio?.classList.remove("is-pending");
+    document.getElementById("verses").innerHTML = `<li class="error-box">${e.message}</li>`;
     document.getElementById("folio-nav").innerHTML = "";
     document.getElementById("read-time").hidden = true;
     document.getElementById("chapter-done").hidden = true;

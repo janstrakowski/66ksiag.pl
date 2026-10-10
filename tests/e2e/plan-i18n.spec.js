@@ -39,13 +39,30 @@ test("folio nav keeps previous chapter until the next is ready (no loading flash
 
   await page.evaluate(() => {
     window.__sawReaderLoading = false;
-    const el = document.getElementById("verses");
+    window.__partialFolioPaint = false;
+    const verses = document.getElementById("verses");
+    const heading = document.getElementById("chap-heading");
     const re = /Ładowanie|Tarry a little/i;
-    const check = () => {
-      if (re.test(el.textContent || "")) window.__sawReaderLoading = true;
-    };
-    const obs = new MutationObserver(check);
-    obs.observe(el, { childList: true, subtree: true, characterData: true });
+    let headingAt = "";
+    const obs = new MutationObserver(() => {
+      if (re.test(verses.textContent || "")) window.__sawReaderLoading = true;
+      const h = heading.textContent || "";
+      const v = verses.textContent || "";
+      // nagłówek już z rozdz. II, a wersety jeszcze ze starego painta
+      if (/II|2/.test(h) && v === window.__verseSnapshot) {
+        window.__partialFolioPaint = true;
+      }
+      if (h !== headingAt) {
+        headingAt = h;
+        window.__verseSnapshot = v;
+      }
+    });
+    window.__verseSnapshot = verses.textContent || "";
+    obs.observe(document.querySelector("#reader .moulding-inner.reader"), {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
     window.__readerLoadingObs = obs;
   });
 
@@ -54,12 +71,15 @@ test("folio nav keeps previous chapter until the next is ready (no loading flash
   await expect(page.locator("#chap-heading")).toContainText(/II|2/);
   await expect(page.locator("#verses li").first()).toBeVisible();
 
-  const sawLoading = await page.evaluate(() => {
+  const flags = await page.evaluate(() => {
     window.__readerLoadingObs?.disconnect();
-    return window.__sawReaderLoading;
+    return {
+      sawLoading: window.__sawReaderLoading,
+      partial: window.__partialFolioPaint,
+    };
   });
-  expect(sawLoading).toBe(false);
-  // treść się zmieniła na rozdział 2 (nie utknęliśmy na poprzednim)
+  expect(flags.sawLoading).toBe(false);
+  expect(flags.partial).toBe(false);
   const nextVerse = await page.locator("#verses li").first().textContent();
   expect(nextVerse).not.toBe(firstVerse);
 });
