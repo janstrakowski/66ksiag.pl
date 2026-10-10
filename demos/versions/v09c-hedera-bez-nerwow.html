@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>66ksiąg — demo UI (go-to + s.7/13)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #e4d7bc;
+      --paper-deep: #cfc0a4;
+      --ink: #100c09;
+      --ink-2: #2c241d;
+      --faint: #5a4d40;
+      --hatch: repeating-linear-gradient(
+        -42deg,
+        transparent 0 1px,
+        rgba(16, 12, 9, 0.11) 1px 2px
+      );
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Cardo, "Times New Roman", serif;
+      color: var(--ink);
+      background: var(--paper-deep);
+      background-image:
+        radial-gradient(ellipse at 50% 0%, #eadec8 0%, var(--paper-deep) 62%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+      background-blend-mode: normal, multiply;
+      background-size: auto, 160px;
+    }
+
+    .shell {
+      width: min(100%, 26rem);
+      margin: 0 auto;
+      padding: 0.55rem 0.55rem 1.75rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .screen { display: none; width: 100%; }
+    .screen.is-on { display: block; }
+
+    .moulding {
+      background: var(--paper);
+      border: 1px solid var(--ink);
+      padding: 3px;
+      box-shadow:
+        0 0 0 1px var(--ink),
+        0 0 0 4px var(--paper),
+        0 0 0 5px var(--ink);
+    }
+    .moulding-inner {
+      border: 1px solid var(--ink);
+      background: var(--paper);
+    }
+
+    /* —— HOME (go-to) + dedykacja s.9/13 —— */
+    .underplate {
+      background:
+        var(--hatch),
+        color-mix(in srgb, var(--paper) 88%, #fff);
+      padding: 1rem 0.85rem 1.05rem;
+      text-align: center;
+    }
+
+    /* Fleurons drukarskie (liść / hedera) — SVG, bez „oka” i bez sci-fi */
+    .fleurons {
+      display: flex;
+      justify-content: center;
+      margin: 0 0 0.75rem;
+      color: var(--ink);
+      line-height: 0;
+      user-select: none;
+    }
+    .fleurons svg {
+      display: block;
+      width: min(11.5rem, 72%);
+      height: auto;
+    }
+
+    .eyebrow {
+      margin: 0;
+      font-family: Cinzel, Cardo, serif;
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .title-main {
+      margin: 0.45rem 0 0;
+      font-family: Cinzel, Cardo, serif;
+      font-weight: 700;
+      font-size: clamp(1.15rem, 5.5vw, 1.4rem);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      line-height: 1.15;
+    }
+    .brand-line {
+      margin: 0.5rem 0 0;
+      font-family: "IM Fell English", Cardo, serif;
+      font-size: 1.85rem;
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+    .brand-sub {
+      margin: 0.45rem 0 0;
+      font-style: italic;
+      font-size: 1.02rem;
+      color: var(--ink-2);
+      line-height: 1.35;
+    }
+    .rules {
+      width: 7rem;
+      height: 6px;
+      margin: 0.75rem auto 0.55rem;
+      border: 0;
+      background:
+        linear-gradient(var(--ink), var(--ink)) center 0 / 100% 1px no-repeat,
+        linear-gradient(var(--ink), var(--ink)) center 50% / 100% 1.25px no-repeat,
+        linear-gradient(var(--ink), var(--ink)) center 100% / 100% 1px no-repeat;
+    }
+    .meta {
+      margin: 0 0 0.85rem;
+      font-family: Cinzel, Cardo, serif;
+      font-size: 0.56rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+      line-height: 1.5;
+    }
+
+    .cta-row { display: grid; gap: 0.4rem; }
+
+    .tablet {
+      appearance: none;
+      width: 100%;
+      cursor: pointer;
+      font-family: Cinzel, Cardo, serif;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--paper) 70%, var(--paper-deep));
+      border: 1px solid var(--ink);
+      box-shadow:
+        inset 0 0 0 2px color-mix(in srgb, var(--paper) 80%, transparent),
+        inset 0 0 0 3px var(--ink);
+      padding: 0.7rem 0.5rem;
+      line-height: 1.15;
+    }
+    .tablet:hover,
+    .tablet:focus-visible {
+      background: var(--ink);
+      color: var(--paper);
+      outline: none;
+    }
+    .tablet.ital {
+      font-family: Cardo, serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .colophon {
+      margin: 0.55rem 0.15rem 0;
+      text-align: center;
+      font-size: 0.72rem;
+      font-style: italic;
+      color: var(--faint);
+      line-height: 1.35;
+    }
+
+    /* —— index —— */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0 0.1rem 0.4rem;
+      font-size: 0.92rem;
+    }
+    .topbar strong {
+      font-family: Cinzel, serif;
+      font-size: 0.68rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .linkish {
+      font: inherit;
+      border: 0;
+      background: none;
+      padding: 0;
+      color: var(--ink-2);
+      font-style: italic;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 0.15em;
+    }
+
+    .index-head {
+      margin: 0;
+      padding: 0.7rem 0.7rem 0.55rem;
+      text-align: center;
+      border-bottom: 1px solid var(--ink);
+      background: var(--hatch);
+    }
+    .index-head .label {
+      display: block;
+      font-family: Cinzel, serif;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-top: 0.35rem;
+    }
+    .book-list { list-style: none; margin: 0; padding: 0.1rem 0 0.25rem; }
+    .book-list li + li { border-top: 1px solid color-mix(in srgb, var(--ink) 30%, transparent); }
+    .book-list button {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 2.3rem 1fr auto;
+      gap: 0.5rem;
+      align-items: baseline;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      font-size: 1.1rem;
+      color: var(--ink);
+      text-align: left;
+      padding: 0.6rem 0.7rem;
+      cursor: pointer;
+    }
+    .book-list button:hover,
+    .book-list button:focus-visible {
+      background: var(--hatch);
+      outline: none;
+    }
+    .book-list .num {
+      font-family: Cinzel, serif;
+      font-size: 0.65rem;
+      color: var(--faint);
+      letter-spacing: 0.05em;
+    }
+    .book-list .abbr { font-style: italic; color: var(--faint); }
+
+    /* —— reader jak s.20: running heads, gęsty tekst —— */
+    .reader { padding: 0.75rem 0.8rem 1rem; }
+    .running {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: baseline;
+      font-family: Cinzel, serif;
+      font-size: 0.56rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 0.4rem;
+      margin-bottom: 0.75rem;
+      color: var(--ink-2);
+    }
+    .running span:nth-child(1) { text-align: left; }
+    .running span:nth-child(2) { text-align: center; letter-spacing: 0.18em; color: var(--ink); }
+    .running span:nth-child(3) { text-align: right; }
+
+    .chap-title { text-align: center; margin-bottom: 0.85rem; }
+    .chap-title .sum {
+      margin: 0 0 0.55rem;
+      font-size: 0.88rem;
+      font-style: italic;
+      color: var(--ink-2);
+      line-height: 1.35;
+      padding: 0 0.25rem;
+    }
+    .chap-title h1 {
+      margin: 0;
+      font-family: Cinzel, Cardo, serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .chap-title p {
+      margin: 0.35rem 0 0;
+      font-style: italic;
+      color: var(--ink-2);
+      font-size: 0.95rem;
+    }
+
+    .verses {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: 1.08rem;
+      line-height: 1.42;
+      text-align: justify;
+      hyphens: auto;
+      column-gap: 0;
+    }
+    .verses li {
+      margin: 0 0 0.42rem;
+      padding: 0.1rem 0.1rem;
+      cursor: pointer;
+    }
+    .verses li .n {
+      font-family: Cinzel, serif;
+      font-size: 0.55rem;
+      vertical-align: super;
+      margin-right: 0.16rem;
+      color: var(--faint);
+      letter-spacing: 0.02em;
+    }
+    .verses li.is-sel {
+      background: var(--hatch);
+      box-shadow: inset 0 0 0 1px var(--ink);
+    }
+
+    .folio-nav {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
+      margin-top: 0.9rem;
+      padding-top: 0.7rem;
+      border-top: 1px solid var(--ink);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 0.9rem;
+      transform: translate(-50%, 140%);
+      background: var(--ink);
+      color: var(--paper);
+      padding: 0.45rem 0.75rem;
+      font-family: Cinzel, serif;
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0;
+      transition: 0.22s ease;
+      z-index: 20;
+      max-width: 92vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toast.is-on { transform: translate(-50%, 0); opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+
+    <section class="screen is-on" id="home" aria-label="Karta tytułowa">
+      <div class="moulding">
+        <div class="moulding-inner">
+          <div class="underplate">
+            <div class="fleurons" aria-hidden="true">
+              <!-- hedera drukarska ×3 (wypełniony liść + zawijas) -->
+              <svg viewBox="0 0 210 40" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <g id="hedera">
+                    <!-- sam liść + krótka łodyga; bez nerwów (nie robią „krzyża”) -->
+                    <path fill="currentColor" d="M20 2c-4.8.2-8.6 2.8-10.2 6.8-2.4-3.2-6.4-4.6-10.6-3.4 2.6 1.4 4.2 3.8 4.8 6.6C1.6 14.2 0 17.4 0 21.2 0 27.2 4.8 31.5 11.2 31.5c3.2 0 6-.9 8.2-2.6 2.2 1.7 5 2.6 8.2 2.6 6.4 0 11.2-4.3 11.2-10.3 0-3.8-1.6-7-4-9.2.6-2.8 2.2-5.2 4.8-6.6-4.2-1.2-8.2.2-10.6 3.4C28.6 4.8 24.8 2.2 20 2z"/>
+                    <path fill="currentColor" d="M18.6 30.5c.8 3.2-.4 6.2-3.2 8.2-.2-2.4.2-4.6 1.4-6.4l1.8-1.8z"/>
+                  </g>
+                </defs>
+                <use href="#hedera" transform="translate(14,1) scale(0.7)"/>
+                <use href="#hedera" transform="translate(78,0) scale(0.95)"/>
+                <use href="#hedera" transform="translate(152,1) scale(0.7)"/>
+              </svg>
+            </div>
+            <p class="eyebrow">Gdańsk · MDCXXXII</p>
+            <h1 class="title-main">Biblia Święta</h1>
+            <p class="brand-line">66ksiąg</p>
+            <p class="brand-sub">to jest<br />Księgi Starego y Nowego Przymierza</p>
+            <hr class="rules" />
+            <p class="meta">Tekst według wydania 1879</p>
+            <div class="cta-row">
+              <button type="button" class="tablet" data-go="reader">Czytaj · Jan III</button>
+              <button type="button" class="tablet ital" data-go="books">Spis ksiąg świętych</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="colophon">v09c · hedera bez nerwów · BG 1879</p>
+    </section>
+
+    <section class="screen" id="books" aria-label="Spis ksiąg">
+      <div class="topbar">
+        <strong>Index</strong>
+        <button type="button" class="linkish" data-go="home">karta tytułowa</button>
+      </div>
+      <div class="moulding">
+        <div class="moulding-inner">
+          <div class="index-head">
+            <div class="fleurons" aria-hidden="true" style="margin:0">
+              <svg viewBox="0 0 210 40" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <g id="hedera-idx">
+                    <path fill="currentColor" d="M20 2c-4.8.2-8.6 2.8-10.2 6.8-2.4-3.2-6.4-4.6-10.6-3.4 2.6 1.4 4.2 3.8 4.8 6.6C1.6 14.2 0 17.4 0 21.2 0 27.2 4.8 31.5 11.2 31.5c3.2 0 6-.9 8.2-2.6 2.2 1.7 5 2.6 8.2 2.6 6.4 0 11.2-4.3 11.2-10.3 0-3.8-1.6-7-4-9.2.6-2.8 2.2-5.2 4.8-6.6-4.2-1.2-8.2.2-10.6 3.4C28.6 4.8 24.8 2.2 20 2z"/>
+                    <path fill="currentColor" d="M18.6 30.5c.8 3.2-.4 6.2-3.2 8.2-.2-2.4.2-4.6 1.4-6.4l1.8-1.8z"/>
+                  </g>
+                </defs>
+                <use href="#hedera-idx" transform="translate(14,1) scale(0.7)"/>
+                <use href="#hedera-idx" transform="translate(78,0) scale(0.95)"/>
+                <use href="#hedera-idx" transform="translate(152,1) scale(0.7)"/>
+              </svg>
+            </div>
+            <span class="label">Nowego Przymierza księgi</span>
+          </div>
+          <ul class="book-list">
+            <li><button type="button" data-go="reader"><span class="num">XLIII</span><span>Ewangelia Jana</span><span class="abbr">J</span></button></li>
+            <li><button type="button" data-go="reader"><span class="num">XLIV</span><span>Dzieje Apostolskie</span><span class="abbr">Dz</span></button></li>
+            <li><button type="button" data-go="reader"><span class="num">XLV</span><span>List do Rzymian</span><span class="abbr">Rz</span></button></li>
+            <li><button type="button" data-go="reader"><span class="num">LXVI</span><span>Objawienie Jana</span><span class="abbr">Ap</span></button></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="reader" aria-label="Czytnik">
+      <div class="topbar">
+        <button type="button" class="linkish" data-go="books">← spis</button>
+        <button type="button" class="linkish" id="share-demo">udostępnij werset</button>
+      </div>
+      <div class="moulding">
+        <div class="moulding-inner reader">
+          <div class="running">
+            <span>Rozd. III</span>
+            <span>Jan</span>
+            <span>BG 1879</span>
+          </div>
+          <header class="chap-title">
+            <p class="sum">O Nikodemie · o wężu na puszczy · o miłości Bożej ku światu</p>
+            <h1>Rozdział III</h1>
+            <p>Ewangelia świętego Jana</p>
+          </header>
+          <ol class="verses" id="verses">
+            <li data-v="14"><span class="n">14</span>A jako Mojżesz węża na puszczy wywyższył, tak musi być wywyższony Syn człowieczy.</li>
+            <li data-v="15"><span class="n">15</span>Aby każdy, kto weń wierzy nie zginął, ale miał żywot wieczny.</li>
+            <li data-v="16"><span class="n">16</span>Albowiem tak Bóg umiłował świat, że Syna swego jednorodzonego dał, aby każdy, kto weń wierzy, nie zginął, ale miał żywot wieczny.</li>
+            <li data-v="17"><span class="n">17</span>Boć nie posłał Bóg Syna swego na świat, aby sądził świat, ale aby świat był zbawiony przezeń.</li>
+            <li data-v="18"><span class="n">18</span>Kto wierzy weń, nie będzie osądzony; ale kto nie wierzy, już jest osądzony, iż nie uwierzył w imię jednorodzonego Syna Bożego.</li>
+            <li data-v="19"><span class="n">19</span>A tenci jest sąd, że światłość przyszła na świat, lecz ludzie bardziej umiłowali ciemność niż światłość; bo były złe uczynki ich.</li>
+          </ol>
+          <div class="folio-nav">
+            <button type="button" class="tablet ital">← Cap. II</button>
+            <button type="button" class="tablet ital">Cap. IV →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script>
+    const screens = [...document.querySelectorAll(".screen")];
+    function go(id) {
+      screens.forEach((s) => s.classList.toggle("is-on", s.id === id));
+      window.scrollTo(0, 0);
+    }
+    document.querySelectorAll("[data-go]").forEach((el) => {
+      el.addEventListener("click", () => go(el.getAttribute("data-go")));
+    });
+    const verses = document.getElementById("verses");
+    const toast = document.getElementById("toast");
+    let t;
+    function flash(msg) {
+      toast.textContent = msg;
+      toast.classList.add("is-on");
+      clearTimeout(t);
+      t = setTimeout(() => toast.classList.remove("is-on"), 2200);
+    }
+    verses.addEventListener("click", (e) => {
+      const li = e.target.closest("li");
+      if (!li) return;
+      verses.querySelectorAll("li").forEach((x) => x.classList.remove("is-sel"));
+      li.classList.add("is-sel");
+    });
+    document.getElementById("share-demo").addEventListener("click", () => {
+      const sel = verses.querySelector("li.is-sel") || verses.querySelector('[data-v="16"]');
+      sel.classList.add("is-sel");
+      flash("Jan III," + sel.dataset.v + " · /bg/1879/43-joh/3/" + sel.dataset.v);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>66ksiąg — v05 (referencja s.7)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #e6d7b8;
+      --paper-2: #cbb992;
+      --ink: #140f0c;
+      --muted: #4f453a;
+      --hatch: repeating-linear-gradient(-45deg, transparent 0 1px, rgba(20,15,12,.1) 1px 2px);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Cardo, "Times New Roman", serif;
+      color: var(--ink);
+      background: #b9a882;
+      background-image:
+        radial-gradient(ellipse at 50% 20%, #e8d9bb, #b9a882 70%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+      background-blend-mode: normal, multiply;
+      background-size: auto, 120px;
+    }
+    .shell {
+      width: min(100%, 26rem);
+      margin: 0 auto;
+      padding: 0.5rem 0.5rem 1.5rem;
+      min-height: 100vh;
+    }
+    .screen { display: none; }
+    .screen.is-on { display: block; }
+
+    /* Home: mockup generated against s.7 reference */
+    .hero {
+      position: relative;
+      border: 1px solid var(--ink);
+      box-shadow:
+        0 0 0 1px var(--ink),
+        0 0 0 4px var(--paper),
+        0 0 0 5px var(--ink);
+      background: var(--paper);
+      line-height: 0;
+    }
+    .hero img {
+      width: 100%;
+      height: auto;
+      display: block;
+      vertical-align: top;
+    }
+    /* Hit targets over engraved buttons on the mockup */
+    .hot {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      height: 6.2%;
+      border: 0;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+    .hot:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 2px;
+      background: rgba(20, 15, 12, 0.08);
+    }
+    .hot.read { bottom: 14.5%; }
+    .hot.index { bottom: 7.2%; }
+
+    .note {
+      margin: 0.55rem 0.2rem 0;
+      text-align: center;
+      font-size: 0.72rem;
+      font-style: italic;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    /* Shared chrome for books/reader */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0 0.15rem 0.4rem;
+      font-size: 0.95rem;
+    }
+    .topbar strong {
+      font-family: Cinzel, serif;
+      font-size: 0.66rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .linkish {
+      font: inherit;
+      border: 0;
+      background: none;
+      padding: 0;
+      color: var(--muted);
+      font-style: italic;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 0.15em;
+    }
+
+    .plate {
+      border: 1px solid var(--ink);
+      padding: 3px;
+      background: var(--paper);
+      box-shadow:
+        0 0 0 1px var(--ink),
+        0 0 0 4px color-mix(in srgb, var(--paper) 80%, #fff),
+        0 0 0 5px var(--ink);
+    }
+    .plate-in {
+      border: 1px solid var(--ink);
+      background: color-mix(in srgb, var(--paper) 94%, #fff);
+    }
+
+    .index-head {
+      margin: 0;
+      padding: 0.7rem;
+      text-align: center;
+      font-family: Cinzel, serif;
+      font-size: 0.58rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--ink);
+      background: var(--hatch);
+    }
+    .book-list { list-style: none; margin: 0; padding: 0.15rem 0; }
+    .book-list li + li { border-top: 1px solid color-mix(in srgb, var(--ink) 28%, transparent); }
+    .book-list button {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 2.3rem 1fr auto;
+      gap: 0.5rem;
+      align-items: baseline;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      font-size: 1.1rem;
+      color: var(--ink);
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      cursor: pointer;
+    }
+    .book-list button:hover,
+    .book-list button:focus-visible { background: var(--hatch); outline: none; }
+    .book-list .num {
+      font-family: Cinzel, serif;
+      font-size: 0.64rem;
+      color: var(--muted);
+    }
+    .book-list .abbr { font-style: italic; color: var(--muted); }
+
+    .reader { padding: 0.85rem 0.85rem 1rem; }
+    .running {
+      display: flex;
+      justify-content: space-between;
+      font-family: Cinzel, serif;
+      font-size: 0.55rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 0.4rem;
+      margin-bottom: 0.8rem;
+      color: var(--muted);
+    }
+    .chap-title { text-align: center; margin-bottom: 0.85rem; }
+    .chap-title h1 {
+      margin: 0;
+      font-family: "IM Fell English", Cardo, serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+    }
+    .chap-title p {
+      margin: 0.3rem 0 0;
+      font-style: italic;
+      color: var(--muted);
+    }
+    .drop-rule {
+      width: 4rem; height: 1px; border: 0;
+      background: var(--ink); margin: 0.55rem auto 0;
+    }
+    .verses {
+      list-style: none; margin: 0; padding: 0;
+      font-size: 1.1rem; line-height: 1.48;
+      text-align: justify; hyphens: auto;
+    }
+    .verses li { margin: 0 0 0.5rem; padding: 0.12rem 0.15rem; cursor: pointer; }
+    .verses li .n {
+      font-family: Cinzel, serif; font-size: 0.58rem;
+      vertical-align: super; margin-right: 0.18rem; color: var(--muted);
+    }
+    .verses li.is-sel {
+      background: var(--hatch);
+      box-shadow: inset 0 0 0 1px var(--ink);
+    }
+    .folio-nav {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
+      margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--ink);
+    }
+    .tablet {
+      appearance: none; width: 100%; cursor: pointer;
+      font: inherit; font-style: italic; font-size: 1.02rem;
+      color: var(--ink); background: transparent;
+      border: 1px solid var(--ink); padding: 0.55rem;
+    }
+    .tablet:hover, .tablet:focus-visible {
+      background: var(--ink); color: var(--paper); outline: none;
+    }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 0.9rem;
+      transform: translate(-50%, 140%);
+      background: var(--ink); color: var(--paper);
+      padding: 0.45rem 0.75rem;
+      font-family: Cinzel, serif; font-size: 0.58rem;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      opacity: 0; transition: 0.22s ease; z-index: 20;
+      max-width: 92vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .toast.is-on { transform: translate(-50%, 0); opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+
+    <section class="screen is-on" id="home" aria-label="Karta tytułowa">
+      <div class="hero">
+        <img src="v05-mockup.jpg" width="720" height="1280" alt="66ksiąg — karta tytułowa w stylu miedziorytu BG 1632" />
+        <button type="button" class="hot read" data-go="reader" aria-label="Czytaj Jan III"></button>
+        <button type="button" class="hot index" data-go="books" aria-label="Spis ksiąg świętych"></button>
+      </div>
+      <p class="note">v05 · mockup pod referencję s.7 (bez skanu źródłowego) · tap w przyciski na rycinie</p>
+    </section>
+
+    <section class="screen" id="books" aria-label="Spis ksiąg">
+      <div class="topbar">
+        <strong>Index</strong>
+        <button type="button" class="linkish" data-go="home">karta tytułowa</button>
+      </div>
+      <div class="plate"><div class="plate-in">
+        <p class="index-head">Nowego Przymierza księgi</p>
+        <ul class="book-list">
+          <li><button type="button" data-go="reader"><span class="num">XLIII</span><span>Ewangelia Jana</span><span class="abbr">J</span></button></li>
+          <li><button type="button" data-go="reader"><span class="num">XLIV</span><span>Dzieje Apostolskie</span><span class="abbr">Dz</span></button></li>
+          <li><button type="button" data-go="reader"><span class="num">XLV</span><span>List do Rzymian</span><span class="abbr">Rz</span></button></li>
+          <li><button type="button" data-go="reader"><span class="num">LXVI</span><span>Objawienie Jana</span><span class="abbr">Ap</span></button></li>
+        </ul>
+      </div></div>
+    </section>
+
+    <section class="screen" id="reader" aria-label="Czytnik">
+      <div class="topbar">
+        <button type="button" class="linkish" data-go="books">← spis</button>
+        <button type="button" class="linkish" id="share-demo">udostępnij werset</button>
+      </div>
+      <div class="plate"><div class="plate-in reader">
+        <div class="running"><span>Jan</span><span>BG 1879</span><span>III</span></div>
+        <header class="chap-title">
+          <h1>Rozdział III</h1>
+          <p>Ewangelia świętego Jana</p>
+          <hr class="drop-rule" />
+        </header>
+        <ol class="verses" id="verses">
+          <li data-v="14"><span class="n">14</span>A jako Mojżesz węża na puszczy wywyższył, tak musi być wywyższony Syn człowieczy.</li>
+          <li data-v="15"><span class="n">15</span>Aby każdy, kto weń wierzy nie zginął, ale miał żywot wieczny.</li>
+          <li data-v="16"><span class="n">16</span>Albowiem tak Bóg umiłował świat, że Syna swego jednorodzonego dał, aby każdy, kto weń wierzy, nie zginął, ale miał żywot wieczny.</li>
+          <li data-v="17"><span class="n">17</span>Boć nie posłał Bóg Syna swego na świat, aby sądził świat, ale aby świat był zbawiony przezeń.</li>
+          <li data-v="18"><span class="n">18</span>Kto wierzy weń, nie będzie osądzony; ale kto nie wierzy, już jest osądzony, iż nie uwierzył w imię jednorodzonego Syna Bożego.</li>
+          <li data-v="19"><span class="n">19</span>A tenci jest sąd, że światłość przyszła na świat, lecz ludzie bardziej umiłowali ciemność niż światłość; bo były złe uczynki ich.</li>
+        </ol>
+        <div class="folio-nav">
+          <button type="button" class="tablet">← Cap. II</button>
+          <button type="button" class="tablet">Cap. IV →</button>
+        </div>
+      </div></div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script>
+    const screens = [...document.querySelectorAll(".screen")];
+    function go(id) {
+      screens.forEach((s) => s.classList.toggle("is-on", s.id === id));
+      window.scrollTo(0, 0);
+    }
+    document.querySelectorAll("[data-go]").forEach((el) => {
+      el.addEventListener("click", () => go(el.getAttribute("data-go")));
+    });
+    const verses = document.getElementById("verses");
+    const toast = document.getElementById("toast");
+    let t;
+    function flash(msg) {
+      toast.textContent = msg;
+      toast.classList.add("is-on");
+      clearTimeout(t);
+      t = setTimeout(() => toast.classList.remove("is-on"), 2200);
+    }
+    verses.addEventListener("click", (e) => {
+      const li = e.target.closest("li");
+      if (!li) return;
+      verses.querySelectorAll("li").forEach((x) => x.classList.remove("is-sel"));
+      li.classList.add("is-sel");
+    });
+    document.getElementById("share-demo").addEventListener("click", () => {
+      const sel = verses.querySelector("li.is-sel") || verses.querySelector('[data-v="16"]');
+      sel.classList.add("is-sel");
+      flash("Jan III," + sel.dataset.v + " · /bg/1879/43-joh/3/" + sel.dataset.v);
+    });
+  </script>
+</body>
+</html>
