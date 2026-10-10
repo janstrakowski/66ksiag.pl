@@ -67,6 +67,18 @@ bash scripts/dev-serve.sh          # http://127.0.0.1:8787
 npm run build && npx wrangler deploy
 ```
 
+## Testy
+
+Wymaga lokalnego `data/` (BG + KJV) oraz `web/audio-catalog.json`.
+
+```bash
+npm run test:unit          # Vitest: plan, i18n, editions, audio, katalog, kontrakty data/
+npm run test:e2e           # Playwright: picker, reader, plan, proxy audio, API
+npm test                   # unit + e2e
+```
+
+Pierwszy raz e2e: `npx playwright install chromium`.
+
 ## Dokumentacja dla LLM
 
 Zobacz [llms.txt](./llms.txt).

@@ -1,7 +1,7 @@
 /** Systemowe powiadomienia (Notification API). Działa na localhost / HTTPS. */
 
 export async function ensureNotifyPermission() {
-  if (!("Notification" in window)) return "unsupported";
+  if (typeof Notification === "undefined") return "unsupported";
   if (Notification.permission === "granted") return "granted";
   if (Notification.permission === "denied") return "denied";
   return Notification.requestPermission();

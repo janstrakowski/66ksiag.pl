@@ -4,9 +4,20 @@
   "scripts": {
     "build": "bash scripts/build-dist.sh",
     "dev": "bash scripts/dev-serve.sh",
-    "deploy": "npm run build && npx wrangler deploy"
+    "deploy": "npm run build && npx wrangler deploy",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@vitest/coverage-v8": "^4.1.2",
+    "jsdom": "^29.0.1",
+    "playwright": "^1.58.2",
+    "vitest": "^4.1.2",
     "wrangler": "^4.42.0"
   }
 }
