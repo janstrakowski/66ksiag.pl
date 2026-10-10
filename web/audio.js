@@ -8,7 +8,6 @@ const CACHE_NAME = "ksiag-scourby-mp3-v1";
 const CATALOG_URL = "/audio-catalog.json";
 /** Szacunek bajtów/rozdział (ECFTF ~1–3 MB) — do paska Background Fetch. */
 const AVG_CHAPTER_BYTES = 2.2 * 1024 * 1024;
-const BF_BATCH = 250;
 const BF_ID_PREFIX = "ksiag-scourby-";
 
 let catalogPromise = null;
@@ -16,6 +15,24 @@ let objectUrl = null;
 /** @type {BackgroundFetchRegistration | null} */
 let activeBgFetch = null;
 let activeBgFetchId = null;
+
+/** @returns {number | null} sekundy */
+export function etaFromProgress(done, total, startedAtMs) {
+  const elapsed = (Date.now() - startedAtMs) / 1000;
+  if (elapsed < 2 || done < 1 || total <= done) return done >= total ? 0 : null;
+  const rate = done / elapsed;
+  if (rate <= 0) return null;
+  return Math.max(0, (total - done) / rate);
+}
+
+export function etaFromBytes(downloaded, downloadTotal, startedAtMs) {
+  const elapsed = (Date.now() - startedAtMs) / 1000;
+  if (elapsed < 2 || !downloadTotal || downloaded < 8 * 1024) return null;
+  if (downloaded >= downloadTotal) return 0;
+  const rate = downloaded / elapsed;
+  if (rate <= 0) return null;
+  return Math.max(0, (downloadTotal - downloaded) / rate);
+}
 
 export function loadAudioSession() {
   try {
@@ -188,73 +205,93 @@ function waitForBgFetchDone(reg, fetchId, signal) {
   });
 }
 
+function emitMissingProgress(onProgress, opts) {
+  const {
+    done,
+    total,
+    startedAt,
+    mode,
+    bytes,
+    bytesTotal,
+  } = opts;
+  const etaSec =
+    bytes != null && bytesTotal
+      ? etaFromBytes(bytes, bytesTotal, startedAt)
+      : etaFromProgress(done, total, startedAt);
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  onProgress?.({
+    done,
+    total,
+    pct,
+    etaSec,
+    mode,
+    bytes,
+    bytesTotal,
+  });
+}
+
 async function downloadViaBackgroundFetch(catalog, missing, onProgress, { signal, title }) {
   const reg = await ensureAudioServiceWorker();
   if (!reg?.backgroundFetch) throw new Error("no-background-fetch");
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-  const totalAll = catalog.chapters.length;
-  const already = totalAll - missing.length;
-  let completedMissing = 0;
+  const missingTotal = missing.length;
+  const urls = missing.map((c) => proxyPath(c.book, c.chapter));
+  const downloadTotal = Math.ceil(missingTotal * AVG_CHAPTER_BYTES);
+  const fetchId = `${BF_ID_PREFIX}${Date.now()}`;
+  activeBgFetchId = fetchId;
+  const startedAt = Date.now();
 
-  for (let i = 0; i < missing.length; i += BF_BATCH) {
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const batch = missing.slice(i, i + BF_BATCH);
-    const urls = batch.map((c) => proxyPath(c.book, c.chapter));
-    const batchNo = Math.floor(i / BF_BATCH) + 1;
-    const batchCount = Math.ceil(missing.length / BF_BATCH);
-    const fetchId = `${BF_ID_PREFIX}${Date.now()}-${batchNo}`;
-    activeBgFetchId = fetchId;
+  const bg = await reg.backgroundFetch.fetch(fetchId, urls, {
+    title: title || "KJV Audio (Scourby)",
+    icons: [{ src: "/assets/icon-192.png", sizes: "192x192", type: "image/png" }],
+    downloadTotal,
+  });
+  activeBgFetch = bg;
 
-    const bg = await reg.backgroundFetch.fetch(fetchId, urls, {
-      title:
-        batchCount > 1
-          ? `${title || "KJV Audio"} (${batchNo}/${batchCount})`
-          : title || "KJV Audio (Scourby)",
-      icons: [{ src: "/assets/icon-192.png", sizes: "192x192", type: "image/png" }],
-      downloadTotal: Math.ceil(batch.length * AVG_CHAPTER_BYTES),
-    });
-    activeBgFetch = bg;
-
-    const onBfProgress = () => {
-      const frac = bg.downloadTotal
-        ? Math.min(1, (bg.downloaded || 0) / bg.downloadTotal)
-        : 0;
-      const batchDone = Math.round(frac * batch.length);
-      const done = already + completedMissing + batchDone;
-      onProgress?.({
-        done: Math.min(done, totalAll),
-        total: totalAll,
-        mode: "background",
-        bytes: bg.downloaded,
-        bytesTotal: bg.downloadTotal,
-      });
-    };
-    bg.addEventListener("progress", onBfProgress);
-    onBfProgress();
-
-    try {
-      await waitForBgFetchDone(reg, fetchId, signal);
-    } finally {
-      bg.removeEventListener("progress", onBfProgress);
-      activeBgFetch = null;
-      activeBgFetchId = null;
-    }
-    completedMissing += batch.length;
-    onProgress?.({
-      done: already + completedMissing,
-      total: totalAll,
+  const onBfProgress = () => {
+    const downloaded = bg.downloaded || 0;
+    const totalBytes = bg.downloadTotal || downloadTotal;
+    const frac = totalBytes ? Math.min(1, downloaded / totalBytes) : 0;
+    const done = Math.min(missingTotal, Math.round(frac * missingTotal));
+    emitMissingProgress(onProgress, {
+      done,
+      total: missingTotal,
+      startedAt,
       mode: "background",
+      bytes: downloaded,
+      bytesTotal: totalBytes,
     });
+  };
+  bg.addEventListener("progress", onBfProgress);
+  onBfProgress();
+
+  try {
+    await waitForBgFetchDone(reg, fetchId, signal);
+  } finally {
+    bg.removeEventListener("progress", onBfProgress);
+    activeBgFetch = null;
+    activeBgFetchId = null;
   }
 
-  return { done: totalAll, total: totalAll, mode: "background" };
+  emitMissingProgress(onProgress, {
+    done: missingTotal,
+    total: missingTotal,
+    startedAt,
+    mode: "background",
+    bytes: downloadTotal,
+    bytesTotal: downloadTotal,
+  });
+  return { done: missingTotal, total: missingTotal, mode: "background" };
 }
 
-async function notifyProgress(done, total, title) {
+async function notifyProgress(done, total, etaSec, title, formatEta) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
     const reg = await ensureAudioServiceWorker();
-    const body = `${done} / ${total}`;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const eta = formatEta ? formatEta(etaSec) : "";
+    const body = eta ? `${done} / ${total} (${pct}%) · ${eta}` : `${done} / ${total} (${pct}%)`;
     const opts = {
       body,
       tag: "ksiag-audio-download",
@@ -269,11 +306,11 @@ async function notifyProgress(done, total, title) {
   }
 }
 
-async function downloadViaForeground(catalog, missing, onProgress, { signal, title }) {
-  const totalAll = catalog.chapters.length;
-  const already = totalAll - missing.length;
+async function downloadViaForeground(catalog, missing, onProgress, { signal, title, formatEta }) {
+  const missingTotal = missing.length;
   const cache = await caches.open(CACHE_NAME);
   let completed = 0;
+  const startedAt = Date.now();
 
   if ("Notification" in window && Notification.permission === "default") {
     try {
@@ -290,20 +327,19 @@ async function downloadViaForeground(catalog, missing, onProgress, { signal, tit
     if (!res.ok) throw new Error(`download ${c.book}/${c.chapter}: ${res.status}`);
     await cache.put(key, res.clone());
     completed += 1;
-    const done = already + completed;
-    onProgress?.({
-      done,
-      total: totalAll,
-      book: c.book,
-      chapter: c.chapter,
+    const etaSec = etaFromProgress(completed, missingTotal, startedAt);
+    emitMissingProgress(onProgress, {
+      done: completed,
+      total: missingTotal,
+      startedAt,
       mode: "foreground",
     });
-    if (completed === 1 || completed === missing.length || completed % 10 === 0) {
-      await notifyProgress(done, totalAll, title);
+    if (completed === 1 || completed === missingTotal || completed % 5 === 0) {
+      await notifyProgress(completed, missingTotal, etaSec, title, formatEta);
     }
   }
-  await notifyProgress(totalAll, totalAll, title);
-  return { done: totalAll, total: totalAll, mode: "foreground" };
+  await notifyProgress(missingTotal, missingTotal, 0, title, formatEta);
+  return { done: missingTotal, total: missingTotal, mode: "foreground" };
 }
 
 /**
@@ -311,15 +347,15 @@ async function downloadViaForeground(catalog, missing, onProgress, { signal, tit
  * Preferuje Background Fetch (pasek w powiadomieniach Android/Chrome).
  * Fallback: fetch w karcie + aktualizowane Notification.
  */
-export async function downloadAllAudio(onProgress, { signal, title } = {}) {
+export async function downloadAllAudio(onProgress, { signal, title, formatEta } = {}) {
   const catalog = await loadAudioCatalog();
   const missing = await missingChapters(catalog);
-  const total = catalog.chapters.length;
   if (!missing.length) {
-    onProgress?.({ done: total, total, mode: "cached" });
-    return { done: total, total, mode: "cached" };
+    onProgress?.({ done: 0, total: 0, pct: 100, etaSec: 0, mode: "cached" });
+    return { done: 0, total: 0, mode: "cached" };
   }
 
+  // Jeden Background Fetch = jeden systemowy pasek dla wszystkich brakujących plików
   if (supportsBackgroundFetch()) {
     try {
       return await downloadViaBackgroundFetch(catalog, missing, onProgress, {
@@ -332,7 +368,11 @@ export async function downloadAllAudio(onProgress, { signal, title } = {}) {
     }
   }
 
-  return downloadViaForeground(catalog, missing, onProgress, { signal, title });
+  return downloadViaForeground(catalog, missing, onProgress, {
+    signal,
+    title,
+    formatEta,
+  });
 }
 
 export async function clearDownloadedAudio() {

@@ -86,15 +86,20 @@ const PL = {
   audioDownloadCancel: "Anuluj pobieranie",
   audioDownloadHint:
     "Streaming z internetu. Pobierz całość na urządzenie (offline). Na Androidzie Chrome pokaże pasek w powiadomieniach.",
-  audioDownloadSystemHint: "Pobieranie w tle — pasek w powiadomieniach systemowych…",
-  audioDownloadSystemProgress: (done, total) =>
-    `Pobieranie w tle… ${done} / ${total} (powiadomienia)`,
-  audioDownloadProgress: (done, total) => `Pobieranie audio… ${done} / ${total}`,
+  audioDownloadSystemHint: "Pobieranie brakujących rozdziałów — pasek w powiadomieniach…",
+  audioDownloadProgress: (done, total, pct, eta) =>
+    eta
+      ? `Brakujące: ${done} / ${total} (${pct}%) · ${eta}`
+      : `Brakujące: ${done} / ${total} (${pct}%)`,
   audioDownloadPartial: (n, total) => `Offline: ${n} / ${total} rozdziałów`,
   audioDownloadDone: (total) => `Audio offline · ${total} rozdziałów`,
   audioDownloadFinished: "Audio pobrane",
   audioDownloadFailed: "Nie udało się pobrać audio",
   audioDownloadNotifyTitle: "66ksiąg · audio KJV",
+  audioEtaUnknown: "liczenie czasu…",
+  audioEtaSeconds: (n) => `zostało ~${n} s`,
+  audioEtaMinutes: (n) => `zostało ~${n} min`,
+  audioEtaHours: (n) => `zostało ~${n} h`,
   audioCleared: "Usunięto lokalne audio",
   audioClear: "Usuń pobrane audio",
 };
@@ -187,15 +192,20 @@ const EN = {
   audioDownloadCancel: "Cancel download",
   audioDownloadHint:
     "Streams from the net. Download all unto this device. On Android Chrome a system progress bar is shewn in the notifications.",
-  audioDownloadSystemHint: "Fetching in the background — see the system notification…",
-  audioDownloadSystemProgress: (done, total) =>
-    `Background download… ${done} / ${total} (notifications)`,
-  audioDownloadProgress: (done, total) => `Downloading… ${done} / ${total}`,
+  audioDownloadSystemHint: "Fetching the chapters that are wanting — see the system bar…",
+  audioDownloadProgress: (done, total, pct, eta) =>
+    eta
+      ? `Wanting: ${done} / ${total} (${pct}%) · ${eta}`
+      : `Wanting: ${done} / ${total} (${pct}%)`,
   audioDownloadPartial: (n, total) => `Offline: ${n} / ${total} chapters`,
   audioDownloadDone: (total) => `Audio offline · ${total} chapters`,
   audioDownloadFinished: "Audio is downloaded",
   audioDownloadFailed: "Could not download the audio",
   audioDownloadNotifyTitle: "Holy Bible · KJV audio",
+  audioEtaUnknown: "reckoning the time…",
+  audioEtaSeconds: (n) => `about ${n} s left`,
+  audioEtaMinutes: (n) => `about ${n} min left`,
+  audioEtaHours: (n) => `about ${n} h left`,
   audioCleared: "Local audio is wiped",
   audioClear: "Clear downloaded audio",
 };

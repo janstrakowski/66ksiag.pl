@@ -952,23 +952,43 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
 
   audioDownloadAbort = new AbortController();
   dlBtn.textContent = copy.audioDownloadCancel;
+  const meter = document.getElementById("home-audio-dl-meter");
+  const fill = document.getElementById("home-audio-dl-fill");
+  if (meter) meter.hidden = false;
+  if (fill) fill.style.width = "0%";
+
+  const formatEta = (etaSec) => {
+    if (etaSec == null || !Number.isFinite(etaSec)) return copy.audioEtaUnknown;
+    if (etaSec <= 0) return "";
+    if (etaSec < 60) return copy.audioEtaSeconds(Math.max(1, Math.ceil(etaSec)));
+    if (etaSec < 3600) return copy.audioEtaMinutes(Math.max(1, Math.ceil(etaSec / 60)));
+    return copy.audioEtaHours(Math.max(1, Math.ceil(etaSec / 3600)));
+  };
+
   dlStatus.textContent = supportsBackgroundFetch()
     ? copy.audioDownloadSystemHint
-    : copy.audioDownloadProgress(0, "…");
+    : copy.audioDownloadProgress(0, "…", 0, copy.audioEtaUnknown);
+
   try {
     await ensureAudioServiceWorker();
     await downloadAllAudio(
-      ({ done, total, mode }) => {
-        dlStatus.textContent =
-          mode === "background"
-            ? copy.audioDownloadSystemProgress(done, total)
-            : copy.audioDownloadProgress(done, total);
+      ({ done, total, pct, etaSec }) => {
+        const p = pct ?? (total ? Math.round((done / total) * 100) : 0);
+        if (fill) fill.style.width = `${p}%`;
+        dlStatus.textContent = copy.audioDownloadProgress(
+          done,
+          total,
+          p,
+          formatEta(etaSec)
+        );
       },
       {
         signal: audioDownloadAbort.signal,
         title: copy.audioDownloadNotifyTitle,
+        formatEta,
       }
     );
+    if (fill) fill.style.width = "100%";
     flash(copy.audioDownloadFinished);
     await refreshAudioDownloadStatus(dlStatus, copy);
   } catch (e) {
@@ -981,6 +1001,8 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
   } finally {
     audioDownloadAbort = null;
     dlBtn.textContent = copy.audioDownload;
+    if (meter) meter.hidden = true;
+    if (fill) fill.style.width = "0%";
     if (clearBtn) clearBtn.hidden = false;
   }
 });

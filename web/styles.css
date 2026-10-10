@@ -422,6 +422,19 @@
       font-size: 0.85rem;
       line-height: 1.35;
     }
+    .audio-dl-meter[hidden] { display: none !important; }
+    .audio-dl-bar {
+      height: 0.45rem;
+      border: 1px solid var(--ink);
+      background: color-mix(in srgb, var(--paper) 70%, var(--paper-deep));
+      overflow: hidden;
+    }
+    .audio-dl-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--ink);
+      transition: width 0.25s ease;
+    }
 
     .audio-controls {
       display: flex;
