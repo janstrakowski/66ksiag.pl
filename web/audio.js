@@ -6,9 +6,16 @@
 const STORAGE_KEY = "ksiag-audio-v1";
 const CACHE_NAME = "ksiag-scourby-mp3-v1";
 const CATALOG_URL = "/audio-catalog.json";
+/** Szacunek bajtów/rozdział (ECFTF ~1–3 MB) — do paska Background Fetch. */
+const AVG_CHAPTER_BYTES = 2.2 * 1024 * 1024;
+const BF_BATCH = 250;
+const BF_ID_PREFIX = "ksiag-scourby-";
 
 let catalogPromise = null;
 let objectUrl = null;
+/** @type {BackgroundFetchRegistration | null} */
+let activeBgFetch = null;
+let activeBgFetchId = null;
 
 export function loadAudioSession() {
   try {
@@ -94,33 +101,244 @@ export async function countCachedChapters(catalog) {
   return n;
 }
 
-/**
- * Pobierz wszystkie rozdziały do Cache Storage (przez same-origin proxy — CORS).
- * onProgress({ done, total, book, chapter })
- */
-export async function downloadAllAudio(onProgress, { signal } = {}) {
-  const catalog = await loadAudioCatalog();
-  const total = catalog.chapters.length;
+export function supportsBackgroundFetch() {
+  return (
+    typeof window !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "BackgroundFetchManager" in window
+  );
+}
+
+export async function ensureAudioServiceWorker() {
+  if (!("serviceWorker" in navigator)) return null;
+  let reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) {
+    reg = await navigator.serviceWorker.register("/sw.js");
+  }
+  await navigator.serviceWorker.ready;
+  return reg;
+}
+
+export async function abortAudioDownload() {
+  try {
+    if (activeBgFetch) await activeBgFetch.abort();
+  } catch {
+    /* ignore */
+  }
+  activeBgFetch = null;
+  activeBgFetchId = null;
+}
+
+async function missingChapters(catalog) {
   const cache = await caches.open(CACHE_NAME);
-  let done = 0;
+  const missing = [];
   for (const c of catalog.chapters) {
+    if (!(await cache.match(proxyPath(c.book, c.chapter)))) missing.push(c);
+  }
+  return missing;
+}
+
+function waitForBgFetchDone(reg, fetchId, signal) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      navigator.serviceWorker.removeEventListener("message", onMsg);
+      signal?.removeEventListener("abort", onAbort);
+    };
+    const onAbort = () => {
+      cleanup();
+      abortAudioDownload().finally(() =>
+        reject(new DOMException("Aborted", "AbortError"))
+      );
+    };
+    const onMsg = (e) => {
+      const d = e.data;
+      if (!d || d.fetchId !== fetchId) return;
+      if (d.type === "audio-download-done") {
+        cleanup();
+        resolve({ ok: true, cached: d.cached });
+      } else if (d.type === "audio-download-fail") {
+        cleanup();
+        if (d.reason === "aborted") {
+          reject(new DOMException("Aborted", "AbortError"));
+        } else {
+          reject(new Error(d.reason || "background-fetch-failed"));
+        }
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMsg);
+    if (signal) {
+      if (signal.aborted) return onAbort();
+      signal.addEventListener("abort", onAbort);
+    }
+    // fallback: registration.result
+    const poll = () => {
+      if (!activeBgFetch) return;
+      if (activeBgFetch.result === "success") {
+        /* SW message should arrive; keep waiting briefly */
+      } else if (activeBgFetch.result === "failure") {
+        cleanup();
+        reject(new Error(activeBgFetch.failureReason || "failure"));
+      } else if (activeBgFetch.result === "aborted") {
+        cleanup();
+        reject(new DOMException("Aborted", "AbortError"));
+      }
+    };
+    activeBgFetch?.addEventListener("progress", poll);
+    void reg;
+  });
+}
+
+async function downloadViaBackgroundFetch(catalog, missing, onProgress, { signal, title }) {
+  const reg = await ensureAudioServiceWorker();
+  if (!reg?.backgroundFetch) throw new Error("no-background-fetch");
+
+  const totalAll = catalog.chapters.length;
+  const already = totalAll - missing.length;
+  let completedMissing = 0;
+
+  for (let i = 0; i < missing.length; i += BF_BATCH) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const batch = missing.slice(i, i + BF_BATCH);
+    const urls = batch.map((c) => proxyPath(c.book, c.chapter));
+    const batchNo = Math.floor(i / BF_BATCH) + 1;
+    const batchCount = Math.ceil(missing.length / BF_BATCH);
+    const fetchId = `${BF_ID_PREFIX}${Date.now()}-${batchNo}`;
+    activeBgFetchId = fetchId;
+
+    const bg = await reg.backgroundFetch.fetch(fetchId, urls, {
+      title:
+        batchCount > 1
+          ? `${title || "KJV Audio"} (${batchNo}/${batchCount})`
+          : title || "KJV Audio (Scourby)",
+      icons: [{ src: "/assets/icon-192.png", sizes: "192x192", type: "image/png" }],
+      downloadTotal: Math.ceil(batch.length * AVG_CHAPTER_BYTES),
+    });
+    activeBgFetch = bg;
+
+    const onBfProgress = () => {
+      const frac = bg.downloadTotal
+        ? Math.min(1, (bg.downloaded || 0) / bg.downloadTotal)
+        : 0;
+      const batchDone = Math.round(frac * batch.length);
+      const done = already + completedMissing + batchDone;
+      onProgress?.({
+        done: Math.min(done, totalAll),
+        total: totalAll,
+        mode: "background",
+        bytes: bg.downloaded,
+        bytesTotal: bg.downloadTotal,
+      });
+    };
+    bg.addEventListener("progress", onBfProgress);
+    onBfProgress();
+
+    try {
+      await waitForBgFetchDone(reg, fetchId, signal);
+    } finally {
+      bg.removeEventListener("progress", onBfProgress);
+      activeBgFetch = null;
+      activeBgFetchId = null;
+    }
+    completedMissing += batch.length;
+    onProgress?.({
+      done: already + completedMissing,
+      total: totalAll,
+      mode: "background",
+    });
+  }
+
+  return { done: totalAll, total: totalAll, mode: "background" };
+}
+
+async function notifyProgress(done, total, title) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  try {
+    const reg = await ensureAudioServiceWorker();
+    const body = `${done} / ${total}`;
+    const opts = {
+      body,
+      tag: "ksiag-audio-download",
+      renotify: true,
+      silent: done > 0 && done < total,
+      icon: "/assets/icon-192.png",
+    };
+    if (reg?.showNotification) await reg.showNotification(title || "KJV Audio", opts);
+    else new Notification(title || "KJV Audio", opts);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function downloadViaForeground(catalog, missing, onProgress, { signal, title }) {
+  const totalAll = catalog.chapters.length;
+  const already = totalAll - missing.length;
+  const cache = await caches.open(CACHE_NAME);
+  let completed = 0;
+
+  if ("Notification" in window && Notification.permission === "default") {
+    try {
+      await Notification.requestPermission();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  for (const c of missing) {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const key = proxyPath(c.book, c.chapter);
-    const hit = await cache.match(key);
-    if (!hit) {
-      const res = await fetch(key, { signal });
-      if (!res.ok) throw new Error(`download ${c.book}/${c.chapter}: ${res.status}`);
-      await cache.put(key, res.clone());
+    const res = await fetch(key, { signal });
+    if (!res.ok) throw new Error(`download ${c.book}/${c.chapter}: ${res.status}`);
+    await cache.put(key, res.clone());
+    completed += 1;
+    const done = already + completed;
+    onProgress?.({
+      done,
+      total: totalAll,
+      book: c.book,
+      chapter: c.chapter,
+      mode: "foreground",
+    });
+    if (completed === 1 || completed === missing.length || completed % 10 === 0) {
+      await notifyProgress(done, totalAll, title);
     }
-    done += 1;
-    onProgress?.({ done, total, book: c.book, chapter: c.chapter });
   }
-  return { done, total };
+  await notifyProgress(totalAll, totalAll, title);
+  return { done: totalAll, total: totalAll, mode: "foreground" };
+}
+
+/**
+ * Pobierz brakujące rozdziały.
+ * Preferuje Background Fetch (pasek w powiadomieniach Android/Chrome).
+ * Fallback: fetch w karcie + aktualizowane Notification.
+ */
+export async function downloadAllAudio(onProgress, { signal, title } = {}) {
+  const catalog = await loadAudioCatalog();
+  const missing = await missingChapters(catalog);
+  const total = catalog.chapters.length;
+  if (!missing.length) {
+    onProgress?.({ done: total, total, mode: "cached" });
+    return { done: total, total, mode: "cached" };
+  }
+
+  if (supportsBackgroundFetch()) {
+    try {
+      return await downloadViaBackgroundFetch(catalog, missing, onProgress, {
+        signal,
+        title,
+      });
+    } catch (e) {
+      if (e?.name === "AbortError") throw e;
+      console.warn("[66ksiąg] Background Fetch unavailable, foreground fallback:", e);
+    }
+  }
+
+  return downloadViaForeground(catalog, missing, onProgress, { signal, title });
 }
 
 export async function clearDownloadedAudio() {
   if (!("caches" in window)) return;
   await caches.delete(CACHE_NAME);
+  await abortAudioDownload();
 }
 
 function revokeObjectUrl() {

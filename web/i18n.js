@@ -84,12 +84,17 @@ const PL = {
   audioOnlyKjv: "Audio (Scourby) tylko w KJV",
   audioDownload: "Pobierz audio",
   audioDownloadCancel: "Anuluj pobieranie",
-  audioDownloadHint: "Streaming z internetu. Pobierz całość na urządzenie (offline).",
+  audioDownloadHint:
+    "Streaming z internetu. Pobierz całość na urządzenie (offline). Na Androidzie Chrome pokaże pasek w powiadomieniach.",
+  audioDownloadSystemHint: "Pobieranie w tle — pasek w powiadomieniach systemowych…",
+  audioDownloadSystemProgress: (done, total) =>
+    `Pobieranie w tle… ${done} / ${total} (powiadomienia)`,
   audioDownloadProgress: (done, total) => `Pobieranie audio… ${done} / ${total}`,
   audioDownloadPartial: (n, total) => `Offline: ${n} / ${total} rozdziałów`,
   audioDownloadDone: (total) => `Audio offline · ${total} rozdziałów`,
   audioDownloadFinished: "Audio pobrane",
   audioDownloadFailed: "Nie udało się pobrać audio",
+  audioDownloadNotifyTitle: "66ksiąg · audio KJV",
   audioCleared: "Usunięto lokalne audio",
   audioClear: "Usuń pobrane audio",
 };
@@ -180,12 +185,17 @@ const EN = {
   audioOnlyKjv: "Scourby audio is for the KJV alone",
   audioDownload: "Download audio",
   audioDownloadCancel: "Cancel download",
-  audioDownloadHint: "Streams from the net. Download all unto this device (offline).",
+  audioDownloadHint:
+    "Streams from the net. Download all unto this device. On Android Chrome a system progress bar is shewn in the notifications.",
+  audioDownloadSystemHint: "Fetching in the background — see the system notification…",
+  audioDownloadSystemProgress: (done, total) =>
+    `Background download… ${done} / ${total} (notifications)`,
   audioDownloadProgress: (done, total) => `Downloading… ${done} / ${total}`,
   audioDownloadPartial: (n, total) => `Offline: ${n} / ${total} chapters`,
   audioDownloadDone: (total) => `Audio offline · ${total} chapters`,
   audioDownloadFinished: "Audio is downloaded",
   audioDownloadFailed: "Could not download the audio",
+  audioDownloadNotifyTitle: "Holy Bible · KJV audio",
   audioCleared: "Local audio is wiped",
   audioClear: "Clear downloaded audio",
 };

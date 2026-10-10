@@ -39,6 +39,9 @@ import {
   downloadAllAudio,
   clearDownloadedAudio,
   countCachedChapters,
+  abortAudioDownload,
+  ensureAudioServiceWorker,
+  supportsBackgroundFetch,
 } from "./audio.js";
 
 let audioDownloadAbort = null;
@@ -941,6 +944,7 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
 
   if (audioDownloadAbort) {
     audioDownloadAbort.abort();
+    await abortAudioDownload();
     audioDownloadAbort = null;
     dlBtn.textContent = copy.audioDownload;
     return;
@@ -948,17 +952,27 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
 
   audioDownloadAbort = new AbortController();
   dlBtn.textContent = copy.audioDownloadCancel;
+  dlStatus.textContent = supportsBackgroundFetch()
+    ? copy.audioDownloadSystemHint
+    : copy.audioDownloadProgress(0, "…");
   try {
+    await ensureAudioServiceWorker();
     await downloadAllAudio(
-      ({ done, total }) => {
-        dlStatus.textContent = copy.audioDownloadProgress(done, total);
+      ({ done, total, mode }) => {
+        dlStatus.textContent =
+          mode === "background"
+            ? copy.audioDownloadSystemProgress(done, total)
+            : copy.audioDownloadProgress(done, total);
       },
-      { signal: audioDownloadAbort.signal }
+      {
+        signal: audioDownloadAbort.signal,
+        title: copy.audioDownloadNotifyTitle,
+      }
     );
     flash(copy.audioDownloadFinished);
     await refreshAudioDownloadStatus(dlStatus, copy);
   } catch (e) {
-    if (e?.name === "AbortError") {
+    if (e?.name === "AbortError" || e?.message === "aborted") {
       dlStatus.textContent = copy.audioDownloadHint;
     } else {
       flash(copy.audioDownloadFailed);
