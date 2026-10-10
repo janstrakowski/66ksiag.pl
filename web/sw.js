@@ -1,5 +1,5 @@
 /* Shell cache + Background Fetch (Scourby) → Cache Storage */
-const CACHE = "ksiag-v5";
+const CACHE = "ksiag-v6";
 const AUDIO_CACHE = "ksiag-scourby-mp3-v1";
 const SHELL = [
   "/",
@@ -15,6 +15,8 @@ const SHELL = [
   "/audio-catalog.json",
   "/manifest.webmanifest",
   "/assets/orn-pair.svg",
+  "/assets/icon-192.png",
+  "/assets/icon-512.png",
 ];
 
 async function broadcast(msg) {
