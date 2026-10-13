@@ -2,6 +2,12 @@
 # Roll Cloudflare production back to the previous Worker version recorded by deploy.sh.
 set -euo pipefail
 
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+  # shellcheck disable=SC1091
+  . "$NVM_DIR/nvm.sh"
+fi
+
 STATE_DIR="${HARNESS_CI_STATE:-$HOME/66ksiag-ci-state}"
 PREV_FILE="$STATE_DIR/previous-version.txt"
 DEPLOY_ROOT="${DEPLOY_ROOT:-$HOME/66ksiag-deploy}"

@@ -3,6 +3,13 @@
 # Intended to run on the Pi from the deploy worktree after main updates.
 set -euo pipefail
 
+# Non-interactive hooks do not load ~/.bashrc — pull in nvm if present.
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+  # shellcheck disable=SC1091
+  . "$NVM_DIR/nvm.sh"
+fi
+
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ROOT="${DEPLOY_ROOT:-$ROOT}"
 cd "$ROOT"
