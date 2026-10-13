@@ -89,6 +89,20 @@ bash scripts/dev-serve.sh          # http://127.0.0.1:8787
 npm run build && npx wrangler deploy
 ```
 
+## Harness (local tickets)
+
+Ticket UI + Cursor `agent` CLI + git worktrees on the **dev machine**. Production deploy stays on the **Pi** (`origin`).
+
+```bash
+npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OPEN=1 to skip)
+# Requires: agent on PATH, data/, local branches
+```
+
+- Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
+- Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
+- Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
+- Pi CI + rollback: [ci/pi/README.md](./ci/pi/README.md).
+
 ## Testy
 
 Wymaga lokalnego `data/` (BG + KJV) oraz `web/audio-catalog.json`.

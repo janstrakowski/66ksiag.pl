@@ -13,7 +13,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:coverage": "vitest run --coverage",
     "android:build": "bash scripts/android-build.sh",
-    "android:install": "bash scripts/android-install.sh"
+    "android:install": "bash scripts/android-install.sh",
+    "harness": "bash scripts/start-harness.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

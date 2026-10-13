@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Instalacja APK na podłączonym telefonie (USB debugging, bez roota).
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="${KSIAG_ROOT:-$SCRIPT_ROOT}"
 # shellcheck disable=SC1091
-source "$ROOT/scripts/android-env.sh"
+source "$SCRIPT_ROOT/scripts/android-env.sh"
 APK="${1:-$ROOT/android/app-release-signed.apk}"
 test -f "$APK" || { echo "Brak APK: $APK — najpierw: bash scripts/android-build.sh" >&2; exit 1; }
 

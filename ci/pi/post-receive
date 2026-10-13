@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Bare-repo hook: when main is updated, sync deploy clone and deploy to Cloudflare.
+set -euo pipefail
+
+DEPLOY_ROOT="${DEPLOY_ROOT:-$HOME/66ksiag-deploy}"
+LOG="${HARNESS_CI_LOG:-$HOME/66ksiag-ci-state/deploy.log}"
+mkdir -p "$(dirname "$LOG")" "$HOME/66ksiag-ci-state"
+
+while read -r oldrev newrev refname; do
+  if [[ "$refname" != "refs/heads/main" ]]; then
+    continue
+  fi
+  if [[ "$newrev" =~ ^0+$ ]]; then
+    echo "[ci] main deleted — skip deploy" | tee -a "$LOG"
+    continue
+  fi
+  {
+    echo "==== $(date -Is) main ${oldrev:0:7}..${newrev:0:7} ===="
+    if [[ ! -d "$DEPLOY_ROOT/.git" ]]; then
+      echo "Missing deploy clone at $DEPLOY_ROOT — run install-hooks.sh" >&2
+      exit 1
+    fi
+    git -C "$DEPLOY_ROOT" fetch origin main
+    git -C "$DEPLOY_ROOT" checkout -B main origin/main
+    git -C "$DEPLOY_ROOT" reset --hard "$newrev"
+    export DEPLOY_ROOT
+    bash "$DEPLOY_ROOT/ci/pi/deploy.sh"
+  } >>"$LOG" 2>&1 || {
+    echo "[ci] DEPLOY FAILED — see $LOG" >&2
+    exit 1
+  }
+done

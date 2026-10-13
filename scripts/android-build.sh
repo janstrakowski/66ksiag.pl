@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Natywny klient (Compose). Nie uruchamiaj Bubblewrap — nadpisze android/.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="${KSIAG_ROOT:-$SCRIPT_ROOT}"
 # shellcheck disable=SC1091
-source "$ROOT/scripts/android-env.sh"
+# Prefer env helpers from the script's repo (harness main tree), not a stale worktree copy.
+source "$SCRIPT_ROOT/scripts/android-env.sh"
 cd "$ROOT/android"
 ./gradlew assembleRelease bundleRelease
 APK="app/build/outputs/apk/release/app-release.apk"

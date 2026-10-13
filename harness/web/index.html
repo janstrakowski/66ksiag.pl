@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>66ksiąg harness</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="top">
+      <div class="brand">
+        <h1>66ksiąg harness</h1>
+        <p class="meta" id="status-line">Loading…</p>
+      </div>
+      <nav class="top-actions">
+        <a id="dev-preview-link" href="#" target="_blank" rel="noopener">Dev preview</a>
+        <button type="button" id="btn-android-dev">Test on Android (USB)</button>
+        <button type="button" id="btn-merge-main">Merge dev → main</button>
+        <button type="button" id="btn-rollback" class="danger">Rollback production</button>
+      </nav>
+    </header>
+
+    <main class="layout" id="view-dashboard">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Open tickets</h2>
+          <form id="new-ticket-form" class="new-ticket">
+            <input name="id" placeholder="ticket-id" pattern="[a-z0-9]+(-[a-z0-9]+)*" required />
+            <input name="title" placeholder="Title (optional)" />
+            <button type="submit">Open</button>
+          </form>
+        </div>
+        <ul id="open-list" class="ticket-list"></ul>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Closed tickets</h2>
+        </div>
+        <ul id="closed-list" class="ticket-list muted"></ul>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="panel-head"><h2>Activity</h2></div>
+        <pre id="dash-log" class="log"></pre>
+      </section>
+    </main>
+
+    <main class="layout ticket-layout hidden" id="view-ticket">
+      <section class="panel chat-panel">
+        <div class="panel-head">
+          <button type="button" id="btn-back" class="linkish">← Dashboard</button>
+          <h2 id="ticket-title">Ticket</h2>
+          <div class="ticket-actions">
+            <button type="button" id="btn-request-preview">Request preview</button>
+            <a id="ticket-preview-link" class="hidden" href="#" target="_blank" rel="noopener">Open preview</a>
+            <button type="button" id="btn-android-ticket">Test on Android (USB)</button>
+            <button type="button" id="btn-merge-dev">Merge to dev</button>
+            <button type="button" id="btn-stop" class="danger">Stop</button>
+          </div>
+        </div>
+        <div id="chat" class="chat"></div>
+        <form id="prompt-form" class="prompt-form">
+          <textarea id="prompt-input" rows="3" placeholder="Prompt the agent…" required></textarea>
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <section class="panel files-panel">
+        <div class="panel-head"><h2>Files</h2></div>
+        <div id="file-crumbs" class="crumbs"></div>
+        <ul id="file-list" class="file-list"></ul>
+        <pre id="file-view" class="file-view"></pre>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

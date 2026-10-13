@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Register a ticket preview with the local harness.
+# Usage: register-preview --ticket <id> --port <port> [--host 127.0.0.1] [--harness-url http://127.0.0.1:3900]
+set -euo pipefail
+
+TICKET=""
+PORT=""
+HARNESS_URL="${HARNESS_URL:-http://127.0.0.1:3900}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --ticket) TICKET="$2"; shift 2 ;;
+    --port) PORT="$2"; shift 2 ;;
+    --harness-url) HARNESS_URL="$2"; shift 2 ;;
+    *) echo "Unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+if [[ -z "$TICKET" || -z "$PORT" ]]; then
+  echo "Usage: register-preview --ticket <id> --port <port>" >&2
+  exit 2
+fi
+
+curl -sS -X POST "${HARNESS_URL}/api/tickets/${TICKET}/preview" \
+  -H 'content-type: application/json' \
+  -d "{\"port\": ${PORT}}"
+echo
