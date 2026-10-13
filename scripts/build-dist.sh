@@ -39,7 +39,14 @@ copy_pwa_edition() {
             continue
           fi
           mkdir -p "$dest/$(dirname "$rel")"
-          if [[ "$follow_links" == "1" ]]; then
+          # DIST_HARD_LINKS=1: same-filesystem hard links (Pi CI — avoid doubling MP3s).
+          if [[ "${DIST_HARD_LINKS:-0}" == "1" ]]; then
+            local srcfile="$rel"
+            if [[ -L "$rel" ]]; then
+              srcfile="$(readlink -f -- "$rel")"
+            fi
+            ln -f -- "$srcfile" "$dest/$rel" 2>/dev/null || cp -L -- "$rel" "$dest/$rel"
+          elif [[ "$follow_links" == "1" ]]; then
             cp -L -- "$rel" "$dest/$rel"
           else
             cp -a -- "$rel" "$dest/$rel"

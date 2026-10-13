@@ -26,7 +26,8 @@ echo "[ci] building at $(git rev-parse --short HEAD) in $ROOT"
 # wrangler lives in devDependencies — need a full install for deploy.
 # --legacy-peer-deps: npm arborist on arm64 Node 22 crashes on vitest optional peers (edgesOut).
 npm ci --legacy-peer-deps
-npm run build
+# Hard-link edition assets into dist/ so the SD card is not filled twice.
+DIST_HARD_LINKS=1 npm run build
 
 if [[ -f "$STATE_DIR/current-version.txt" ]]; then
   cp "$STATE_DIR/current-version.txt" "$STATE_DIR/previous-version.txt"
