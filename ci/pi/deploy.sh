@@ -23,8 +23,9 @@ if [[ ! -f "$ROOT/data/bg/1879/books.json" || ! -f "$ROOT/data/kjv/1769/books.js
 fi
 
 echo "[ci] building at $(git rev-parse --short HEAD) in $ROOT"
-# wrangler lives in devDependencies — need a full install for deploy
-npm ci
+# wrangler lives in devDependencies — need a full install for deploy.
+# --legacy-peer-deps: npm arborist on arm64 Node 22 crashes on vitest optional peers (edgesOut).
+npm ci --legacy-peer-deps
 npm run build
 
 if [[ -f "$STATE_DIR/current-version.txt" ]]; then
