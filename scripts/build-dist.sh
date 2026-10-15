@@ -78,4 +78,4 @@ if [[ "$file_n" -gt 20000 ]]; then
 fi
 
 echo "dist gotowe: $DIST (pliki: $file_n, MP3: $mp3_n)"
-du -sh "$DIST" "$DIST/bg" "$DIST/kjv"
+du -sh "$DIST" "$DIST/bg" "$DIST/kjv" 2>/dev/null || du -sh "$DIST" || true
