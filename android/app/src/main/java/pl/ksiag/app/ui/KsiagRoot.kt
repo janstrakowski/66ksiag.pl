@@ -236,7 +236,14 @@ private fun ReaderRoute(model: KsiagModel, copy: pl.ksiag.app.model.Copy, route:
         error = model.readerError,
         mark = mark,
         showAudio = model.edition?.audio == true,
-        playing = model.audioUi.playing && model.audioUi.visible,
+        playing = model.audioUi.playing &&
+            model.audioUi.visible &&
+            model.audioUi.bookId == book?.id &&
+            model.audioUi.chapter == chapter,
+        paused = !model.audioUi.playing &&
+            model.audioUi.visible &&
+            model.audioUi.bookId == book?.id &&
+            model.audioUi.chapter == chapter,
         portion = false,
         banner = null,
         spokenVerse = model.spokenVerse,
@@ -270,7 +277,14 @@ private fun PortionRoute(model: KsiagModel, copy: pl.ksiag.app.model.Copy) {
         error = model.readerError,
         mark = pl.ksiag.app.model.MarkUi(hidden = true),
         showAudio = model.edition?.audio == true,
-        playing = model.audioUi.playing && model.audioUi.visible,
+        playing = model.audioUi.playing &&
+            model.audioUi.visible &&
+            model.audioUi.bookId == book?.id &&
+            model.audioUi.chapter == chapter,
+        paused = !model.audioUi.playing &&
+            model.audioUi.visible &&
+            model.audioUi.bookId == book?.id &&
+            model.audioUi.chapter == chapter,
         portion = true,
         banner = model.portionLine().ifEmpty { null },
         spokenVerse = model.spokenVerse,

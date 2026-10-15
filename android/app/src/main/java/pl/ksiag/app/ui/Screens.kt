@@ -219,6 +219,7 @@ fun ReaderScreen(
     mark: MarkUi,
     showAudio: Boolean,
     playing: Boolean,
+    paused: Boolean = false,
     portion: Boolean,
     banner: String?,
     spokenVerse: Int?,
@@ -305,9 +306,12 @@ fun ReaderScreen(
                     if (showAudio) {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                             Box(Modifier.weight(1f, fill = false)) {
-                                Tablet(copy.audioListen, onClick = onPlay)
+                                Tablet(
+                                    if (playing) copy.audioPause else copy.audioListen,
+                                    onClick = onPlay,
+                                )
                             }
-                            if (playing) {
+                            if (playing || paused) {
                                 Box(Modifier.weight(1f, fill = false)) {
                                     Tablet(copy.audioStop, ital = true, onClick = onStop)
                                 }

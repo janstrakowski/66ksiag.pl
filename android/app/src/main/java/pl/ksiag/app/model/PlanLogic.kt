@@ -246,6 +246,15 @@ fun nextChapterInBible(books: List<Book>, bookId: String, chapter: Int): Chapter
     return ChapterRef(books[i + 1].id, 1)
 }
 
+fun prevChapterInBible(books: List<Book>, bookId: String, chapter: Int): ChapterRef? {
+    val i = books.indexOfFirst { it.id == bookId }
+    if (i < 0) return null
+    if (chapter > 1) return ChapterRef(bookId, chapter - 1)
+    if (i == 0) return null
+    val prev = books[i - 1]
+    return ChapterRef(prev.id, prev.chapters)
+}
+
 private fun furthestCredited(books: List<Book>, plan: Plan): ChapterRef? {
     var bestScore = -1
     var best: ChapterRef? = null

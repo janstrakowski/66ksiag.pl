@@ -28,12 +28,20 @@ class Repository(context: Context) {
     }
 
     fun books(edition: Edition): List<Book> {
+        val asset = bundled("bible${edition.path}/books.json")
+        if (asset != null) return parseBooks(asset)
         val file = File(dir, "books-${edition.id}.json")
-        val json = fetch("${edition.path}/books.json", file)
-        return parseBooks(json)
+        return parseBooks(fetch("${edition.path}/books.json", file))
     }
 
     fun cachedBooks(edition: Edition): List<Book>? {
+        bundled("bible${edition.path}/books.json")?.let {
+            return try {
+                parseBooks(it)
+            } catch (_: Exception) {
+                null
+            }
+        }
         val file = File(dir, "books-${edition.id}.json")
         if (!file.exists()) return null
         return try {
@@ -46,6 +54,12 @@ class Repository(context: Context) {
     fun chapter(edition: Edition, bookId: String, chapter: Int): ChapterText {
         val key = "${edition.path}/$bookId/$chapter"
         chapters[key]?.let { return it }
+        val asset = bundled("bible${edition.path}/$bookId/$chapter.json")
+        if (asset != null) {
+            val text = parseChapter(asset)
+            chapters[key] = text
+            return text
+        }
         val file = File(dir, "${edition.id}-$bookId-$chapter.json")
         val text = parseChapter(fetch("$key.json", file))
         chapters[key] = text
@@ -53,6 +67,7 @@ class Repository(context: Context) {
     }
 
     fun catalog(): List<AudioChapter> {
+        bundled("audio-catalog.json")?.let { return parseCatalog(it) }
         val file = File(dir, "audio-catalog.json")
         return parseCatalog(fetch("/audio-catalog.json", file))
     }
@@ -67,6 +82,13 @@ class Repository(context: Context) {
     }
 
     fun cachedCatalog(): List<AudioChapter>? {
+        bundled("audio-catalog.json")?.let {
+            return try {
+                parseCatalog(it)
+            } catch (_: Exception) {
+                null
+            }
+        }
         val file = File(dir, "audio-catalog.json")
         if (!file.exists()) return null
         return try {
@@ -74,6 +96,12 @@ class Repository(context: Context) {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun bundled(assetPath: String): String? = try {
+        app.assets.open(assetPath).bufferedReader().use { it.readText() }
+    } catch (_: Exception) {
+        null
     }
 
     private val lock = Any()

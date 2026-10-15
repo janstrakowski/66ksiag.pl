@@ -26,6 +26,7 @@ import pl.ksiag.app.model.isInGoalRange
 import pl.ksiag.app.model.markChapterRead
 import pl.ksiag.app.model.nextBeyondPlanTarget
 import pl.ksiag.app.model.nextChapterInBible
+import pl.ksiag.app.model.prevChapterInBible
 import pl.ksiag.app.model.nextMarkTarget
 import pl.ksiag.app.model.nextUnreadInGoal
 import pl.ksiag.app.model.progressPct
@@ -83,6 +84,11 @@ class PlanLogicTest {
         assertEquals("01-gen", nextChapterInBible(books, "01-gen", 1)?.book)
         assertEquals(2, nextChapterInBible(books, "01-gen", 1)?.chapter)
         assertNull(nextChapterInBible(books, "66-apo", 2))
+        assertEquals("01-gen", prevChapterInBible(books, "01-gen", 2)?.book)
+        assertEquals(1, prevChapterInBible(books, "01-gen", 2)?.chapter)
+        assertEquals("01-gen", prevChapterInBible(books, "02-exo", 1)?.book)
+        assertEquals(3, prevChapterInBible(books, "02-exo", 1)?.chapter)
+        assertNull(prevChapterInBible(books, "01-gen", 1))
     }
 
     @Test
@@ -113,7 +119,7 @@ class PlanLogicTest {
         plan = advanceCursor(plan, books)
         val asg = todayAssignment(books, plan, ::toRoman)
         assertEquals(false, asg?.done)
-        assertEquals("/czytaj/01-gen/2", asg?.href)
+        assertEquals("/porcja/01-gen/2", asg?.href)
         assertEquals(true, asg?.started)
         assertEquals("01-gen", nextMarkTarget(books, plan)?.book)
         assertEquals(2, nextMarkTarget(books, plan)?.chapter)

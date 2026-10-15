@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 import pl.ksiag.app.audio.AudioDownloadService
 import pl.ksiag.app.audio.DownloadBus
 import pl.ksiag.app.audio.DownloadState
+import pl.ksiag.app.audio.PlaybackBus
 import pl.ksiag.app.audio.PlaybackService
 import pl.ksiag.app.data.AudioFiles
 import pl.ksiag.app.data.AudioSession
@@ -49,6 +50,7 @@ import pl.ksiag.app.model.copyFor
 import pl.ksiag.app.model.markChapterRead
 import pl.ksiag.app.model.nextChapterInBible
 import pl.ksiag.app.model.nextMarkTarget
+import pl.ksiag.app.model.prevChapterInBible
 import pl.ksiag.app.model.progressPct
 import pl.ksiag.app.model.resolveBook
 import pl.ksiag.app.model.stripTags
@@ -71,7 +73,13 @@ sealed interface Route {
 
 data class ReaderState(val book: Book, val chapter: Int, val text: ChapterText)
 
-data class AudioUi(val visible: Boolean = false, val playing: Boolean = false, val label: String = "")
+data class AudioUi(
+    val visible: Boolean = false,
+    val playing: Boolean = false,
+    val label: String = "",
+    val bookId: String? = null,
+    val chapter: Int? = null,
+)
 
 data class Confirm(
     val title: String,
@@ -154,6 +162,14 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         Debt.sync(app)
         viewModelScope.launch {
             DownloadBus.state.collectLatest { download = it }
+        }
+        viewModelScope.launch {
+            PlaybackBus.skips.collectLatest { skip ->
+                when (skip) {
+                    PlaybackBus.Skip.Next -> skipChapter(1)
+                    PlaybackBus.Skip.Previous -> skipChapter(-1)
+                }
+            }
         }
         connectPlayer()
     }
@@ -292,14 +308,12 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
     fun neighbor(delta: Int) {
         val r = reader ?: return
         val list = books
-        if (delta < 0) {
-            if (r.chapter > 1) openReader(r.book.id, r.chapter - 1, null, push = false)
-        } else if (r.chapter < r.book.chapters) {
-            openReader(r.book.id, r.chapter + 1, null, push = false)
+        val next = if (delta < 0) {
+            prevChapterInBible(list, r.book.id, r.chapter)
         } else {
-            val i = list.indexOfFirst { it.id == r.book.id }
-            if (i >= 0 && i + 1 < list.size) openReader(list[i + 1].id, 1, null, push = false)
-        }
+            nextChapterInBible(list, r.book.id, r.chapter)
+        } ?: return
+        openReader(next.book, next.chapter, null, push = false)
     }
 
     fun markRead() = markPortion()
@@ -563,10 +577,10 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
     fun onPlay() {
         val c = controller
         val r = reader
-        if (c != null && r != null && !c.isPlaying && playBook == r.book.id && playChapter == r.chapter &&
-            c.playbackState == Player.STATE_READY
+        if (c != null && r != null && playBook == r.book.id && playChapter == r.chapter &&
+            c.playbackState != Player.STATE_IDLE && c.playbackState != Player.STATE_ENDED
         ) {
-            c.play()
+            if (c.isPlaying) c.pause() else c.play()
             return
         }
         if (c == null) {
@@ -579,6 +593,28 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
     fun onBarToggle() {
         val c = controller ?: return
         if (c.isPlaying) c.pause() else c.play()
+    }
+
+    /** Lock-screen / notification next·previous chapter. */
+    private fun skipChapter(delta: Int) {
+        val bookId = playBook ?: reader?.book?.id ?: return
+        val chapter = playChapter ?: reader?.chapter ?: return
+        viewModelScope.launch {
+            val list = try {
+                ensureBooks()
+            } catch (_: Exception) {
+                return@launch
+            }
+            val next = if (delta < 0) {
+                prevChapterInBible(list, bookId, chapter)
+            } else {
+                nextChapterInBible(list, bookId, chapter)
+            } ?: return@launch
+            if (audioMode == "idle") audioModePreset = "single"
+            else audioModePreset = audioMode
+            val portion = route == Route.Portion || audioMode == "plan" || audioMode == "portion"
+            openReader(next.book, next.chapter, null, push = false, autoplay = true, portion = portion)
+        }
     }
 
     fun continueListening() {
@@ -783,10 +819,6 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
             } catch (_: Exception) {
                 return@launch
             }
-            if (endedMode == "single") {
-                stopAudio()
-                return@launch
-            }
             if (endedMode == "portion" && plan.enabled) {
                 val next = nextMarkTarget(list, plan)
                 if (next != null) {
@@ -813,7 +845,7 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
             }
-            if (endedMode == "beyond" || (endedMode == "plan" && !plan.enabled)) {
+            if (endedMode == "single" || endedMode == "beyond" || (endedMode == "plan" && !plan.enabled)) {
                 val next = nextChapterInBible(list, bookId, chapter)
                 if (next != null) {
                     openReader(next.book, next.chapter, null, push = false, autoplay = true)
@@ -859,6 +891,8 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
             visible = active && edition?.audio == true,
             playing = c?.isPlaying == true,
             label = if (c?.isPlaying == true) copy.audioBarListening else copy.audioBarPaused,
+            bookId = playBook,
+            chapter = playChapter,
         )
     }
 

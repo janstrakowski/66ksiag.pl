@@ -1,6 +1,6 @@
 # Android — 66ksiąg
 
-Natywny klient (Kotlin, Jetpack Compose). Czyta to samo statyczne API co strona (`https://66ksiag.pl`).  
+Natywny klient (Kotlin, Jetpack Compose). Tekst BG/KJV jest bundlowany w APK (`syncBibleAssets` z `data/`); audio KJV i synchronizacja planu nadal z sieci.  
 Package ID: `pl.ksiag.app`
 
 Nie uruchamiaj Bubblewrap (`bubblewrap build` / `update`) — nadpisze ten projekt szablonem TWA.
@@ -51,7 +51,8 @@ Fingerprint z lokalnego upload key (po Play App Signing dodaj też fingerprint z
 
 - Czytnik, spis, karta, plan — Compose, te same kroje (Cardo, Cinzel) i kolory co `web/styles.css`
 - Powiadomienia planu: `NotificationManager` + alarm o 8:00 (`PlanAlarmReceiver`)
-- Audio KJV: Media3 (odtwarzanie w tle) i pobieranie MP3 do plików aplikacji (`AudioDownloadService`)
+- Audio KJV: Media3 + MediaSession (pauza/wznów/następny/poprzedni rozdział w powiadomieniu i na ekranie blokady); pobieranie MP3 (`AudioDownloadService`)
+- Tekst Biblii: assets z `data/` (bez pobierania rozdziałów z sieci)
 
 ## Play Console
 

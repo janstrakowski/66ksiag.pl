@@ -98,3 +98,52 @@ if (System.getenv("KSIAG_PARITY") == "1") {
     apply plugin: "app.cash.paparazzi"
     android.sourceSets.test.java.srcDir("src/parity/java")
 }
+
+// Bundle chapter JSON + books.json + audio catalog into APK assets (from repo data/).
+def repoRoot = rootProject.projectDir.parentFile
+def dataDir = new File(repoRoot, "data")
+def catalogSrc = new File(repoRoot, "web/audio-catalog.json")
+def bibleAssetsDir = new File(projectDir, "src/main/assets/bible")
+def catalogAsset = new File(projectDir, "src/main/assets/audio-catalog.json")
+
+tasks.register("syncBibleAssets") {
+    inputs.dir(dataDir)
+    inputs.file(catalogSrc)
+    outputs.dir(bibleAssetsDir)
+    outputs.file(catalogAsset)
+    doLast {
+        if (!dataDir.isDirectory()) {
+            throw new GradleException(
+                "Missing data/ at ${dataDir}. Symlink or populate Bible JSON before building the Android app.",
+            )
+        }
+        if (!catalogSrc.isFile()) {
+            throw new GradleException("Missing ${catalogSrc}")
+        }
+        delete(bibleAssetsDir)
+        bibleAssetsDir.mkdirs()
+        ["bg/1879", "kjv/1769"].each { ed ->
+            def srcEd = new File(dataDir, ed)
+            def destEd = new File(bibleAssetsDir, ed)
+            if (!srcEd.isDirectory()) {
+                throw new GradleException("Missing edition data at ${srcEd}")
+            }
+            destEd.mkdirs()
+            def booksJson = new File(srcEd, "books.json")
+            if (!booksJson.isFile()) throw new GradleException("Missing ${booksJson}")
+            ant.copy(file: booksJson, tofile: new File(destEd, "books.json"))
+            srcEd.eachDir { bookDir ->
+                def bookDest = new File(destEd, bookDir.name)
+                bookDest.mkdirs()
+                bookDir.eachFile { f ->
+                    if (f.name ==~ /^\d+\.json$/) {
+                        ant.copy(file: f, tofile: new File(bookDest, f.name))
+                    }
+                }
+            }
+        }
+        ant.copy(file: catalogSrc, tofile: catalogAsset)
+    }
+}
+
+tasks.named("preBuild").configure { dependsOn("syncBibleAssets") }

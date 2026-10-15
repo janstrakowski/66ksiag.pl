@@ -27,4 +27,6 @@ __pycache__/
 /android/*.aab
 /android/app-release-signed.apk
 /android/app-release-bundle.aab
+/android/app/src/main/assets/bible/
+/android/app/src/main/assets/audio-catalog.json
 *.idsig
