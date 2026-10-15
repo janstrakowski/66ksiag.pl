@@ -23,12 +23,14 @@ python3 tools/audio-kjv/build_catalog.py   # → web/audio-catalog.json
 export PATH="$HOME/.local/share/mise/installs/python/3.12.15/bin:$PATH"
 python3 -m pip install -r tools/audio-kjv/requirements.txt
 python3 tools/audio-kjv/fetch_scourby.py
-python3 tools/audio-kjv/install_layout.py --link
+# copy (nie --link): Git LFS potrzebuje zwykłych plików, nie symlinków do vendor/
+python3 tools/audio-kjv/install_layout.py
 # opcjonalnie align słów:
 # python3 tools/audio-kjv/align_whisper.py --book 01-gen --chapter 1 --model base.en
+git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 ```
 
-`data/` i `vendor/` są w `.gitignore`. `build-dist` kopiuje MP3 do `dist/` (symlinki są rozwijane).
+`vendor/` i tekst wydań w `data/` są w `.gitignore`. KJV `*.mp3` / `*.words.json` są w **Git LFS**. Push na Pi: `bash scripts/push-origin.sh`. `build-dist` kopiuje MP3 do `dist/`.
 
 ## Deploy
 

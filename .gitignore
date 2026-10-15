@@ -1,6 +1,15 @@
 /target/
 /dist/
-/data/
+# Ignore edition text under data/, but track KJV audio (+ word timings) via Git LFS
+/data/*
+!/data/kjv/
+/data/kjv/*
+!/data/kjv/1769/
+/data/kjv/1769/*
+!/data/kjv/1769/*/
+/data/kjv/1769/*/*
+!/data/kjv/1769/*/*.mp3
+!/data/kjv/1769/*/*.words.json
 /.local/
 /.harness/
 /node_modules/
@@ -30,3 +39,4 @@ __pycache__/
 /android/app/src/main/assets/bible/
 /android/app/src/main/assets/audio-catalog.json
 *.idsig
+/.worktrees/

@@ -31,6 +31,11 @@ while read -r oldrev newrev refname; do
     git -C "$DEPLOY_ROOT" fetch origin main
     git -C "$DEPLOY_ROOT" checkout -B main origin/main
     git -C "$DEPLOY_ROOT" reset --hard "$newrev"
+    # Materialize LFS (KJV mp3/words + images) from the shared Pi store.
+    if command -v git-lfs >/dev/null 2>&1; then
+      git -C "$DEPLOY_ROOT" lfs install --local >/dev/null 2>&1 || true
+      git -C "$DEPLOY_ROOT" lfs checkout
+    fi
     export DEPLOY_ROOT
     bash "$DEPLOY_ROOT/ci/pi/deploy.sh"
   } >>"$LOG" 2>&1 || {

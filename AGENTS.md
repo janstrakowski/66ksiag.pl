@@ -55,16 +55,22 @@ cargo run -p ksiag-import-kjv --release -- \
   --source /tmp/Bible-kjv --out data --commit <sha>
 ```
 
-## Audio KJV (Scourby) — self-hosted
+## Audio KJV (Scourby) — self-hosted (Git LFS)
+
+KJV `data/kjv/1769/**/*.mp3` i `*.words.json` są w **Git LFS** (obrazy/fonty też). Tekst wydań w `data/` nadal poza gitem (`vendor/` = cache pobierania).
 
 ```bash
 python3 tools/audio-kjv/fetch_scourby.py
-python3 tools/audio-kjv/install_layout.py --link   # → data/kjv/1769/{book}/{ch}.mp3
+# Do commita LFS potrzebne prawdziwe pliki (nie symlinki):
+python3 tools/audio-kjv/install_layout.py          # copy → data/kjv/1769/{book}/{ch}.mp3
 python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json (commit)
+git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 ```
 
+Push na Pi (`origin`): `bash scripts/push-origin.sh` — rsync obiektów LFS na `/mnt/pi-data/git-lfs/66ksiag`, potem `git push` (bez HTTP LFS API). Szczegóły: `ci/pi/README.md`.
+
 PWA czyta `/kjv/1769/…/*.mp3` z tego samego originu. „Pobierz audio” = Cache Storage.  
-Szczegóły: `tools/audio-kjv/README.md`. Nie commituj MP3 (`data/`, `vendor/` w gitignore); `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
+Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
 
 ### Pobieranie audio na karcie tytułowej
 
