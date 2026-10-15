@@ -8,7 +8,7 @@ if [[ -s "$NVM_DIR/nvm.sh" ]]; then
   . "$NVM_DIR/nvm.sh"
 fi
 
-DEPLOY_ROOT="${DEPLOY_ROOT:-$HOME/66ksiag-deploy}"
+DEPLOY_ROOT="${DEPLOY_ROOT:-/mnt/pi-data/66ksiag-deploy}"
 LOG="${HARNESS_CI_LOG:-$HOME/66ksiag-ci-state/deploy.log}"
 mkdir -p "$(dirname "$LOG")" "$HOME/66ksiag-ci-state"
 

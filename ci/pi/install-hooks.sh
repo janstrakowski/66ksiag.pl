@@ -4,7 +4,8 @@
 set -euo pipefail
 
 BARE_REPO="${BARE_REPO:-$HOME/git/66ksiag-project.git}"
-DEPLOY_ROOT="${DEPLOY_ROOT:-$HOME/66ksiag-deploy}"
+# Prefer external drive — SD card is too small for LFS audio checkout.
+DEPLOY_ROOT="${DEPLOY_ROOT:-/mnt/pi-data/66ksiag-deploy}"
 LFS_STORE="${LFS_STORE:-/mnt/pi-data/git-lfs/66ksiag}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 

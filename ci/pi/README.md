@@ -10,7 +10,7 @@ This directory is the **Pi-side** hook that builds and deploys on every update t
 | `~/git/66ksiag-project.git` | Bare origin (git objects + pointers) |
 | `/mnt/pi-data` | External ext4 volume (`pi-data`, fstab `nofail`) |
 | `/mnt/pi-data/git-lfs/66ksiag` | Shared Git LFS object store (`lfs.storage`) |
-| `~/66ksiag-deploy` | Non-bare checkout used to build/deploy |
+| `/mnt/pi-data/66ksiag-deploy` | Non-bare checkout used to build/deploy (symlink `~/66ksiag-deploy` OK) |
 
 LFS objects are **not** uploaded over an HTTP LFS API. The laptop rsyncs them with `scripts/lfs-rsync-to-origin.sh` (wrapped by `scripts/push-origin.sh`), then pushes git refs with `GIT_LFS_SKIP_PUSH=1`.
 
@@ -58,7 +58,7 @@ Versions are recorded under `~/66ksiag-ci-state/` (`current-version.txt`, `previ
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `DEPLOY_ROOT` | `$HOME/66ksiag-deploy` | Non-bare checkout used to build |
+| `DEPLOY_ROOT` | `/mnt/pi-data/66ksiag-deploy` | Non-bare checkout used to build |
 | `BARE_REPO` | `$HOME/git/66ksiag-project.git` | Origin bare repo |
 | `LFS_STORE` | `/mnt/pi-data/git-lfs/66ksiag` | Shared Git LFS object store |
 | `HARNESS_CI_STATE` | `$HOME/66ksiag-ci-state` | Version id files |
