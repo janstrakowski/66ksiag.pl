@@ -32,12 +32,9 @@ copy_pwa_edition() {
   fi
   (
     cd "$src"
-    find "${find_args[@]}" \( -type f -o -type l \) \( -name '*.json' -o -name '*.mp3' \) \
+    # -maxdepth 2: books.json, {book}/{ch}.json|.mp3|.words.json — skip per-verse trees
+    find "${find_args[@]}" -maxdepth 2 \( -type f -o -type l \) \( -name '*.json' -o -name '*.mp3' \) \
       | while IFS= read -r rel; do
-          depth=$(printf '%s' "$rel" | tr -cd '/' | wc -c)
-          if [[ "$depth" -gt 2 ]]; then
-            continue
-          fi
           mkdir -p "$dest/$(dirname "$rel")"
           # DIST_HARD_LINKS=1: same-filesystem hard links (Pi CI — avoid doubling MP3s).
           if [[ "${DIST_HARD_LINKS:-0}" == "1" ]]; then
