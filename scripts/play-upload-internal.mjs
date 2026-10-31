@@ -15,7 +15,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ALLOWED_TRACK = "internal";
-const DEFAULT_PACKAGE_NAME = "pl.ksiag.app";
+const DEFAULT_PACKAGE_NAME = "com.jastrakowski.sixsixksiag";
 const ANDROID_PUBLISHER_SCOPE = "https://www.googleapis.com/auth/androidpublisher";
 const DEFAULT_TOKEN_URI = "https://oauth2.googleapis.com/token";
 const API_ROOT = "https://androidpublisher.googleapis.com";
@@ -244,7 +244,7 @@ export async function queryExistingInternalMaxVersionCode({
   if (!createRes.ok || !createRes.json?.id) {
     throw new Error(
       `Failed to open Google Play edit for ${packageName} (HTTP ${createRes.status}): ${createRes.text}\n` +
-        "Make sure the app pl.ksiag.app is created in Google Play Console, its first AAB has been uploaded on Internal testing, and the service account has Release to testing tracks permissions."
+        "Make sure the app com.jastrakowski.sixsixksiag is created in Google Play Console, its first AAB has been uploaded on Internal testing, and the service account has Release to testing tracks permissions."
     );
   }
   const editId = createRes.json.id;

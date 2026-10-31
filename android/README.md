@@ -1,7 +1,7 @@
 # Android — 66ksiąg
 
 Natywny klient (Kotlin, Jetpack Compose). Tekst BG/KJV jest bundlowany w APK (`syncBibleAssets` z `data/`); audio KJV z sieci (z opcją pobrania offline).  
-Package ID: `pl.ksiag.app`
+Package ID: `com.jastrakowski.sixsixksiag`
 
 Nie uruchamiaj Bubblewrap (`bubblewrap build` / `update`) — nadpisze ten projekt szablonem TWA.
 
@@ -116,7 +116,7 @@ Google Play Developer API pozwala na automatyczne wgrywanie kolejnych wydań dop
    - Po utworzeniu wejdź w zakładkę **Keys → Add Key → Create new key → JSON** i zapisz plik JSON (to wartość dla `PLAY_SERVICE_ACCOUNT_JSON`).
 3. W **Google Play Console → Users and permissions → Invite new users**:
    - Wklej adres e-mail konta usługowego (`client_email` z pliku JSON).
-   - W zakładce **App permissions** dodaj aplikację `66ksiąg` (`pl.ksiag.app`).
+   - W zakładce **App permissions** dodaj aplikację `66ksiąg` (`com.jastrakowski.sixsixksiag`).
    - Zaznacz uprawnienia:
      - **View app information and download bulk reports (read-only)**
      - **Release to testing tracks** (obejmuje Internal testing — nie musisz nadawać uprawnień do Production).

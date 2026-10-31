@@ -126,7 +126,7 @@ Zobacz [llms.txt](./llms.txt).
 
 ## Android (Google Play)
 
-Natywny klient Kotlin/Compose w `android/`, package `pl.ksiag.app`, host `66ksiag.pl`. To samo statyczne API co strona. Nie uruchamiaj Bubblewrap — nadpisze projekt.
+Natywny klient Kotlin/Compose w `android/`, package `com.jastrakowski.sixsixksiag`, host `66ksiag.pl`. To samo statyczne API co strona. Nie uruchamiaj Bubblewrap — nadpisze projekt.
 
 ```bash
 npm run android:build          # APK + AAB

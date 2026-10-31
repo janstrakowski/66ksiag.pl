@@ -1,5 +1,5 @@
 {
-  "packageId": "pl.ksiag.app",
+  "packageId": "com.jastrakowski.sixsixksiag",
   "host": "66ksiag.pl",
   "name": "66ksi\u0105g",
   "launcherName": "66ksi\u0105g",
@@ -37,6 +37,9 @@
   "minSdkVersion": 24,
   "orientation": "default",
   "fingerprints": [
+    {
+      "value": "B6:91:4A:E2:7E:39:64:25:C7:AB:D7:F0:05:C5:30:9B:17:DE:38:34:0E:F3:EB:C5:57:28:00:08:DE:60:1B:4C"
+    },
     {
       "value": "E3:36:8B:B6:A2:F7:3C:A8:F7:76:60:5B:DC:65:19:5F:9E:C8:14:26:96:26:46:99:1A:1B:89:D8:41:FF:BF:5B"
     }

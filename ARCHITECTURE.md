@@ -175,6 +175,6 @@ Strona: podkreślenie bieżącego słowa i automatyczne przejście do kolejnego 
 ## Świadomie odłożone
 
 - Wyszukiwanie pełnotekstowe w API
-- ~~Pakiet do Google Play~~ → `android/` (`pl.ksiag.app`); listing/Play App Signing fingerprint w konsoli
+- ~~Pakiet do Google Play~~ → `android/` (`com.jastrakowski.sixsixksiag`); listing/Play App Signing fingerprint w konsoli
 - Opakowanie Capacitor / inne sklepy
 - OpenAPI (można dodać jako opis tych samych ścieżek statycznych)

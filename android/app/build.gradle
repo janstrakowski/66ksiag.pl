@@ -22,7 +22,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "pl.ksiag.app"
+        applicationId = "com.jastrakowski.sixsixksiag"
         minSdk = 26
         targetSdk = 36
         def rawVersionCode = project.findProperty("ksiagVersionCode")?.toString()?.trim()
@@ -57,7 +57,7 @@ android {
 
     buildTypes {
         debug {
-            // Obok aplikacji z Play (inny podpis). Release zostaje pl.ksiag.app.
+            // Obok aplikacji z Play (inny podpis). Release zostaje com.jastrakowski.sixsixksiag.
             applicationIdSuffix = ".debug"
         }
         release {
