@@ -45,7 +45,7 @@ copy_pwa_edition() {
     find "${find_args[@]}" -maxdepth 2 \( -type f -o -type l \) \( -name '*.json' -o -name '*.mp3' \) \
       | while IFS= read -r rel; do
           mkdir -p "$dest/$(dirname "$rel")"
-          # DIST_HARD_LINKS=1: same-filesystem hard links (Pi CI — avoid doubling MP3s).
+          # DIST_HARD_LINKS=1: same-filesystem hard links (avoid doubling MP3s).
           if [[ "${DIST_HARD_LINKS:-0}" == "1" ]]; then
             local srcfile="$rel"
             if [[ -L "$rel" ]]; then

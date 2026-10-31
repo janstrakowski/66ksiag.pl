@@ -6,6 +6,7 @@
     "build": "bash scripts/build-dist.sh",
     "dev": "bash scripts/dev-serve.sh",
     "deploy": "npm run build && npx wrangler deploy",
+    "deploy:production": "bash ci/production-deploy.sh",
     "deploy:preview": "bash ci/preview-deploy.sh",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",

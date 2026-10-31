@@ -67,7 +67,7 @@ python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json 
 git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 ```
 
-Push na Pi (`origin`): `bash scripts/push-origin.sh` — rsync obiektów LFS na `/mnt/pi-data/git-lfs/66ksiag`, potem `git push` (bez HTTP LFS API). Szczegóły: `ci/pi/README.md`.
+Audio LFS nadal można zsynchronizować na dysk Pi (`bash scripts/push-origin.sh` — rsync na `/mnt/pi-data/git-lfs/66ksiag`). To nie jest deploy. Produkcja idzie z Origin CI przy pushu `main`. Szczegóły: `ci/pi/README.md`.
 
 PWA czyta `/kjv/1769/…/*.mp3` z tego samego originu. „Pobierz audio” = Cache Storage.  
 Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
@@ -92,13 +92,13 @@ Jeden przycisk. `x` to rozdziały już zapisane lokalnie, `N` to cały katalog. 
 
 ```bash
 bash scripts/dev-serve.sh          # http://127.0.0.1:8787
-npm run build && npx wrangler deploy   # production (66ksiag.pl) — Pi hook on main
-bash ci/preview-deploy.sh              # Workers Preview for branch dev only
+bash ci/production-deploy.sh       # main only: wrangler deploy → 66ksiag.pl (Origin CI)
+bash ci/preview-deploy.sh          # dev only: Workers Preview, not 66ksiag.pl
 ```
 
 ## Harness (local tickets)
 
-Ticket UI + Cursor `agent` CLI + git worktrees on the **dev machine**. Production deploy stays on the **Pi** (`origin`).
+Ticket UI + Cursor `agent` CLI + git worktrees on the **dev machine**. Pushing `main` deploys production from Origin CI.
 
 ```bash
 npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OPEN=1 to skip)
@@ -108,7 +108,7 @@ npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OP
 - Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
 - Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
 - Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
-- Pi CI + rollback: [ci/pi/README.md](./ci/pi/README.md).
+- Production deploy: Origin CI on `main` (`ci/production-deploy.sh`). The harness rollback button still SSHs to the Pi and runs `ci/pi/rollback.sh`. See [ci/pi/README.md](./ci/pi/README.md).
 
 ## Testy
 

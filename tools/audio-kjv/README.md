@@ -36,3 +36,5 @@ git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 
 Pełny zestaw (~1–2 GB) musi być w `dist/kjv/` przed `wrangler deploy`.  
 Cloudflare Workers Assets / plan muszą unieść ten rozmiar (ew. R2 + custom routing).
+
+Automatyczny deploy produkcji to Origin CI przy pushu `main` (`ci/production-deploy.sh`), nie Pi. Niesmudge'owane wskaźniki Git LFS są usuwane z `dist/` przed wysłaniem.

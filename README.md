@@ -53,11 +53,13 @@ npm run deploy   # build dist/ + wrangler deploy
 
 Wymaga wcześniejszego `data/`. Worker serwuje assety i przekierowuje krótkie aliasy.
 
-`npm run deploy` idzie na produkcję (`66ksiag.pl`). Na Pi robi to hook `ci/pi` przy pushu `main`. Nie używaj go do podglądu.
+Push na `main` uruchamia Origin CI (`origin.ci.ts` → `ci/production-deploy.sh` → `npx wrangler deploy`). Trasy w `wrangler.toml` zostają na `66ksiag.pl` i `www.66ksiag.pl`. Raspberry Pi nie bierze udziału w tym wdrożeniu. Lokalne `npm run deploy` robi to samo polecenie Wranglera, gdy ktoś odpala je ręcznie.
+
+Job produkcyjny wymaga tekstu wydań w checkoutcie (`data/bg/1879/books.json` i `data/kjv/1769/books.json`). Bez niego kończy się przed Wranglerem i nie podmienia `66ksiag.pl` na samą skorupę.
 
 ## Podgląd `dev` (nie produkcja)
 
-Push na długożyciowy branch `dev` uruchamia Origin CI (`origin.ci.ts`). Job buduje `dist/` i woła wyłącznie `npx wrangler preview --name dev` (`ci/preview-deploy.sh`). To nie jest `wrangler deploy` i nie przejmuje tras `66ksiag.pl`.
+Push na długożyciowy branch `dev` uruchamia ten sam plik Origin CI. Job woła wyłącznie `npx wrangler preview --name dev` (`ci/preview-deploy.sh`). To nie jest `wrangler deploy` i nie przejmuje tras `66ksiag.pl`.
 
 Stabilny URL podglądu (zawsze ostatni push na `dev`):
 
@@ -65,12 +67,14 @@ Stabilny URL podglądu (zawsze ostatni push na `dev`):
 
 Każde wdrożenie podglądu dostaje też niezmienny URL: `https://<id-wdrożenia>-ksiag.<subdomena-konta>.workers.dev`.
 
-Sekrety trzeba dodać w Origin (wartości nie leżą w gicie). Job czyta je przez `secret()` i przekazuje Wranglerowi:
+Sekrety trzeba dodać w Origin (wartości nie leżą w gicie). Oba joby czytają je przez `secret()` i przekazują Wranglerowi:
 
 | Nazwa | Znaczenie |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Token API z uprawnieniem edycji Workers Scripts |
+| `CLOUDFLARE_API_TOKEN` | Token API: edycja Workers Scripts oraz edycja Workers Routes na strefie `66ksiag.pl` |
 | `CLOUDFLARE_ACCOUNT_ID` | Identyfikator konta Cloudflare |
+
+Osobny sekret na custom domain nie jest potrzebny. Host produkcyjny to trasa w `wrangler.toml` (`zone_name = "66ksiag.pl"`), nie Custom Domain.
 
 Tekst wydań (`data/bg`, `data/kjv` poza LFS) nie jest w tym commicie. Dopóki go nie ma w checkoutcie, podgląd serwuje samą PWA; rozdziały pojawią się, gdy tekst będzie w drzewie (np. submoduły).
 

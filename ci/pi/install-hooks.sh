@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# One-time setup on the Pi that hosts origin (drukarka).
+# Pi setup for the LFS store and for replacing the old deploy hook.
+# Cloudflare production deploy is Origin CI (push main), not this machine.
 # Run from a checkout of this repo on the Pi, or pass BARE_REPO / DEPLOY_ROOT.
 set -euo pipefail
 
@@ -40,16 +41,13 @@ git -C "$DEPLOY_ROOT" config lfs.storage "$LFS_STORE"
 
 HOOK="$BARE_REPO/hooks/post-receive"
 cp "$SCRIPT_DIR/post-receive" "$HOOK"
-chmod +x "$HOOK" "$SCRIPT_DIR/deploy.sh" "$SCRIPT_DIR/rollback.sh"
+chmod +x "$HOOK" "$SCRIPT_DIR/rollback.sh"
 
-echo "Installed post-receive → $HOOK"
-echo "Deploy worktree: $DEPLOY_ROOT"
+echo "Replaced post-receive → $HOOK (does not deploy)"
+echo "Checkout for rollback: $DEPLOY_ROOT"
 echo "LFS store: $LFS_STORE"
 echo
-echo "Required before first deploy:"
-echo "  1. Populate $DEPLOY_ROOT/data/ edition text (BG + KJV JSON). KJV mp3/words come from Git LFS."
-echo "  2. Cloudflare auth for wrangler (wrangler login or CLOUDFLARE_API_TOKEN)."
-echo "  3. From a laptop: bash scripts/push-origin.sh  (rsync LFS + push main)."
+echo "Production deploy is a push of main to Origin (ci/production-deploy.sh)."
+echo "This hook no longer runs wrangler."
 echo
-echo "Rollback: bash $DEPLOY_ROOT/ci/pi/rollback.sh"
-echo "Rollback: ssh $USER@$(hostname -s) 'bash \"\$HOME/66ksiag-deploy/ci/pi/rollback.sh\"'."
+echo "Harness rollback still uses: bash $DEPLOY_ROOT/ci/pi/rollback.sh"

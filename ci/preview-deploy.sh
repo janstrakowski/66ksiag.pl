@@ -5,25 +5,25 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# shellcheck disable=SC1091
+source "$ROOT/ci/publish-ref.sh"
+publish_detect_ref
 
-branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
-ref="${ORIGIN_REF_NAME:-${GITHUB_REF_NAME:-${CI_COMMIT_REF_NAME:-${BUILDKITE_BRANCH:-}}}}"
-
-if [[ "$branch" == "main" || "$ref" == "main" || "$branch" == "master" || "$ref" == "master" ]]; then
-  echo "preview-deploy: refusing to run from ${ref:-$branch}." >&2
-  echo "preview-deploy: production stays on ci/pi (wrangler deploy of main) and 66ksiag.pl." >&2
+if publish_is_main || [[ "$PUBLISH_BRANCH" == "master" || "$PUBLISH_REF" == "master" ]]; then
+  echo "preview-deploy: refusing ${PUBLISH_REF:-$PUBLISH_BRANCH}." >&2
+  echo "preview-deploy: main is ci/production-deploy.sh (wrangler deploy to 66ksiag.pl)." >&2
   exit 1
 fi
 
-if [[ "$branch" != "dev" && "$ref" != "dev" ]]; then
-  echo "preview-deploy: only branch dev is published (HEAD=${branch} ref=${ref:-unset})." >&2
+if ! publish_is_dev; then
+  echo "preview-deploy: only branch dev is published (HEAD=${PUBLISH_BRANCH} ref=${PUBLISH_REF:-unset})." >&2
   exit 1
 fi
 
 if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
   echo "preview-deploy: missing Cloudflare credentials in the environment." >&2
   echo "Add these secrets on the Origin repository (do not commit the values):" >&2
-  echo "  CLOUDFLARE_API_TOKEN   API token with Workers Scripts: Edit" >&2
+  echo "  CLOUDFLARE_API_TOKEN   API token with Workers Scripts: Edit and Workers Routes: Edit on zone 66ksiag.pl" >&2
   echo "  CLOUDFLARE_ACCOUNT_ID  Cloudflare account id" >&2
   exit 1
 fi
@@ -39,7 +39,7 @@ done
 
 export GIT_LFS_SKIP_SMUDGE=1
 
-echo "preview-deploy: node $(node -v), branch ${ref:-$branch}"
+echo "preview-deploy: node $(node -v), branch ${PUBLISH_REF:-$PUBLISH_BRANCH}"
 npm ci --legacy-peer-deps
 
 if [[ -f .gitmodules ]]; then

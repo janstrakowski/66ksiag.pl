@@ -1,47 +1,10 @@
 #!/usr/bin/env bash
-# Bare-repo hook: when main is updated, sync deploy clone and deploy to Cloudflare.
+# Kept so ci/pi/install-hooks.sh can replace an older hook that deployed.
+# Production deploy is Origin CI on push to main (ci/production-deploy.sh).
 set -euo pipefail
 
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-  # shellcheck disable=SC1091
-  . "$NVM_DIR/nvm.sh"
-fi
-
-DEPLOY_ROOT="${DEPLOY_ROOT:-/mnt/pi-data/66ksiag-deploy}"
-LOG="${HARNESS_CI_LOG:-$HOME/66ksiag-ci-state/deploy.log}"
-mkdir -p "$(dirname "$LOG")" "$HOME/66ksiag-ci-state"
-
-while read -r oldrev newrev refname; do
-  if [[ "$refname" != "refs/heads/main" ]]; then
-    continue
+while read -r _oldrev _newrev refname; do
+  if [[ "$refname" == "refs/heads/main" ]]; then
+    echo "[ci] ignoring ${refname} on the Pi. Push main to Origin; that runs wrangler deploy."
   fi
-  if [[ "$newrev" =~ ^0+$ ]]; then
-    echo "[ci] main deleted — skip deploy" | tee -a "$LOG"
-    continue
-  fi
-  {
-    echo "==== $(date -Is) main ${oldrev:0:7}..${newrev:0:7} ===="
-    if [[ ! -d "$DEPLOY_ROOT/.git" ]]; then
-      echo "Missing deploy clone at $DEPLOY_ROOT — run install-hooks.sh" >&2
-      exit 1
-    fi
-    # Bare-repo hooks export GIT_DIR; clear so the deploy clone works.
-    unset GIT_DIR GIT_WORK_TREE GIT_QUARANTINE_PATH
-    git -C "$DEPLOY_ROOT" fetch origin main
-    # -f: deploy tree may have local hook/script edits from install-hooks.
-    git -C "$DEPLOY_ROOT" checkout -f -B main "$newrev"
-    git -C "$DEPLOY_ROOT" reset --hard "$newrev"
-    # Materialize LFS (KJV mp3/words + images) from the shared Pi store.
-    if command -v git-lfs >/dev/null 2>&1; then
-      git -C "$DEPLOY_ROOT" lfs install --local >/dev/null 2>&1 || true
-      git -C "$DEPLOY_ROOT" config lfs.storage "${LFS_STORE:-/mnt/pi-data/git-lfs/66ksiag}"
-      git -C "$DEPLOY_ROOT" lfs checkout
-    fi
-    export DEPLOY_ROOT
-    bash "$DEPLOY_ROOT/ci/pi/deploy.sh"
-  } >>"$LOG" 2>&1 || {
-    echo "[ci] DEPLOY FAILED — see $LOG" >&2
-    exit 1
-  }
 done

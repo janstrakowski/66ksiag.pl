@@ -305,7 +305,7 @@ $("#btn-merge-dev").addEventListener("click", async () => {
 });
 
 $("#btn-merge-main").addEventListener("click", async () => {
-  if (!confirm("Fast-forward main from dev and push origin/main? Pi CI will deploy.")) return;
+  if (!confirm("Fast-forward main from dev and push origin/main? Origin CI will deploy 66ksiag.pl.")) return;
   try {
     const r = await api("/api/dev/merge-main", { method: "POST", body: "{}" });
     log(`main @ ${short(r.mainSha)} pushed`);

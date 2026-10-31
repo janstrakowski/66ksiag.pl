@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Roll Cloudflare production back to the previous Worker version recorded by deploy.sh.
+# Roll Cloudflare production back to the previous Worker version recorded on the Pi.
+# The harness rollback button still SSHs here. A push does not. Production
+# deploy is Origin CI (ci/production-deploy.sh).
 set -euo pipefail
 
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
