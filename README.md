@@ -1,6 +1,6 @@
 # 66ksiąg
 
-Polska Biblia jako **statyczne API**, **CLI** i **PWA**.
+Polska Biblia jako **statyczne API**, **CLI** i **strona**.
 
 - Architektura: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - Agenci: [AGENTS.md](./AGENTS.md)
@@ -12,22 +12,23 @@ Wydania: **BG 1879** (PL) i **KJV** (EN, `/kjv/1769`). Wspólna numeracja KJV; j
 ## Szybki start
 
 ```bash
-# 1. Źródło tekstu (sparse)
-git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/UczenJezusa/biblia-druk-tekst.git /tmp/biblia-druk-tekst
-cd /tmp/biblia-druk-tekst && git sparse-checkout set --skip-checks 1879
+# 1. Źródła tekstu (submoduły; po świeżym klonie)
+git submodule update --init
 
-# 2. Import → data/bg/1879 (JSON + TXT, ~250 MB; poza gitem)
-cd /path/to/66ksiag-project
+# 2. Import → data/ (JSON + TXT; poza gitem)
 cargo run -p ksiag-import --release -- \
-  --source /tmp/biblia-druk-tekst/1879 \
+  --source sources/biblia-druk-tekst/1879 \
   --out data \
-  --commit "$(git -C /tmp/biblia-druk-tekst rev-parse HEAD)"
+  --commit "$(git -C sources/biblia-druk-tekst rev-parse HEAD)"
+cargo run -p ksiag-import-kjv --release -- \
+  --source sources/bible-kjv \
+  --out data \
+  --commit "$(git -C sources/bible-kjv rev-parse HEAD)"
 
 # 3. CLI
 cargo run -p ksiag --release -- --data data get jn 3 16
 
-# 4. PWA lokalnie
+# 4. Strona lokalnie
 bash scripts/dev-serve.sh
 # → http://127.0.0.1:8787/
 ```
@@ -36,10 +37,12 @@ bash scripts/dev-serve.sh
 
 | Ścieżka | Rola |
 | --- | --- |
+| `sources/biblia-druk-tekst/` | Submoduł tekstu BG (`1879/`) |
+| `sources/bible-kjv/` | Submoduł tekstu KJV |
 | `data/bg/1879/` | Kanoniczne API (generowane importem) |
 | `tools/import/` | Rust: TXT źródła → `data/` |
 | `cli/` | Rust: `66ksiag books\|get\|chapter\|path` |
-| `web/` | PWA (miedzioryt UI) |
+| `web/` | Strona (miedzioryt UI) |
 | `worker/` | Krótkie aliasy URL (`/j/3/16` → `/czytaj/…`) |
 | `demos/` | Iteracje UI (referencja) |
 | `tools/audio-kjv/` | Fetch/align Scourby → `data/kjv/1769/*.mp3` + `.words.json` |
@@ -76,7 +79,7 @@ Sekrety trzeba dodać w Origin (wartości nie leżą w gicie). Oba joby czytają
 
 Osobny sekret na custom domain nie jest potrzebny. Host produkcyjny to trasa w `wrangler.toml` (`zone_name = "66ksiag.pl"`), nie Custom Domain.
 
-Tekst wydań (`data/bg`, `data/kjv` poza LFS) nie jest w tym commicie. Dopóki go nie ma w checkoutcie, podgląd serwuje samą PWA; rozdziały pojawią się, gdy tekst będzie w drzewie (np. submoduły).
+Tekst wydań (`data/bg`, `data/kjv` poza LFS) nie jest w tym commicie. Dopóki go nie ma w checkoutcie, podgląd serwuje samą stronę; rozdziały pojawią się, gdy tekst będzie w drzewie (np. submoduły).
 
 ## URL-e
 

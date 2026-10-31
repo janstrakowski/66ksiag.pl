@@ -10,6 +10,8 @@ use std::process::ExitCode;
 const TRANSLATION: &str = "bg";
 const EDITION: &str = "1879";
 const API_VERSION: &str = "1";
+/// Checkout of the `sources/biblia-druk-tekst` submodule; book dirs live under `1879/`.
+const DEFAULT_SOURCE: &str = "sources/biblia-druk-tekst/1879";
 
 #[derive(Serialize)]
 struct Manifest {
@@ -76,7 +78,7 @@ struct VerseFile {
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: ksiag-import --source <biblia-druk-tekst/1879> --out <repo/data> [--commit <sha>]"
+        "Usage: ksiag-import [--source sources/biblia-druk-tekst/1879] --out <repo/data> [--commit <sha>]"
     );
     std::process::exit(2);
 }
@@ -100,7 +102,7 @@ fn main() -> ExitCode {
         }
     }
 
-    let source = source.unwrap_or_else(|| usage());
+    let source = source.unwrap_or_else(|| PathBuf::from(DEFAULT_SOURCE));
     let out_root = out.unwrap_or_else(|| usage());
     let dest = out_root.join(TRANSLATION).join(EDITION);
 

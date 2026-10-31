@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Zrzut PWA (Chromium, 1 CSS px = 1 px) i zrzut Compose (Paparazzi, mdpi).
+# Zrzut strony (Chromium, 1 CSS px = 1 px) i zrzut Compose (Paparazzi, mdpi).
 # Kończy się błędem, gdy choć jeden piksel się różni.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

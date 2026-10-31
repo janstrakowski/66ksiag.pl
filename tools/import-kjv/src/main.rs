@@ -1,4 +1,4 @@
-//! Import KJV (aruljohn/Bible-kjv) → data/kjv/1769
+//! Import KJV (`sources/bible-kjv`, aruljohn/Bible-kjv) → data/kjv/1769
 //! Te same kanoniczne ID ksiąg co BG (`01-gen` … `66-apo`) — numeracja protestancka / KJV.
 
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,8 @@ use std::process::ExitCode;
 const TRANSLATION: &str = "kjv";
 const EDITION: &str = "1769";
 const API_VERSION: &str = "1";
+/// Checkout of the `sources/bible-kjv` submodule (book JSON at the repo root).
+const DEFAULT_SOURCE: &str = "sources/bible-kjv";
 
 struct BookMeta {
     id: &'static str,
@@ -175,7 +177,7 @@ struct VerseFile {
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: ksiag-import-kjv --source <Bible-kjv-repo> --out <repo/data> [--commit <sha>]"
+        "Usage: ksiag-import-kjv [--source sources/bible-kjv] --out <repo/data> [--commit <sha>]"
     );
     std::process::exit(2);
 }
@@ -199,7 +201,7 @@ fn main() -> ExitCode {
         }
     }
 
-    let source = source.unwrap_or_else(|| usage());
+    let source = source.unwrap_or_else(|| PathBuf::from(DEFAULT_SOURCE));
     let out_root = out.unwrap_or_else(|| usage());
     let dest = out_root.join(TRANSLATION).join(EDITION);
 

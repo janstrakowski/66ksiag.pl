@@ -13,16 +13,13 @@ describe("notify helpers", () => {
   });
 
   it("notifyStartReading uses minutesWithRange when provided", async () => {
-    const show = vi.fn(async () => true);
-    vi.stubGlobal("Notification", {
-      permission: "granted",
-      requestPermission: async () => "granted",
-    });
-    vi.stubGlobal("navigator", {
-      serviceWorker: {
-        ready: Promise.resolve({ showNotification: show }),
-      },
-    });
+    const show = vi.fn();
+    function NotificationMock(title, opts) {
+      show(title, opts);
+    }
+    NotificationMock.permission = "granted";
+    NotificationMock.requestPermission = async () => "granted";
+    vi.stubGlobal("Notification", NotificationMock);
     const { notifyStartReading } = await import("../../web/notify.js");
     const ok = await notifyStartReading(
       { done: false, started: false, minutes: 6, range: "Gen I–II" },
@@ -39,11 +36,12 @@ describe("notify helpers", () => {
   });
 
   it("notifyProgress uses banner strings", async () => {
-    const show = vi.fn(async () => true);
-    vi.stubGlobal("Notification", { permission: "granted" });
-    vi.stubGlobal("navigator", {
-      serviceWorker: { ready: Promise.resolve({ showNotification: show }) },
-    });
+    const show = vi.fn();
+    function NotificationMock(title, opts) {
+      show(title, opts);
+    }
+    NotificationMock.permission = "granted";
+    vi.stubGlobal("Notification", NotificationMock);
     const { notifyProgress } = await import("../../web/notify.js");
     await notifyProgress(40, {
       planNav: "Portion",

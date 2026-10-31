@@ -9,7 +9,7 @@ Tekst KJV jest w domenie publicznej. **Oryginalna narracja Scourby’ego** trakt
 Nowoczesne **remastery** (np. scourby.com) mogą mieć osobne prawa do masteringu — ich nie bundlujemy.
 
 **Aplikacja serwuje MP3 z własnego originu:** `/kjv/1769/{book}/{chapter}.mp3`.  
-„Pobierz audio” w PWA kopiuje je do Cache Storage (offline).
+Strona odtwarza je strumieniowo. Pobranie offline jest tylko w aplikacji Android.
 
 ## Katalog (commitowany)
 

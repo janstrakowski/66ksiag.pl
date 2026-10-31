@@ -50,7 +50,7 @@ if [[ -f data/bg/1879/books.json && -f data/kjv/1769/books.json ]]; then
   npm run build
 else
   echo "preview-deploy: edition text is not in this checkout." >&2
-  echo "preview-deploy: publishing the PWA shell. Chapter JSON 404s until data/ is present." >&2
+  echo "preview-deploy: publishing the site shell. Chapter JSON 404s until data/ is present." >&2
   PREVIEW_ALLOW_MISSING_DATA=1 npm run build
 fi
 

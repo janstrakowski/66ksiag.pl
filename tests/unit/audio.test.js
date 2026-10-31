@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   catalogEntry,
-  etaFromBytes,
-  etaFromProgress,
-  audioDownloadUi,
   audioPath,
   proxyPath,
   verseHtmlWithWords,
@@ -36,58 +33,4 @@ describe("audio helpers", () => {
     expect(html).toContain('data-i="2">said');
   });
 
-  it("etaFromProgress returns null early, then seconds", () => {
-    const t0 = Date.now() - 10_000;
-    expect(etaFromProgress(0, 100, t0)).toBeNull();
-    expect(etaFromProgress(50, 100, Date.now() - 500)).toBeNull();
-    const eta = etaFromProgress(50, 100, t0);
-    expect(eta).toBeGreaterThan(0);
-    expect(etaFromProgress(100, 100, t0)).toBe(0);
-  });
-
-  it("etaFromBytes estimates remaining time", () => {
-    const t0 = Date.now() - 10_000;
-    expect(etaFromBytes(100, 1_000_000, t0)).toBeNull(); // too little data
-    const eta = etaFromBytes(500_000, 1_000_000, t0);
-    expect(eta).toBeGreaterThan(0);
-    expect(etaFromBytes(1_000_000, 1_000_000, t0)).toBe(0);
-  });
-
-  it("audio download button follows stored chapters", () => {
-    expect(audioDownloadUi({ have: 0, total: 1189, running: false })).toMatchObject({
-      button: "download",
-      enabled: true,
-      status: "hint",
-      showClear: false,
-    });
-    expect(audioDownloadUi({ have: 0, total: 1189, running: true })).toMatchObject({
-      button: "cancel",
-      enabled: true,
-      status: "wanting",
-      showClear: false,
-      have: 0,
-      total: 1189,
-    });
-    const mid = audioDownloadUi({ have: 12, total: 1189, running: true });
-    expect(mid).toMatchObject({
-      button: "cancel",
-      status: "wanting",
-      showClear: false,
-      have: 12,
-      total: 1189,
-    });
-    expect(audioDownloadUi({ have: 12, total: 1189, running: false })).toMatchObject({
-      button: "resume",
-      enabled: true,
-      status: "wanting",
-      showClear: true,
-      have: 12,
-    });
-    expect(audioDownloadUi({ have: 1189, total: 1189, running: false })).toMatchObject({
-      button: "done",
-      enabled: false,
-      status: "done",
-      showClear: true,
-    });
-  });
 });

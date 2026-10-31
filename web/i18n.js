@@ -130,25 +130,6 @@ const PL = {
   audioContinueSub: "Ponad plan · kolejne rozdziały",
   audioUnavailable: "Brak audio dla tego rozdziału",
   audioOnlyKjv: "Audio (Scourby) tylko w KJV",
-  audioDownload: "Pobierz audio",
-  audioDownloadCancel: "Anuluj pobieranie",
-  audioDownloadResume: "Wznów audio",
-  audioDownloadHint:
-    "Audio z serwera (Scourby). Pobierz całość na urządzenie (offline). Na Androidzie widać pasek w powiadomieniach systemowych.",
-  audioDownloadSystemHint: "Pobieranie brakujących rozdziałów — pasek w powiadomieniach…",
-  audioDownloadProgress: (done, total, _pct, eta) =>
-    eta ? `Brakujące: ${done} / ${total} · ${eta}` : `Brakujące: ${done} / ${total}`,
-  audioDownloadPartial: (n, total) => `Brakujące: ${n} / ${total}`,
-  audioDownloadDone: () => "Audio jest już pobrane.",
-  audioDownloadFinished: "Audio pobrane",
-  audioDownloadFailed: "Nie udało się pobrać audio",
-  audioDownloadNotifyTitle: "66ksiąg · audio KJV",
-  audioEtaUnknown: "liczenie czasu…",
-  audioEtaSeconds: (n) => `zostało ~${n} s`,
-  audioEtaMinutes: (n) => `zostało ~${n} min`,
-  audioEtaHours: (n) => `zostało ~${n} h`,
-  audioCleared: "Usunięto lokalne audio",
-  audioClear: "Usuń pobrane audio",
 };
 
 /** English UI in the tongue of the KJV (thou/ye, -eth, appointed portion). */
@@ -286,25 +267,6 @@ const EN = {
   audioContinueSub: "Beyond the portion · the next chapters",
   audioUnavailable: "No audio for this chapter",
   audioOnlyKjv: "Scourby audio is for the KJV alone",
-  audioDownload: "Download audio",
-  audioDownloadCancel: "Cancel download",
-  audioDownloadResume: "Resume audio",
-  audioDownloadHint:
-    "Audio is served here (Scourby). Download all unto this device. On Android a progress bar is shewn in the system notifications.",
-  audioDownloadSystemHint: "Fetching the chapters that are wanting — see the system bar…",
-  audioDownloadProgress: (done, total, _pct, eta) =>
-    eta ? `Wanting: ${done} / ${total} · ${eta}` : `Wanting: ${done} / ${total}`,
-  audioDownloadPartial: (n, total) => `Wanting: ${n} / ${total}`,
-  audioDownloadDone: () => "Audio is already downloaded.",
-  audioDownloadFinished: "Audio is downloaded",
-  audioDownloadFailed: "Could not download the audio",
-  audioDownloadNotifyTitle: "Holy Bible · KJV audio",
-  audioEtaUnknown: "reckoning the time…",
-  audioEtaSeconds: (n) => `about ${n} s left`,
-  audioEtaMinutes: (n) => `about ${n} min left`,
-  audioEtaHours: (n) => `about ${n} h left`,
-  audioCleared: "Local audio is wiped",
-  audioClear: "Clear downloaded audio",
 };
 
 export function t(edition) {

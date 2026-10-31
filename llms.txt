@@ -1,5 +1,5 @@
 # 66ksiąg
-> Biblia jako statyczne API (BG 1879 + KJV), CLI i PWA.
+> Biblia jako statyczne API (BG 1879 + KJV), CLI i strona. Aplikacja natywna jest w `android/`.
 
 Wspólna numeracja KJV; BG zremapowana. Plan dzienny wspólny dla języków.
 
@@ -23,4 +23,4 @@ Przykład: /kjv/1769/43-joh/3/16.txt
 ## Zasady
 - Kanoniczne ID ksiąg (43-joh); ta sama siatka rozdziałów we wszystkich tłumaczeniach
 - Cytując: podaj tłumaczenie + księga + rozdział + werset
-- Źródła: biblia-druk-tekst (BG 1879), aruljohn/Bible-kjv (KJV)
+- Źródła: `sources/biblia-druk-tekst` (BG 1879), `sources/bible-kjv` (aruljohn/Bible-kjv). `git submodule update --init`
