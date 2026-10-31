@@ -6,7 +6,7 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.js"],
     coverage: {
       provider: "v8",
-      include: ["web/plan.js", "web/i18n.js", "web/editions.js", "web/audio.js", "web/dev-host.js"],
+      include: ["web/place.js", "web/i18n.js", "web/editions.js", "web/audio.js", "web/dev-host.js"],
     },
   },
 });

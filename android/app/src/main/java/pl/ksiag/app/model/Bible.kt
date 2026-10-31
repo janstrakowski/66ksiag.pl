@@ -1,8 +1,11 @@
 package pl.ksiag.app.model
 
 import org.json.JSONObject
+import kotlin.math.max
+import kotlin.math.round
 
 const val ORIGIN = "https://66ksiag.pl"
+const val WPM = 160
 
 data class Edition(
     val id: String,
@@ -39,6 +42,10 @@ data class ChapterText(
 )
 
 data class AudioChapter(val book: String, val chapter: Int, val url: String)
+
+data class ChapterRef(val book: String, val chapter: Int, val index: Int = -1)
+
+data class ReadEstimate(val minutes: Int, val words: Int)
 
 fun parseBooks(json: String): List<Book> {
     val arr = JSONObject(json).getJSONArray("books")
@@ -97,4 +104,47 @@ fun parseWords(json: String): List<TimedWord> {
         val o = arr.getJSONObject(i)
         TimedWord(o.optInt("v"), o.optInt("i"), o.optDouble("s"), o.optDouble("e"))
     }.filter { it.start.isFinite() && it.end.isFinite() }
+}
+
+fun toRoman(n: Int): String {
+    val map = listOf(
+        1000 to "M", 900 to "CM", 500 to "D", 400 to "CD",
+        100 to "C", 90 to "XC", 50 to "L", 40 to "XL",
+        10 to "X", 9 to "IX", 5 to "V", 4 to "IV", 1 to "I",
+    )
+    var x = n
+    val out = StringBuilder()
+    for ((v, s) in map) {
+        while (x >= v) {
+            out.append(s)
+            x -= v
+        }
+    }
+    return out.toString()
+}
+
+fun estimateMinutesFromVerses(verses: List<Verse>): ReadEstimate {
+    val text = verses.joinToString(" ") { stripTags(it.t) }
+    val words = if (text.isBlank()) 0 else text.trim().split(Regex("\\s+")).size
+    val mins = words / WPM.toDouble()
+    if (mins < 1.5) return ReadEstimate(1, words)
+    return ReadEstimate(max(1, round(mins).toInt()), words)
+}
+
+fun nextChapterInBible(books: List<Book>, bookId: String, chapter: Int): ChapterRef? {
+    val i = books.indexOfFirst { it.id == bookId }
+    if (i < 0) return null
+    val book = books[i]
+    if (chapter < book.chapters) return ChapterRef(bookId, chapter + 1)
+    if (i + 1 >= books.size) return null
+    return ChapterRef(books[i + 1].id, 1)
+}
+
+fun prevChapterInBible(books: List<Book>, bookId: String, chapter: Int): ChapterRef? {
+    val i = books.indexOfFirst { it.id == bookId }
+    if (i < 0) return null
+    if (chapter > 1) return ChapterRef(bookId, chapter - 1)
+    if (i == 0) return null
+    val prev = books[i - 1]
+    return ChapterRef(prev.id, prev.chapters)
 }
