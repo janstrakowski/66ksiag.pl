@@ -53,8 +53,94 @@ Fingerprint z lokalnego upload key (po Play App Signing dodaj też fingerprint z
 - Audio KJV: Media3 + MediaSession (pauza/wznów/następny/poprzedni rozdział w powiadomieniu i na ekranie blokady); pobieranie MP3 (`AudioDownloadService`)
 - Tekst Biblii: assets z `data/` (bez pobierania rozdziałów z sieci)
 
-## Play Console
+## Play Console — Internal Testing (od zera, bez publikacji na Production)
 
-1. Utwórz aplikację → upload `app-release-bundle.aab`.
-2. Włącz Play App Signing; dodaj SHA-256 **app signing key** do `assetlinks.json` i zredeployuj Worker.
-3. Wypełnij listing, content rating, privacy policy.
+Aplikacja jest publikowana wyłącznie na ścieżkę **Internal testing** (`internal`). Skrypty CI odmawiają wysłania na `production`, `beta` lub `alpha`.
+
+### 1. Klucz podpisu (Upload Key)
+
+Jeśli masz już `android/android.keystore` i `android/secrets/keystore.env`, przejdź do kroku 2. W przeciwnym razie wygeneruj nowy klucz uploadu:
+
+```bash
+mkdir -p android/secrets
+keytool -genkeypair \
+  -v \
+  -keystore android/android.keystore \
+  -alias android \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+
+cat > android/secrets/keystore.env <<'EOF'
+ANDROID_KEYSTORE_PASSWORD=twoje-haslo
+ANDROID_KEY_PASSWORD=twoje-haslo
+ANDROID_KEY_ALIAS=android
+EOF
+chmod 600 android/android.keystore android/secrets/keystore.env
+```
+
+Zakoduj keystore do Base64 dla zmiennej CI `ANDROID_KEYSTORE_BASE64`:
+
+```bash
+base64 -w0 android/android.keystore
+```
+
+### 2. Utworzenie aplikacji i pierwszy ręczny upload na Internal testing
+
+Google Play Developer API pozwala na automatyczne wgrywanie kolejnych wydań dopiero po utworzeniu aplikacji i wgraniu pierwszego pliku `.aab` w konsoli.
+
+1. Zbuduj lokalnie pierwszy podpisany pakiet `.aab`:
+   ```bash
+   npm run android:build
+   # → android/app-release-bundle.aab
+   ```
+2. W [Google Play Console](https://play.google.com/console/) kliknij **Create app** (Utwórz aplikację):
+   - **App name**: `66ksiąg`
+   - **Default language**: `Polish (Poland) – pl-PL`
+   - **App or game**: `App`
+   - **Free or paid**: `Free`
+   - Zaakceptuj deklaracje Developer Program Policies i US export laws → **Create app**.
+3. W menu bocznym przejdź do **Test and release → Testing → Internal testing** (nie wchodź w Production):
+   - W sekcji **Testers** utwórz listę testerów (np. `Internal`), dodaj swoje adresy Gmail i zapisz.
+   - Kliknij **Create new release**.
+   - W sekcji **Play App Signing** kliknij **Choose signing key** → **Use Google-generated key**.
+   - Wgraj plik `android/app-release-bundle.aab`.
+   - Kliknij **Next** → **Save and publish** (lub **Save as draft**, jeśli konsola nie ma jeszcze wypełnionych formularzy App content; dla testów wewnętrznych nowy app działa od razu na Internal testing bez publicznej recenzji).
+   - Skopiuj link zaproszenia z zakładki **Testers → Copy link** i zaakceptuj udział w testach na telefonie.
+
+### 3. Konto usługowe (Service Account) dla Google Play Android Developer API
+
+1. W [Google Cloud Console](https://console.cloud.google.com/) utwórz lub wybierz projekt i włącz **Google Play Android Developer API** (`androidpublisher.googleapis.com`).
+2. Przejdź do **IAM & Admin → Service Accounts → Create Service Account**:
+   - Nazwa: np. `ksiag-play-internal-ci`
+   - Po utworzeniu wejdź w zakładkę **Keys → Add Key → Create new key → JSON** i zapisz plik JSON (to wartość dla `PLAY_SERVICE_ACCOUNT_JSON`).
+3. W **Google Play Console → Users and permissions → Invite new users**:
+   - Wklej adres e-mail konta usługowego (`client_email` z pliku JSON).
+   - W zakładce **App permissions** dodaj aplikację `66ksiąg` (`pl.ksiag.app`).
+   - Zaznacz uprawnienia:
+     - **View app information and download bulk reports (read-only)**
+     - **Release to testing tracks** (obejmuje Internal testing — nie musisz nadawać uprawnień do Production).
+   - Kliknij **Invite user** → **Send invite**.
+
+### 4. Sekrety CI i automatyczny push z gałęzi `dev`
+
+Przy każdym pushu na gałąź `dev`:
+- `scripts/build-dist.sh` (uruchamiany w Cloudflare Workers Builds) oraz `origin.ci.ts` wywołują `bash scripts/android-play-internal.sh --if-dev-branch`.
+- Skrypt odpytuje Google Play API o najwyższy dotychczasowy `versionCode` na ścieżce `internal`, wylicza ściśle większy `versionCode` (`max(epochSeconds, remoteMax + 1)`), buduje podpisany `android/app-release-bundle.aab` i wysyła go na ścieżkę `internal`.
+- Jeśli aplikacja w Play Console ma jeszcze status szkicu (`draft app`), skrypt `scripts/play-upload-internal.mjs` automatycznie przełącza wydanie z `status: "completed"` na `status: "draft"`.
+
+Skonfiguruj 5 sekretów w **Cloudflare Dashboard → Workers & Pages → `66ksiag` → Settings → Builds → Variables and Secrets** (oraz opcjonalnie lokalnie w `android/secrets/keystore.env`):
+
+| Zmienna | Opis |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | Wynik `base64 -w0 android/android.keystore` |
+| `ANDROID_KEYSTORE_PASSWORD` | Hasło do keystore |
+| `ANDROID_KEY_ALIAS` | Alias klucza (domyślnie `android`) |
+| `ANDROID_KEY_PASSWORD` | Hasło do klucza (zwykle to samo co `ANDROID_KEYSTORE_PASSWORD`) |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Zawartość pliku JSON konta usługowego (raw JSON lub zakodowana w Base64) |
+
+Ręczne wywołanie publikacji na ścieżkę `internal`:
+
+```bash
+npm run android:play:internal
+```

@@ -25,8 +25,21 @@ android {
         applicationId = "pl.ksiag.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0.0"
+        def rawVersionCode = project.findProperty("ksiagVersionCode")?.toString()?.trim()
+            ?: System.getenv("KSIAG_VERSION_CODE")?.trim()
+            ?: System.getenv("ANDROID_VERSION_CODE")?.trim()
+        def resolvedVersionCode = (rawVersionCode && rawVersionCode.isInteger())
+            ? rawVersionCode.toInteger()
+            : 2
+        if (resolvedVersionCode < 1 || resolvedVersionCode > 2100000000) {
+            throw new GradleException("Invalid Android versionCode: ${resolvedVersionCode}")
+        }
+        def resolvedVersionName = project.findProperty("ksiagVersionName")?.toString()?.trim()
+            ?: System.getenv("KSIAG_VERSION_NAME")?.trim()
+            ?: System.getenv("ANDROID_VERSION_NAME")?.trim()
+            ?: "2.0.0"
+        versionCode = resolvedVersionCode
+        versionName = resolvedVersionName
     }
 
     compileOptions {
@@ -53,10 +66,22 @@ android {
     }
 }
 
-def ksFile = rootProject.file("android.keystore")
-def ksPass = System.getenv("KEYSTORE_PASSWORD") ?: ""
-def keyPass = System.getenv("KEY_PASSWORD") ?: ksPass
-def alias = System.getenv("KEY_ALIAS") ?: "android"
+def ksPath = System.getenv("ANDROID_KEYSTORE_PATH")?.trim()
+    ?: System.getenv("KEYSTORE_FILE")?.trim()
+    ?: "android.keystore"
+def ksFile = new File(ksPath)
+if (!ksFile.isAbsolute()) {
+    ksFile = rootProject.file(ksPath)
+}
+def ksPass = System.getenv("ANDROID_KEYSTORE_PASSWORD")?.trim()
+    ?: System.getenv("KEYSTORE_PASSWORD")?.trim()
+    ?: ""
+def keyPass = System.getenv("ANDROID_KEY_PASSWORD")?.trim()
+    ?: System.getenv("KEY_PASSWORD")?.trim()
+    ?: ksPass
+def alias = System.getenv("ANDROID_KEY_ALIAS")?.trim()
+    ?: System.getenv("KEY_ALIAS")?.trim()
+    ?: "android"
 if (ksFile.exists() && ksPass) {
     android.signingConfigs {
         release {

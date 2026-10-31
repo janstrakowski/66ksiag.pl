@@ -12,3 +12,6 @@
 # Fonts, icons, and KJV word timings are normal git files. Workers Builds
 # cannot download Git LFS through its git-proxy. Chapter MP3s stay in LFS.
 web/** -filter -diff -merge
+android/**/*.png -filter -diff -merge
+android/**/*.ttf -filter -diff -merge
+store/**/*.png -filter -diff -merge
