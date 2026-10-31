@@ -47,20 +47,23 @@ cargo run -p ksiag-import-kjv --release -- \
 
 ## Audio KJV (Scourby) — self-hosted (Git LFS)
 
-KJV `data/kjv/1769/**/*.mp3` i `*.words.json` są w **Git LFS**. Tekst wydań w `data/` jest generowany z submodułów w `sources/`.
+KJV `data/kjv/1769/**/*.mp3` są w **Git LFS**. `*.words.json` są zwykłymi plikami gita (Workers Builds nie pobiera LFS). Tekst wydań w `data/` jest generowany z submodułów w `sources/`.
 
 ```bash
 python3 tools/audio-kjv/fetch_scourby.py
 # Do commita LFS potrzebne prawdziwe pliki (nie symlinki):
 python3 tools/audio-kjv/install_layout.py          # copy → data/kjv/1769/{book}/{ch}.mp3
 python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json (commit)
-git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
+node tools/audio-kjv/build_assets_manifest.mjs     # → data/kjv/1769/audio-assets-manifest.json
+git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json data/kjv/1769/audio-assets-manifest.json
 ```
 
-W czasie buildu (`scripts/build-dist.sh`) `scripts/sync-r2-audio.mjs` porównuje sumy SHA-256 wskaźników Git LFS z manifestem `_meta/lfs-manifest.json` w koszyku R2 `66ksiag-audio` i wysyła zmienione lub brakujące MP3 paczkami po `N` plików, usuwając każdą paczkę z dysku przed kolejną.
+`audio-assets-manifest.json` trzyma sha256 z wskaźnika LFS i hash Static Assets (`blake3(base64 + "mp3")`, 32 znaki hex). Po zmianie bajtów MP3 trzeba go przebudować i zacommitować. W czasie deployu wrangler wstawia ten hash zamiast hashowania wskaźnika. Cloudflare prosi tylko o brakujące hashe; te rozdziały są dociągane (lokalnie `git lfs pull`, w Builds z hosta public-domain) i usuwane z dysku po wysłaniu.
 
-Strona odtwarza `/kjv/1769/…/*.mp3` strumieniowo z tego samego originu (Worker serwuje je z R2 `env.AUDIO`). Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
-Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + `.words.json` (bez `.txt` i per-verse — limit Workers Assets).
+Strona odtwarza `/kjv/1769/…/*.mp3` z Workers Static Assets na tym samym originie. Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
+Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + `.words.json` + wskaźniki MP3 (bez `.txt` i per-verse — limit Workers Assets).
+
+Podgląd brancha to `https://<branch>.66ksiag.pl`. Zanim ten wildcard powstanie, usuń rekord DNS `*.66ksiag.pl` A `85.128.128.104`. Zostaw MX i TXT.
 
 ### Pobieranie audio w Androidzie
 

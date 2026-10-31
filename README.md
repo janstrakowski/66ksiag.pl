@@ -76,11 +76,12 @@ Podgląd brancha `dev`:
 
 Niezmienny URL jednego wdrożenia: `https://<id>-dev.66ksiag.pl`.
 
+Zanim wildcard podglądu powstanie, w DNS strefy `66ksiag.pl` usuń rekord **A** `*.66ksiag.pl` → `85.128.128.104` (Proxied). Cloudflare nie nadpisze tego rekordu (błąd **100117**) i `npx wrangler deploy` zakończy się błędem, choć trasy `66ksiag.pl/*` i `www.66ksiag.pl/*` zostają. MX i TXT zostaw, jeśli poczta ma działać.
+
 `npm run build` (`scripts/build-dist.sh`):
 1. Inicjalizuje submoduły w `sources/` i generuje `data/bg/1879` oraz `data/kjv/1769` (`scripts/import-editions.mjs`).
-2. Pobiera `data/kjv/1769/*/*.words.json` z Git LFS.
-3. Sprawdza sumy SHA-256 wskaźników Git LFS dla `data/kjv/1769/*/*.mp3` względem manifestu `_meta/lfs-manifest.json` w koszyku R2 `66ksiag-audio` (`scripts/sync-r2-audio.mjs`). Zmienione lub brakujące MP3 pobiera z LFS paczkami po `N` (domyślnie 40), wysyła do R2 i od razu usuwa z dysku przed kolejną paczką.
-4. Składa `dist/` (powłoka `web/` + JSON rozdziałów + `.words.json`), a Worker serwuje `/kjv/1769/{book}/{chapter}.mp3` bezpośrednio z R2 (`env.AUDIO`).
+2. Składa `dist/` (powłoka `web/` + JSON rozdziałów + `.words.json` + wskaźniki MP3).
+3. `npm install` patchuje wranglera 4.149. Przy deployu wskaźnik MP3 dostaje hash z `data/kjv/1769/audio-assets-manifest.json`. Cloudflare dociąga tylko brakujące rozdziały; reszta jest już na krawędzi jako Static Assets.
 
 Lokalne `npm run deploy` nadal robi `wrangler deploy` na tej maszynie. Automatyczna ścieżka to Workers Builds.
 

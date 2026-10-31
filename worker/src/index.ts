@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker: krótkie aliasy → UI, SPA assets.
- * Audio Scourby jest self-hosted pod /kjv/1769/{book}/{chapter}.mp3 (R2 + fallback ASSETS).
+ * Audio Scourby jest plikiem Static Assets pod /kjv/1769/{book}/{chapter}.mp3.
  */
 
 interface SyncKv {
@@ -8,33 +8,14 @@ interface SyncKv {
   put(key: string, value: ArrayBuffer): Promise<void>;
 }
 
-interface R2Range {
-  offset?: number;
-  length?: number;
-  suffix?: number;
-}
-
-interface R2ObjectMeta {
-  size: number;
-  httpEtag: string;
-  body?: ReadableStream;
-}
-
-interface AudioBucket {
-  head(key: string): Promise<R2ObjectMeta | null>;
-  get(key: string, options?: { range?: R2Range }): Promise<R2ObjectMeta | null>;
-}
-
 interface Env {
   ASSETS: Fetcher;
   SYNC?: SyncKv;
-  AUDIO?: AudioBucket;
 }
 
 const SYNC_MAX = 64;
 const SYNC_MIN = 29;
 const SIGN_SKEW_SEC = 15 * 60;
-const AUDIO_PATH_RE = /^\/(kjv\/1769\/[0-9]{2}-[a-z0-9]+\/[0-9]+\.mp3)$/;
 
 function syncHeaders(extra?: Record<string, string>): Headers {
   return new Headers({
@@ -188,111 +169,6 @@ export async function handleSync(
   return new Response(null, { status: 204, headers: syncHeaders() });
 }
 
-function parseByteRange(rangeHeader: string | null, totalSize: number): { start: number; end: number } | "unsatisfiable" | null {
-  if (!rangeHeader || !rangeHeader.startsWith("bytes=")) return null;
-  const spec = rangeHeader.slice(6).trim();
-  if (spec.includes(",")) return null;
-  const m = spec.match(/^(\d*)-(\d*)$/);
-  if (!m) return null;
-  const [, startStr, endStr] = m;
-  if (!startStr && !endStr) return null;
-  if (!startStr) {
-    const suffix = Number.parseInt(endStr, 10);
-    if (!Number.isFinite(suffix) || suffix <= 0) return "unsatisfiable";
-    const start = Math.max(0, totalSize - suffix);
-    return { start, end: totalSize - 1 };
-  }
-  const start = Number.parseInt(startStr, 10);
-  const end = endStr ? Math.min(totalSize - 1, Number.parseInt(endStr, 10)) : totalSize - 1;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= totalSize || start > end) {
-    return "unsatisfiable";
-  }
-  return { start, end };
-}
-
-export async function handleAudio(request: Request, env: Env, pathname: string): Promise<Response | null> {
-  const m = pathname.match(AUDIO_PATH_RE);
-  if (!m) return null;
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return new Response(null, { status: 405, headers: { allow: "GET, HEAD" } });
-  }
-  if (!env.AUDIO) return null;
-
-  const key = m[1];
-  const baseHeaders: Record<string, string> = {
-    "content-type": "audio/mpeg",
-    "accept-ranges": "bytes",
-    "cache-control": "public, max-age=31536000, immutable",
-  };
-
-  if (request.method === "HEAD") {
-    const meta = await env.AUDIO.head(key);
-    if (!meta) return null;
-    return new Response(null, {
-      status: 200,
-      headers: {
-        ...baseHeaders,
-        "content-length": String(meta.size),
-        etag: meta.httpEtag,
-      },
-    });
-  }
-
-  const rangeHeader = request.headers.get("range");
-  if (!rangeHeader) {
-    const obj = await env.AUDIO.get(key);
-    if (!obj) return null;
-    return new Response(obj.body ?? null, {
-      status: 200,
-      headers: {
-        ...baseHeaders,
-        "content-length": String(obj.size),
-        etag: obj.httpEtag,
-      },
-    });
-  }
-
-  const meta = await env.AUDIO.head(key);
-  if (!meta) return null;
-  const parsed = parseByteRange(rangeHeader, meta.size);
-  if (parsed === "unsatisfiable") {
-    return new Response(null, {
-      status: 416,
-      headers: {
-        ...baseHeaders,
-        "content-range": `bytes */${meta.size}`,
-      },
-    });
-  }
-  if (!parsed) {
-    const obj = await env.AUDIO.get(key);
-    if (!obj) return null;
-    return new Response(obj.body ?? null, {
-      status: 200,
-      headers: {
-        ...baseHeaders,
-        "content-length": String(obj.size),
-        etag: obj.httpEtag,
-      },
-    });
-  }
-
-  const length = parsed.end - parsed.start + 1;
-  const obj = await env.AUDIO.get(key, {
-    range: { offset: parsed.start, length },
-  });
-  if (!obj) return null;
-  return new Response(obj.body ?? null, {
-    status: 206,
-    headers: {
-      ...baseHeaders,
-      "content-length": String(length),
-      "content-range": `bytes ${parsed.start}-${parsed.end}/${meta.size}`,
-      etag: obj.httpEtag,
-    },
-  });
-}
-
 type Book = {
   id: string;
   aliases: string[];
@@ -328,9 +204,6 @@ export default {
 
     const sync = await handleSync(request, env, parts);
     if (sync) return sync;
-
-    const audio = await handleAudio(request, env, url.pathname);
-    if (audio) return audio;
 
     // Krótki alias: /{alias}/{chapter}[/{verse}]
     if (

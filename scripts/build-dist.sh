@@ -29,39 +29,30 @@ if [[ ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
   fi
 fi
 
-# 2. Pull *.words.json from Git LFS if they are still pointers (~50 MB total, 1,189 files).
-if find "$ROOT/data/kjv/1769" -maxdepth 3 -name '*.words.json' -size -512c 2>/dev/null | grep -q .; then
-  echo "Pobieranie *.words.json z Git LFS..."
-  git -C "$ROOT" lfs pull --include="data/kjv/1769/*/*.words.json" --exclude="" || true
-fi
-
-# 3. Sync changed/missing MP3s from Git LFS to Cloudflare R2 in batches of N (deletes each batch from disk).
-node "$ROOT/scripts/sync-r2-audio.mjs"
-
 rm -rf "$DIST"
 mkdir -p "$DIST"
 
 cp -a "$ROOT/web/." "$DIST/"
 mkdir -p "$DIST/bg" "$DIST/kjv"
 
-# Strona: edition root + book/chapter JSON (+ KJV words.json).
-# Audio MP3 jest serwowane z R2 (binding AUDIO), a lokalnie z data/ lub R2.
+# Edition root + book/chapter JSON + KJV words.json + chapter MP3s.
+# MP3s may be Git LFS pointers. Wrangler substitutes the committed asset hash
+# and uploads real bytes only for hashes Cloudflare does not already store.
 copy_edition() {
   local src="$1" dest="$2" follow_links="${3:-0}"
   local find_args=(.)
-  local name_filter=( -name '*.json' )
+  local name_filter=( \( -name '*.json' -o -name '*.mp3' \) )
   mkdir -p "$dest"
   if [[ "$follow_links" == "1" ]]; then
     find_args=(-L .)
-  fi
-  # Locally (outside WORKERS_CI), also copy real MP3s if present on disk.
-  if [[ "${WORKERS_CI:-0}" != "1" ]]; then
-    name_filter=( \( -name '*.json' -o -name '*.mp3' \) )
   fi
   (
     cd "$src"
     find "${find_args[@]}" -maxdepth 2 \( -type f -o -type l \) "${name_filter[@]}" \
       | while IFS= read -r rel; do
+          case "$rel" in
+            ./audio-assets-manifest.json|audio-assets-manifest.json) continue ;;
+          esac
           mkdir -p "$dest/$(dirname "$rel")"
           if [[ "${DIST_HARD_LINKS:-0}" == "1" ]]; then
             local srcfile="$rel"
@@ -87,8 +78,12 @@ for ed in "$ROOT"/data/kjv/*/; do
 done
 shopt -u nullglob
 
-# Never publish raw Git LFS pointer files into dist/.
+# Drop stray Git LFS pointers. Chapter MP3 pointers stay: the wrangler patch
+# publishes them under the hash in audio-assets-manifest.json.
 while IFS= read -r -d '' pointer; do
+  case "$pointer" in
+    *.mp3) continue ;;
+  esac
   if head -n 1 "$pointer" | grep -q 'git-lfs.github.com/spec/v1'; then
     rm -f -- "$pointer"
   fi
@@ -107,5 +102,5 @@ if [[ "$file_n" -gt 20000 ]]; then
   echo "Uwaga: dist ma $file_n plików (>20k limit Workers Free)" >&2
 fi
 
-echo "dist gotowe: $DIST (pliki: $file_n, audio MP3 → R2 66ksiag-audio)"
+echo "dist gotowe: $DIST (pliki: $file_n, MP3 hashe z audio-assets-manifest.json)"
 du -sh "$DIST" "$DIST/bg" "$DIST/kjv" 2>/dev/null || du -sh "$DIST" || true

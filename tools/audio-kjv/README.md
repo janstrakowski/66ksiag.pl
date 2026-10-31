@@ -30,11 +30,18 @@ python3 tools/audio-kjv/install_layout.py
 git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 ```
 
-`vendor/` i tekst wydań w `data/` są w `.gitignore`. KJV `*.mp3` / `*.words.json` są w **Git LFS**.
+`vendor/` i tekst wydań w `data/` są w `.gitignore`. KJV `*.mp3` są w **Git LFS**. `*.words.json` są zwykłymi plikami gita.
+
+Po zmianie bajtów MP3 przebuduj manifest hashy Static Assets i dodaj go do commita:
+
+```bash
+node tools/audio-kjv/build_assets_manifest.mjs
+git add data/kjv/1769/audio-assets-manifest.json
+```
 
 ## Deploy
 
-Podczas `npm run build` (`scripts/build-dist.sh`):
-- `scripts/sync-r2-audio.mjs` porównuje wskaźniki Git LFS (`data/kjv/1769/*/*.mp3`) z `_meta/lfs-manifest.json` w koszyku R2 `66ksiag-audio`, pobiera brakujące/zmienione MP3 w paczkach po `N` (domyślnie 40), wysyła je do R2 i usuwa z dysku przed kolejną paczką.
-- Worker (`worker/src/index.ts`) serwuje `/kjv/1769/{book}/{chapter}.mp3` z R2 (`env.AUDIO`, w tym żądania `Range`).
-- `*.words.json` i JSON rozdziałów trafiają do `dist/` jako Workers Static Assets.
+Podczas `npx wrangler deploy` (`scripts/build-dist.sh` składa `dist/`):
+- Wskaźniki `*.mp3` trafiają do `dist/`. Patch wranglera 4.149 podstawia hash i rozmiar z `audio-assets-manifest.json`, więc 1,6 GB audio nie jest hashowane na dysku builda.
+- Cloudflare zwraca tylko hashe, których jeszcze nie ma. Te rozdziały są pobierane po kilka naraz (`git lfs pull` lokalnie, a w Workers Builds z hosta public-domain), wysyłane i usuwane z dysku.
+- `*.words.json`, JSON rozdziałów i MP3 są Workers Static Assets. Żądania `Range` obsługuje krawędź, nie Worker.

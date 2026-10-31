@@ -1,11 +1,13 @@
 /target/
 /dist/
-# Ignore edition text under data/, but track KJV audio (+ word timings) via Git LFS
+# Ignore edition text under data/. Track KJV MP3s (Git LFS), word timings, and
+# the Static Assets hash manifest.
 /data/*
 !/data/kjv/
 /data/kjv/*
 !/data/kjv/1769/
 /data/kjv/1769/*
+!/data/kjv/1769/audio-assets-manifest.json
 !/data/kjv/1769/*/
 /data/kjv/1769/*/*
 !/data/kjv/1769/*/*.mp3
