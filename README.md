@@ -71,7 +71,9 @@ W `wrangler.toml` jest konto `86e0b7dbeec0ebfff2333c8e8c4087fb` (`account_id`). 
 
 Push na `main` uruchamia build, potem `npx wrangler deploy`. Trasy zostają `66ksiag.pl/*` i `www.66ksiag.pl/*`.
 
-Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje tras produkcji. Custom domain `devpreview.66ksiag.pl` ma `enabled = false` i `previews_enabled = true`, więc produkcja go nie dostaje. Worker Previews serwuje branch pod subdomeną tej nazwy.
+Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje tras produkcji. Custom domain `devpreview.66ksiag.pl` ma `enabled = false` i `previews_enabled = true`, więc produkcja go nie dostaje.
+
+`wrangler preview` nie umie wystawić samego `https://devpreview.66ksiag.pl`. Adres podglądu to zawsze `<branch>.<ta domena>`. Wildcard na `*.66ksiag.pl` objąłby też `www`, więc go nie ma.
 
 Podgląd brancha `dev`:
 

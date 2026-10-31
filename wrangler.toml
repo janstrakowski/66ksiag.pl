@@ -25,8 +25,10 @@ pattern = "www.66ksiag.pl/*"
 zone_name = "66ksiag.pl"
 
 # Preview-only custom domain. enabled = false keeps production off this host.
-# Worker Previews serve <branch>.devpreview.66ksiag.pl.
-# Branch dev: https://dev.devpreview.66ksiag.pl
+# wrangler preview cannot publish the apex https://devpreview.66ksiag.pl.
+# It always inserts the branch name: https://dev.devpreview.66ksiag.pl
+# A wildcard on *.66ksiag.pl would also cover www.66ksiag.pl, so that parent
+# is not used.
 [[routes]]
 pattern = "devpreview.66ksiag.pl"
 custom_domain = true

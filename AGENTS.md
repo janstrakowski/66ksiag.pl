@@ -109,7 +109,7 @@ npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OP
 - Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
 - Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
 - Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
-- Production deploy: Workers Builds on `main` (`npx wrangler deploy`) → `https://66ksiag.pl` and `https://www.66ksiag.pl`. Preview: `npx wrangler preview` on `dev` → `https://dev.devpreview.66ksiag.pl`. The preview custom domain `devpreview.66ksiag.pl` is not a production route.
+- Production deploy: Workers Builds on `main` (`npx wrangler deploy`) → `https://66ksiag.pl` and `https://www.66ksiag.pl`. Preview: `npx wrangler preview` on `dev` → `https://dev.devpreview.66ksiag.pl`. Workers Builds cannot publish the apex `https://devpreview.66ksiag.pl`; that name is only the preview parent, and it is not a production route.
 
 ## Testy
 
