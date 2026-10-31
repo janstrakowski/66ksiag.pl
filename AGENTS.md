@@ -12,7 +12,7 @@ Dla agentów AI i contributorów. Szczegóły: [ARCHITECTURE.md](./ARCHITECTURE.
 
 ## Co to jest
 
-Statyczne API Biblii (BG 1879 + KJV) + CLI + strona. Warstwa plików w `data/` jest źródłem prawdy. Aplikacją jest klient w `android/`; `web/` jest zwykłą stroną (bez rejestracji service workera, bez manifestu aplikacji i bez pobierania audio). Worker na `/sw.js` oddaje tylko skrypt, który kasuje cache powłoki, kasuje pobrane audio i wyrejestrowuje już zainstalowanego workera.
+Statyczne API Biblii (BG 1879 + KJV) i strona. Warstwa plików w `data/` jest źródłem prawdy. Aplikacją jest klient w `android/`; `web/` jest zwykłą stroną (bez rejestracji service workera, bez manifestu aplikacji i bez pobierania audio). Worker na `/sw.js` oddaje tylko skrypt, który kasuje cache powłoki, kasuje pobrane audio i wyrejestrowuje już zainstalowanego workera.
 
 **Numeracja:** wszystkie tłumaczenia na siatce KJV / tych samych ID (`01-gen`…). BG jest zremapowana; nowe wersje też muszą być.
 
@@ -28,18 +28,6 @@ Statyczne API Biblii (BG 1879 + KJV) + CLI + strona. Warstwa plików w `data/` j
 ```
 
 `{book}` = np. `43-joh`. Aliasy w `books.json`.
-
-## CLI
-
-Katalog `cli/` (Rust, Cargo OK; bez wołania Bash i bez zbędnych libek dynamicznych).
-
-```bash
-66ksiag --edition bg/1879 get jn 3 16
-66ksiag --edition kjv/1769 get john 3 16 --json
-66ksiag --edition kjv/1769 path jn 3 16
-```
-
-Preferuj lokalne `data/`; HTTP tylko na kanoniczne URL-e.
 
 ## Import tekstu
 
@@ -90,7 +78,7 @@ Jeden przycisk na karcie tytułowej aplikacji. `x` to rozdziały już zapisane l
 
 ## Front
 
-`web/` czyta wyłącznie warstwę `data/` (te same kontrakty co CLI).
+`web/` czyta wyłącznie warstwę `data/`.
 
 ```bash
 bash scripts/dev-serve.sh          # http://127.0.0.1:8787
