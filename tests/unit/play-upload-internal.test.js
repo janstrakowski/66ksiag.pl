@@ -1,10 +1,11 @@
 import { generateKeyPairSync } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   assertInternalTrackOnly,
+  buildInternalAppSharingPreviewMetadata,
   buildTrackUpdatePayload,
   computeNextVersionCode,
   createServiceAccountJwt,
@@ -12,6 +13,7 @@ import {
   parseServiceAccountCredentials,
   queryExistingInternalMaxVersionCode,
   shouldFallbackToDraftRelease,
+  uploadBundleToInternalAppSharing,
   uploadBundleToInternalTrack,
 } from "../../scripts/play-upload-internal.mjs";
 
@@ -30,7 +32,7 @@ const SAMPLE_SA = {
   token_uri: "https://oauth2.googleapis.com/token",
 };
 
-describe("Google Play Internal Testing uploader", () => {
+describe("Google Play Internal App Sharing & Internal Testing uploader", () => {
   it("parses raw JSON, base64 JSON, and file paths for PLAY_SERVICE_ACCOUNT_JSON", () => {
     const raw = JSON.stringify(SAMPLE_SA);
     const b64 = Buffer.from(raw, "utf8").toString("base64");
@@ -67,6 +69,79 @@ describe("Google Play Internal Testing uploader", () => {
     });
   });
 
+  it("uploads an AAB to Google Play Internal App Sharing and writes dist/android-preview.json", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "play-ias-"));
+    const aabPath = join(dir, "app-release-bundle.aab");
+    const metadataPath = join(dir, "dist", "android-preview.json");
+    writeFileSync(aabPath, Buffer.alloc(4096, 0x50));
+
+    const calls = [];
+    const fakeFetch = async (url, init = {}) => {
+      calls.push({ url, method: init.method || "GET", headers: init.headers });
+      if (url === "https://oauth2.googleapis.com/token") {
+        return new Response(JSON.stringify({ access_token: "tok-ias-123" }), { status: 200 });
+      }
+      if (
+        url ===
+          "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/com.jastrakowski.sixsixksiag/internalappsharingartifacts/bundle?uploadType=media" &&
+        init.method === "POST"
+      ) {
+        expect(init.headers["content-type"]).toBe("application/octet-stream");
+        return new Response(
+          JSON.stringify({
+            downloadUrl: "https://play.google.com/apps/test/RQk12345/ah0123456789",
+            certificateFingerprint: "B6:91:4A:E2:7E:39:64:25:C7:AB:D7:F0:05:C5:30:9B",
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          }),
+          { status: 200 }
+        );
+      }
+      throw new Error(`Unexpected URL: ${init.method} ${url}`);
+    };
+
+    try {
+      const creds = parseServiceAccountCredentials(JSON.stringify(SAMPLE_SA));
+      const logs = [];
+      const result = await uploadBundleToInternalAppSharing({
+        aabPath,
+        packageName: "com.jastrakowski.sixsixksiag",
+        credentials: creds,
+        branch: "dev",
+        commit: "6a6d521eed4aed54bf83eac87aa00adc89202617",
+        versionName: "2.0.1793481000-dev.6a6d521",
+        versionCode: 1793481000,
+        previewMetadataOutPath: metadataPath,
+        builtAt: "2026-10-31T21:25:00.000Z",
+        fetchImpl: fakeFetch,
+        logger: {
+          log(msg) {
+            logs.push(msg);
+          },
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.downloadUrl).toBe("https://play.google.com/apps/test/RQk12345/ah0123456789");
+
+      const written = JSON.parse(readFileSync(metadataPath, "utf8"));
+      expect(written).toEqual(
+        buildInternalAppSharingPreviewMetadata({
+          branch: "dev",
+          commit: "6a6d521eed4aed54bf83eac87aa00adc89202617",
+          versionName: "2.0.1793481000-dev.6a6d521",
+          versionCode: 1793481000,
+          downloadUrl: "https://play.google.com/apps/test/RQk12345/ah0123456789",
+          certificateFingerprint: "B6:91:4A:E2:7E:39:64:25:C7:AB:D7:F0:05:C5:30:9B",
+          sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          builtAt: "2026-10-31T21:25:00.000Z",
+        })
+      );
+      expect(logs.some((l) => l.includes("https://play.google.com/apps/test/RQk12345/ah0123456789"))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("strictly enforces the internal track only", () => {
     expect(assertInternalTrackOnly("internal")).toBe("internal");
     expect(() => assertInternalTrackOnly("production")).toThrow(/only permits uploads to "internal"/);
@@ -85,7 +160,6 @@ describe("Google Play Internal Testing uploader", () => {
     const remoteMax = extractHighestTrackVersionCode(trackData);
     expect(remoteMax).toBe(1_800_000_050);
 
-    // When remoteMax is higher than epoch timestamp, increments remoteMax + 1
     expect(
       computeNextVersionCode({
         remoteMaxVersionCode: remoteMax,
@@ -93,7 +167,6 @@ describe("Google Play Internal Testing uploader", () => {
       })
     ).toBe(1_800_000_051);
 
-    // When epoch timestamp is higher than remoteMax, uses epoch timestamp
     expect(
       computeNextVersionCode({
         remoteMaxVersionCode: 2,

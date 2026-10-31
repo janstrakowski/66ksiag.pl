@@ -122,12 +122,15 @@ Google Play Developer API pozwala na automatyczne wgrywanie kolejnych wydań dop
      - **Release to testing tracks** (obejmuje Internal testing — nie musisz nadawać uprawnień do Production).
    - Kliknij **Invite user** → **Send invite**.
 
-### 4. Sekrety CI i automatyczny push z gałęzi `dev`
+### 4. Sekrety CI i automatyczny upload każdej gałęzi poza `main` do Internal App Sharing
 
-Przy każdym pushu na gałąź `dev`:
-- `scripts/build-dist.sh` (uruchamiany w Cloudflare Workers Builds) oraz `origin.ci.ts` wywołują `bash scripts/android-play-internal.sh --if-dev-branch`.
-- Skrypt odpytuje Google Play API o najwyższy dotychczasowy `versionCode` na ścieżce `internal`, wylicza ściśle większy `versionCode` (`max(epochSeconds, remoteMax + 1)`), buduje podpisany `android/app-release-bundle.aab` i wysyła go na ścieżkę `internal`.
-- Jeśli aplikacja w Play Console ma jeszcze status szkicu (`draft app`), skrypt `scripts/play-upload-internal.mjs` automatycznie przełącza wydanie z `status: "completed"` na `status: "draft"`.
+Przy każdym pushu na dowolną gałąź inną niż `main` (`dev`, gałęzie PR itd.):
+- `scripts/build-dist.sh` (uruchamiany w Cloudflare Workers Builds przed wczytaniem manifestu `dist/` przez Wranglera) wywołuje `bash scripts/android-play-internal.sh --if-non-main-branch`.
+- Skrypt buduje podpisany `android/app-release-bundle.aab` i wysyła go do **Google Play Internal App Sharing** (`POST /upload/androidpublisher/v3/applications/com.jastrakowski.sixsixksiag/internalappsharingartifacts/bundle?uploadType=media`).
+- Zwrócony link `downloadUrl` jest wypisywany w logu builda oraz zapisywany do `dist/android-preview.json` (`{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`), dzięki czemu podgląd każdej gałęzi udostępnia go pod adresem `https://<branch>.66ksiag.pl/android-preview.json` (np. `https://dev.66ksiag.pl/android-preview.json`).
+- Jednorazowe ustawienie w Play Console: **Test and release → Setup → Internal app sharing**:
+  - **Manage uploaders**: dodaj adres e-mail konta usługowego (`ksiag-play-internal-ci@...iam.gserviceaccount.com`) lub zaznacz **Anyone you shared the link with can upload**.
+  - **Manage testers**: wybierz **Anyone you shared the link with can download** (lub dodaj listę swoich adresów Gmail).
 
 Skonfiguruj 5 sekretów w **Cloudflare Dashboard → Workers & Pages → `66ksiag` → Settings → Builds → Variables and Secrets** (oraz opcjonalnie lokalnie w `android/secrets/keystore.env`):
 

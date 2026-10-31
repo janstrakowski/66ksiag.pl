@@ -134,4 +134,4 @@ npm run android:install        # adb install na telefonie (USB debugging)
 npm run android:play:internal  # build + upload AAB na Google Play Internal testing
 ```
 
-Keystore i `android/secrets/` poza gitem. Push na gałąź `dev` automatycznie buduje podpisany `.aab` z rosnącym `versionCode` i publikuje go na ścieżce `internal` w Google Play (szczegóły i lista sekretów CI: `android/README.md`). Asset Links: `web/.well-known/assetlinks.json`.
+Keystore i `android/secrets/` poza gitem. Push na każdą gałąź inną niż `main` automatycznie buduje podpisany `.aab`, wysyła go do **Google Play Internal App Sharing** i zapisuje link instalacji w `dist/android-preview.json` (`https://<branch>.66ksiag.pl/android-preview.json`; szczegóły i lista sekretów CI: `android/README.md`). Asset Links: `web/.well-known/assetlinks.json`.

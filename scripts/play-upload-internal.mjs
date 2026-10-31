@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 /**
- * Upload a signed Android App Bundle (.aab) to Google Play Internal Testing track
- * via the Google Play Android Developer API v3.
+ * Upload a signed Android App Bundle (.aab) to Google Play via the
+ * Google Play Android Developer API v3 (`androidpublisher.googleapis.com`).
  *
- * Strictly restricted to the `internal` track — refuses any other track.
- * Automatically queries existing track releases to ensure versionCode is strictly
- * increasing, and automatically falls back from `status: "completed"` to
- * `status: "draft"` when Play Console reports that the app is still a draft /
- * not yet reviewed on Google Play (which Google Play requires for brand-new
- * unreviewed apps on the Internal Testing track).
+ * Supports two non-production upload modes:
+ * 1. Internal App Sharing (`uploadBundleToInternalAppSharing`, default for all
+ *    non-`main` branch builds):
+ *    POST /upload/androidpublisher/v3/applications/${packageName}/internalappsharingartifacts/bundle?uploadType=media
+ *    Returns `{ downloadUrl, certificateFingerprint, sha256 }` and optionally
+ *    writes `dist/android-preview.json` so `https://<branch>.66ksiag.pl/android-preview.json`
+ *    exposes the Play Store Internal App Sharing install link.
+ * 2. Internal Testing track (`uploadBundleToInternalTrack`, `--mode track`):
+ *    Strictly restricted to the `internal` track — refuses any other track.
+ *    Automatically falls back from `status: "completed"` to `status: "draft"`
+ *    when Play Console reports that the app is still a draft / unreviewed app.
  */
 import { createSign } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 const ALLOWED_TRACK = "internal";
 const DEFAULT_PACKAGE_NAME = "com.jastrakowski.sixsixksiag";
@@ -279,6 +284,105 @@ export async function queryExistingInternalMaxVersionCode({
   }
 }
 
+export function buildInternalAppSharingPreviewMetadata({
+  branch = "",
+  commit = "",
+  versionName = "",
+  versionCode = null,
+  downloadUrl = "",
+  certificateFingerprint = "",
+  sha256 = "",
+  builtAt = new Date().toISOString(),
+} = {}) {
+  const numericVersionCode =
+    versionCode !== null && versionCode !== undefined && Number.isFinite(Number(versionCode))
+      ? Number(versionCode)
+      : null;
+  return {
+    branch: String(branch || ""),
+    commit: String(commit || ""),
+    versionName: String(versionName || ""),
+    versionCode: numericVersionCode,
+    downloadUrl: String(downloadUrl || ""),
+    certificateFingerprint: String(certificateFingerprint || ""),
+    sha256: String(sha256 || ""),
+    builtAt: String(builtAt || new Date().toISOString()),
+  };
+}
+
+export async function uploadBundleToInternalAppSharing({
+  aabPath,
+  packageName = DEFAULT_PACKAGE_NAME,
+  credentials,
+  branch = "",
+  commit = "",
+  versionName = "",
+  versionCode = null,
+  previewMetadataOutPath = "",
+  builtAt = new Date().toISOString(),
+  fetchImpl = fetch,
+  logger = console,
+}) {
+  const resolvedAab = resolve(aabPath);
+  if (!existsSync(resolvedAab)) {
+    throw new Error(`AAB file does not exist: ${resolvedAab}`);
+  }
+  const aabBytes = readFileSync(resolvedAab);
+  if (aabBytes.length < 1024) {
+    throw new Error(`AAB file appears invalid or empty (${aabBytes.length} bytes): ${resolvedAab}`);
+  }
+
+  const accessToken = await fetchAccessToken(credentials, fetchImpl);
+  const uploadUrl = `${API_ROOT}/upload/androidpublisher/v3/applications/${encodeURIComponent(
+    packageName
+  )}/internalappsharingartifacts/bundle?uploadType=media`;
+
+  logger.log(
+    `[play-upload] Uploading AAB (${(aabBytes.length / (1024 * 1024)).toFixed(
+      2
+    )} MB) to Google Play Internal App Sharing for ${packageName}…`
+  );
+
+  const res = await apiRequest(fetchImpl, accessToken, "POST", uploadUrl, {
+    headers: {
+      "content-type": "application/octet-stream",
+      "content-length": String(aabBytes.length),
+    },
+    body: aabBytes,
+  });
+
+  if (!res.ok || !res.json?.downloadUrl) {
+    throw new Error(
+      `Failed to upload AAB to Internal App Sharing (HTTP ${res.status}): ${res.text}\n` +
+        `Check Google Play Console → Test and release → Setup → Internal app sharing and ensure the service account (${credentials.client_email}) is allowed under "Manage uploaders".`
+    );
+  }
+
+  const metadata = buildInternalAppSharingPreviewMetadata({
+    branch,
+    commit,
+    versionName,
+    versionCode,
+    downloadUrl: res.json.downloadUrl,
+    certificateFingerprint: res.json.certificateFingerprint || "",
+    sha256: res.json.sha256 || "",
+    builtAt,
+  });
+
+  if (previewMetadataOutPath) {
+    const resolvedOut = resolve(previewMetadataOutPath);
+    mkdirSync(dirname(resolvedOut), { recursive: true });
+    writeFileSync(resolvedOut, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+    logger.log(`[play-upload] Wrote Internal App Sharing metadata to ${resolvedOut}`);
+  }
+
+  logger.log(`[play-upload] Internal App Sharing downloadUrl: ${metadata.downloadUrl}`);
+  return {
+    ok: true,
+    ...metadata,
+  };
+}
+
 export async function uploadBundleToInternalTrack({
   aabPath,
   packageName = DEFAULT_PACKAGE_NAME,
@@ -446,7 +550,7 @@ export async function uploadBundleToInternalTrack({
 
 function parseCliArgs(argv) {
   const opts = {
-    mode: "upload",
+    mode: process.env.PLAY_UPLOAD_MODE || "internal-sharing",
     aabPath: process.env.ANDROID_AAB_PATH || "android/app-release-bundle.aab",
     packageName: process.env.ANDROID_PACKAGE_NAME || DEFAULT_PACKAGE_NAME,
     track: process.env.PLAY_TRACK || ALLOWED_TRACK,
@@ -454,6 +558,11 @@ function parseCliArgs(argv) {
     releaseName: process.env.PLAY_RELEASE_NAME || "",
     releaseNotesPl: process.env.PLAY_RELEASE_NOTES_PL || "",
     releaseNotesEn: process.env.PLAY_RELEASE_NOTES_EN || "",
+    branch: process.env.PLAY_PREVIEW_BRANCH || "",
+    commit: process.env.PLAY_PREVIEW_COMMIT || "",
+    versionName: process.env.KSIAG_VERSION_NAME || process.env.ANDROID_VERSION_NAME || "",
+    versionCode: process.env.KSIAG_VERSION_CODE || process.env.ANDROID_VERSION_CODE || null,
+    previewMetadataOutPath: process.env.PLAY_PREVIEW_METADATA_OUT || "",
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -462,6 +571,10 @@ function parseCliArgs(argv) {
       opts.mode = "next-version-code";
     } else if (arg === "--verify-credentials") {
       opts.mode = "verify-credentials";
+    } else if (arg === "--internal-sharing") {
+      opts.mode = "internal-sharing";
+    } else if (arg === "--mode" && argv[i + 1]) {
+      opts.mode = argv[++i];
     } else if (arg === "--aab" && argv[i + 1]) {
       opts.aabPath = argv[++i];
     } else if (arg === "--package" && argv[i + 1]) {
@@ -472,6 +585,16 @@ function parseCliArgs(argv) {
       opts.preferredStatus = argv[++i];
     } else if (arg === "--release-name" && argv[i + 1]) {
       opts.releaseName = argv[++i];
+    } else if (arg === "--branch" && argv[i + 1]) {
+      opts.branch = argv[++i];
+    } else if (arg === "--commit" && argv[i + 1]) {
+      opts.commit = argv[++i];
+    } else if (arg === "--version-name" && argv[i + 1]) {
+      opts.versionName = argv[++i];
+    } else if (arg === "--version-code" && argv[i + 1]) {
+      opts.versionCode = argv[++i];
+    } else if (arg === "--metadata-out" && argv[i + 1]) {
+      opts.previewMetadataOutPath = argv[++i];
     }
   }
   return opts;
@@ -483,7 +606,7 @@ async function runCli() {
 
   if (opts.mode === "next-version-code") {
     let remoteMax = 0;
-    if (process.env.PLAY_SERVICE_ACCOUNT_JSON?.trim()) {
+    if (process.env.PLAY_QUERY_REMOTE_VERSION_CODE === "1" && process.env.PLAY_SERVICE_ACCOUNT_JSON?.trim()) {
       try {
         const creds = parseServiceAccountCredentials(process.env.PLAY_SERVICE_ACCOUNT_JSON);
         const token = await fetchAccessToken(creds);
@@ -508,6 +631,20 @@ async function runCli() {
   const credentials = parseServiceAccountCredentials(process.env.PLAY_SERVICE_ACCOUNT_JSON || "");
   if (opts.mode === "verify-credentials") {
     console.log(`Service account email: ${credentials.client_email}`);
+    return;
+  }
+
+  if (opts.mode === "internal-sharing") {
+    await uploadBundleToInternalAppSharing({
+      aabPath: opts.aabPath,
+      packageName: opts.packageName,
+      credentials,
+      branch: opts.branch,
+      commit: opts.commit,
+      versionName: opts.versionName,
+      versionCode: opts.versionCode,
+      previewMetadataOutPath: opts.previewMetadataOutPath,
+    });
     return;
   }
 
