@@ -104,3 +104,10 @@ fi
 
 echo "dist gotowe: $DIST (pliki: $file_n, MP3 hashe z audio-assets-manifest.json)"
 du -sh "$DIST" "$DIST/bg" "$DIST/kjv" 2>/dev/null || du -sh "$DIST" || true
+
+# On branch `dev`, if Google Play Internal Testing & Android keystore secrets are
+# configured in CI (Cloudflare Workers Builds), build the signed release AAB with
+# an auto-incrementing versionCode and upload it to the `internal` track.
+if [[ "${SKIP_ANDROID_PLAY_UPLOAD:-0}" != "1" && -f "$ROOT/scripts/android-play-internal.sh" ]]; then
+  bash "$ROOT/scripts/android-play-internal.sh" --if-dev-branch
+fi

@@ -15,6 +15,7 @@
     "test:coverage": "vitest run --coverage",
     "android:build": "bash scripts/android-build.sh",
     "android:install": "bash scripts/android-install.sh",
+    "android:play:internal": "bash scripts/android-play-internal.sh",
     "harness": "bash scripts/start-harness.sh"
   },
   "devDependencies": {

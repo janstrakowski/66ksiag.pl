@@ -123,8 +123,9 @@ Zobacz [llms.txt](./llms.txt).
 Natywny klient Kotlin/Compose w `android/`, package `pl.ksiag.app`, host `66ksiag.pl`. To samo statyczne API co strona. Nie uruchamiaj Bubblewrap — nadpisze projekt.
 
 ```bash
-npm run android:build     # APK + AAB
-npm run android:install   # adb install na telefonie (USB debugging)
+npm run android:build          # APK + AAB
+npm run android:install        # adb install na telefonie (USB debugging)
+npm run android:play:internal  # build + upload AAB na Google Play Internal testing
 ```
 
-Keystore i `android/secrets/` poza gitem. Asset Links: `web/.well-known/assetlinks.json`.
+Keystore i `android/secrets/` poza gitem. Push na gałąź `dev` automatycznie buduje podpisany `.aab` z rosnącym `versionCode` i publikuje go na ścieżce `internal` w Google Play (szczegóły i lista sekretów CI: `android/README.md`). Asset Links: `web/.well-known/assetlinks.json`.
