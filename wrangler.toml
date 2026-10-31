@@ -1,4 +1,4 @@
-name = "ksiag"
+name = "66ksiag"
 account_id = "86e0b7dbeec0ebfff2333c8e8c4087fb"
 main = "worker/src/index.ts"
 compatibility_date = "2025-10-01"
@@ -6,14 +6,18 @@ workers_dev = true
 # Worker Previews on workers.dev as well as <branch>.66ksiag.pl.
 preview_urls = true
 
-# Workers Builds (Cloudflare app on Cursor Origin) reads this file.
-# It does not read a build command from here. In the app:
-#   production branch: main
+# Workers Builds does not read a build command from this file. The deploy
+# command does: `npx wrangler deploy` runs [build] before upload, so a push
+# still publishes web/ when the dashboard build command is empty.
+# In the app, production branch must be main.
 #   build command:     npm run build
 #   deploy command:    npx wrangler deploy
 #   preview command:   npx wrangler preview
 # Pushes to main deploy production. Every other branch, including dev,
 # runs wrangler preview and does not take the production routes.
+
+[build]
+command = "bash scripts/build-dist.sh"
 
 # Apex i www zostają trasami strefy. To nie są Custom Domains.
 [[routes]]
