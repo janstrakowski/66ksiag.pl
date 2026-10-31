@@ -1,6 +1,6 @@
 # 66ksiąg
 
-Polska Biblia jako **statyczne API**, **CLI** i **PWA**.
+Polska Biblia jako **statyczne API**, **CLI** i **strona**.
 
 - Architektura: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - Agenci: [AGENTS.md](./AGENTS.md)
@@ -27,7 +27,7 @@ cargo run -p ksiag-import --release -- \
 # 3. CLI
 cargo run -p ksiag --release -- --data data get jn 3 16
 
-# 4. PWA lokalnie
+# 4. Strona lokalnie
 bash scripts/dev-serve.sh
 # → http://127.0.0.1:8787/
 ```
@@ -39,7 +39,7 @@ bash scripts/dev-serve.sh
 | `data/bg/1879/` | Kanoniczne API (generowane importem) |
 | `tools/import/` | Rust: TXT źródła → `data/` |
 | `cli/` | Rust: `66ksiag books\|get\|chapter\|path` |
-| `web/` | PWA (miedzioryt UI) |
+| `web/` | Strona (miedzioryt UI) |
 | `worker/` | Krótkie aliasy URL (`/j/3/16` → `/czytaj/…`) |
 | `demos/` | Iteracje UI (referencja) |
 | `tools/audio-kjv/` | Fetch/align Scourby → `data/kjv/1769/*.mp3` + `.words.json` |

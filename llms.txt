@@ -1,5 +1,5 @@
 # 66ksiąg
-> Biblia jako statyczne API (BG 1879 + KJV), CLI i PWA.
+> Biblia jako statyczne API (BG 1879 + KJV), CLI i strona. Aplikacja natywna jest w `android/`.
 
 Wspólna numeracja KJV; BG zremapowana. Plan dzienny wspólny dla języków.
 

@@ -27,7 +27,6 @@ import * as cloud from "./cloud.js";
 import {
   ensureNotifyPermission,
   effectiveNotifyPermission,
-  ensureServiceWorker,
   notifyStartReading,
   notifyProgress,
   notifyEnabledConfirm,
@@ -1748,7 +1747,6 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
 
   if (audioDownloadAbort) {
     audioDownloadAbort.abort();
-    await mod.abortAudioDownload();
     return;
   }
 
@@ -1767,7 +1765,6 @@ document.getElementById("home-audio-download")?.addEventListener("click", async 
   };
 
   try {
-    await mod.ensureAudioServiceWorker();
     await mod.downloadAllAudio(
       ({ done, total, etaSec }) => {
         const eta =
@@ -1829,9 +1826,27 @@ document.addEventListener("click", (e) => {
   route();
 });
 
-if ("serviceWorker" in navigator && !isDevHost()) {
-  ensureServiceWorker().catch(() => {});
+/** Wyrejestruj starą instalację PWA i skasuj cache powłoki. Audio w Cache Storage zostaje. */
+function retireInstalledApp() {
+  const shellCache = /^ksiag-v\d+$/;
+  const dropShell = () => {
+    if (!("caches" in window)) return Promise.resolve();
+    return caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => shellCache.test(key)).map((key) => caches.delete(key)))
+    );
+  };
+  const dropWorker = () => {
+    if (!("serviceWorker" in navigator)) return Promise.resolve();
+    return navigator.serviceWorker.getRegistrations().then((regs) =>
+      Promise.all(regs.map((reg) => reg.unregister()))
+    );
+  };
+  dropWorker()
+    .then(dropShell)
+    .catch(() => {});
 }
+
+retireInstalledApp();
 
 function refreshAll() {
   plan = loadPlan();

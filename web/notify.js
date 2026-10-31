@@ -1,62 +1,26 @@
-/** Systemowe powiadomienia (Notification API). Działa na localhost / HTTPS / TWA. */
-
-function withTimeout(promise, ms) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error("timeout")), ms);
-    promise.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      }
-    );
-  });
-}
-
-/** Zarejestruj SW od razu (nie czekaj na window.load). */
-export async function ensureServiceWorker() {
-  if (!("serviceWorker" in navigator)) return null;
-  try {
-    let reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) {
-      reg = await navigator.serviceWorker.register("/sw.js");
-    }
-    return await withTimeout(navigator.serviceWorker.ready, 4000);
-  } catch {
-    return (await navigator.serviceWorker.getRegistration()) || null;
-  }
-}
+/** Systemowe powiadomienia (Notification API). Działa na localhost i HTTPS. */
 
 /**
- * W TWA z delegacją Chrome pokazuje „Notifications managed by 66ksiąg”.
- * Wtedy Notification.permission bywa „denied”, mimo że Android zezwala —
- * próbujemy faktycznie wysłać (probe).
+ * W starej otoczce TWA Notification.permission bywa „denied”, mimo że system
+ * pozwala wysłać powiadomienie — próbujemy faktycznie je pokazać (probe).
  */
 export async function effectiveNotifyPermission({ allowDelegatedProbe = false } = {}) {
   if (typeof Notification === "undefined") return "unsupported";
-  await ensureServiceWorker();
   if (Notification.permission === "granted") return "granted";
   if (Notification.permission === "default") {
     return Notification.requestPermission();
   }
-  // denied
   if (allowDelegatedProbe) {
-    const delivered = await showSystemNotify("66ksiąg", "·", "ksiag-probe", "pl", {
-      ignorePermissionGate: true,
-      silent: true,
-    });
-    if (delivered) {
-      try {
-        const reg = await ensureServiceWorker();
-        const list = await reg?.getNotifications?.({ tag: "ksiag-probe" });
-        for (const n of list || []) n.close();
-      } catch {
-        /* ignore */
-      }
+    try {
+      const probe = new Notification("66ksiąg", {
+        body: "·",
+        tag: "ksiag-probe",
+        silent: true,
+      });
+      probe.close();
       return "granted";
+    } catch {
+      return "denied";
     }
   }
   return "denied";
@@ -87,16 +51,6 @@ export async function showSystemNotify(
     lang,
   };
   if (!silent) opts.vibrate = [80, 40, 80];
-
-  const reg = await ensureServiceWorker();
-  if (reg?.showNotification) {
-    try {
-      await reg.showNotification(title, opts);
-      return true;
-    } catch {
-      /* fallback */
-    }
-  }
 
   try {
     // eslint-disable-next-line no-new
