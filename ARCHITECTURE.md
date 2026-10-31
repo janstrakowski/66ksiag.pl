@@ -19,7 +19,7 @@ Plan dzienny jest **jeden na użytkownika**: zaliczenie rozdziału w BG lub KJV 
 
 ```
 ┌──────────────────────────────────────────┐
-│  Klienci: strona · CLI · LLM · inne appki│
+│  Klienci: strona · LLM · inne appki      │
 └──────────────────┬───────────────────────┘
                    │ HTTP (statyczne pliki)
 ┌──────────────────▼───────────────────────┐
@@ -28,7 +28,7 @@ Plan dzienny jest **jeden na użytkownika**: zaliczenie rozdziału w BG lub KJV 
 └──────────────────────────────────────────┘
 ```
 
-Warstwa danych jest źródłem prawdy. Frontend, CLI i agenci AI tylko konsumują te same ścieżki — bez osobnej logiki „co to jest werset 16”.
+Warstwa danych jest źródłem prawdy. Frontend i agenci AI tylko konsumują te same ścieżki — bez osobnej logiki „co to jest werset 16”.
 
 Na MVP nie ma dynamicznego API serwerowego: hierarchia plików na statycznym hostingu *jest* API.
 
@@ -36,7 +36,7 @@ Na MVP nie ma dynamicznego API serwerowego: hierarchia plików na statycznym hos
 
 ### Kanoniczne
 
-Stabilne, używane w API, SEO (`rel=canonical`), share i CLI:
+Stabilne, używane w API, SEO (`rel=canonical`) i share:
 
 ```
 /bg/1879/manifest.json
@@ -70,7 +70,7 @@ Mapowanie aliasów → `43-joh` żyje w `books.json` (per wydanie, te same alias
 | Zasób | Po co |
 | --- | --- |
 | Rozdział `.json` / `.txt` | Strona (jeden request), czytanie ciągłe |
-| Werset `.json` / `.txt` | CLI, LLM, głębokie linki, cytaty |
+| Werset `.json` / `.txt` | LLM, głębokie linki, cytaty |
 
 ## Kontrakty plików
 
@@ -122,7 +122,7 @@ Ten sam werset co element tablicy w rozdziale; `16.txt` to sam tekst (opcjonalni
   README.md
   data/                 # wygenerowane drzewo bg/1879/… (commitowane lub artifact CI)
   tools/import/         # upstream *.txt → data/ (JSON + TXT)
-  cli/                  # Rust: klient lokalnego drzewa / URL kanonicznych
+  tools/import-kjv/     # KJV JSON → data/kjv/1769
   web/                  # strona oparta na warstwie data/
 ```
 
@@ -132,27 +132,6 @@ Ten sam werset co element tablicy w rozdziale; `16.txt` to sam tekst (opcjonalni
 - KJV: `tools/import-kjv` ← submoduł `sources/bible-kjv` ([aruljohn/Bible-kjv](https://github.com/aruljohn/Bible-kjv); PD; linia 1769)
 
 UI KJV (styl 1611) — osobne dema w `demos/kjv-1611/` (WIP).
-
-## CLI (Rust)
-
-Przeznaczenie: programiści i agenci AI.
-
-Wymagania „zero dependency” w tym projekcie oznaczają:
-
-- **OK:** paczki Cargo
-- **Nie:** dynamiczne biblioteki systemowe poza standardowym libc, wywoływanie Bash / zewnętrznych programów jako część logiki narzędzia
-
-Preferowany tryb: czytanie lokalnego `data/` (to samo drzewo co na CDN). Opcjonalnie pobieranie kanonicznych URL-i przez HTTP (crate, nie `curl` w subprocessie).
-
-Szkic komend:
-
-```bash
-66ksiag books
-66ksiag get 43-joh 3 16
-66ksiag get jn 3 16 --json
-66ksiag chapter jn 3
-66ksiag path jn 3 16      # kanoniczna ścieżka / URL
-```
 
 ## Frontend (strona)
 
@@ -171,7 +150,7 @@ Szkic komend:
 ## Odkrywalność dla LLM
 
 - `llms.txt` w rootcie domeny i repo ([llmstxt.org](https://llmstxt.org))
-- `AGENTS.md` w repo — jak budować, importować, wołać CLI i API
+- `AGENTS.md` w repo — jak budować, importować tekst i czytać API
 - `manifest.json` wskazuje na `llms.txt` i `api_version`
 
 ## Licencja tekstu
@@ -196,7 +175,7 @@ Strona: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po koń
 
 ## Świadomie odłożone
 
-- Wyszukiwanie pełnotekstowe w CLI/API
+- Wyszukiwanie pełnotekstowe w API
 - Konta, sync, push między urządzeniami
 - ~~Pakiet do Google Play~~ → `android/` (Bubblewrap TWA, `pl.ksiag.app`); listing/Play App Signing fingerprint w konsoli
 - Opakowanie Capacitor / inne sklepy

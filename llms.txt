@@ -1,5 +1,5 @@
 # 66ksiąg
-> Biblia jako statyczne API (BG 1879 + KJV), CLI i strona. Aplikacja natywna jest w `android/`.
+> Biblia jako statyczne API (BG 1879 + KJV) i strona. Aplikacja natywna jest w `android/`.
 
 Wspólna numeracja KJV; BG zremapowana. Plan dzienny wspólny dla języków.
 
@@ -15,10 +15,6 @@ Wspólna numeracja KJV; BG zremapowana. Plan dzienny wspólny dla języków.
 - Werset: /{tr}/{ed}/{book}/{chapter}/{verse}.json|.txt
 
 Przykład: /kjv/1769/43-joh/3/16.txt
-
-## CLI
-- 66ksiag --edition kjv/1769 get john 3 16
-- 66ksiag --edition bg/1879 get jn 3 16 --json
 
 ## Zasady
 - Kanoniczne ID ksiąg (43-joh); ta sama siatka rozdziałów we wszystkich tłumaczeniach

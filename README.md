@@ -1,6 +1,6 @@
 # 66ksiąg
 
-Polska Biblia jako **statyczne API**, **CLI** i **strona**.
+Polska Biblia jako **statyczne API** i **strona**.
 
 - Architektura: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - Agenci: [AGENTS.md](./AGENTS.md)
@@ -25,10 +25,7 @@ cargo run -p ksiag-import-kjv --release -- \
   --out data \
   --commit "$(git -C sources/bible-kjv rev-parse HEAD)"
 
-# 3. CLI
-cargo run -p ksiag --release -- --data data get jn 3 16
-
-# 4. Strona lokalnie
+# 3. Strona lokalnie
 bash scripts/dev-serve.sh
 # → http://127.0.0.1:8787/
 ```
@@ -41,7 +38,7 @@ bash scripts/dev-serve.sh
 | `sources/bible-kjv/` | Submoduł tekstu KJV |
 | `data/bg/1879/` | Kanoniczne API (generowane importem) |
 | `tools/import/` | Rust: TXT źródła → `data/` |
-| `cli/` | Rust: `66ksiag books\|get\|chapter\|path` |
+| `tools/import-kjv/` | Rust: KJV → `data/kjv/1769` |
 | `web/` | Strona (miedzioryt UI) |
 | `worker/` | Krótkie aliasy URL (`/j/3/16` → `/czytaj/…`) |
 | `demos/` | Iteracje UI (referencja) |
