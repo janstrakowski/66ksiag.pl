@@ -3,10 +3,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 
+# Workers Builds checks out git only. Edition JSON is gitignored, so a clean
+# CI checkout has no books.json. WORKERS_CI=1 is set by Workers Builds.
+# Continue and publish web/ so wrangler deploy can replace the live HTML.
+# Local builds still stop, so a laptop deploy is not missing the text by accident.
 allow_missing="${PREVIEW_ALLOW_MISSING_DATA:-0}"
+if [[ "${WORKERS_CI:-}" == "1" ]]; then
+  allow_missing=1
+fi
 if [[ ! -f "$ROOT/data/bg/1879/books.json" ]]; then
   if [[ "$allow_missing" == "1" ]]; then
-    echo "Uwaga: brak data/bg/1879 — podgląd bez tekstu BG" >&2
+    echo "Uwaga: brak data/bg/1879 — dist bez tekstu BG. Deploy podmieni zestaw assetów." >&2
   else
     echo "Brak data/bg/1879 — najpierw: cargo run -p ksiag-import --release -- --source sources/biblia-druk-tekst/1879 --out data" >&2
     exit 1
@@ -14,7 +21,7 @@ if [[ ! -f "$ROOT/data/bg/1879/books.json" ]]; then
 fi
 if [[ ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
   if [[ "$allow_missing" == "1" ]]; then
-    echo "Uwaga: brak data/kjv/1769 — podgląd bez tekstu KJV" >&2
+    echo "Uwaga: brak data/kjv/1769 — dist bez tekstu KJV. Deploy podmieni zestaw assetów." >&2
   else
     echo "Brak data/kjv/1769 — najpierw: cargo run -p ksiag-import-kjv --release -- --source sources/bible-kjv --out data" >&2
     exit 1
