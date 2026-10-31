@@ -6,7 +6,7 @@
  * Supports two non-production upload modes:
  * 1. Internal App Sharing (`uploadBundleToInternalAppSharing`, default for all
  *    non-`main` branch builds):
- *    POST /upload/androidpublisher/v3/applications/${packageName}/internalappsharingartifacts/bundle?uploadType=media
+ *    POST /upload/androidpublisher/v3/applications/internalappsharing/${packageName}/artifacts/bundle?uploadType=media
  *    Returns `{ downloadUrl, certificateFingerprint, sha256 }` and optionally
  *    writes `dist/android-preview.json` so `https://<branch>.66ksiag.pl/android-preview.json`
  *    exposes the Play Store Internal App Sharing install link.
@@ -333,9 +333,9 @@ export async function uploadBundleToInternalAppSharing({
   }
 
   const accessToken = await fetchAccessToken(credentials, fetchImpl);
-  const uploadUrl = `${API_ROOT}/upload/androidpublisher/v3/applications/${encodeURIComponent(
+  const uploadUrl = `${API_ROOT}/upload/androidpublisher/v3/applications/internalappsharing/${encodeURIComponent(
     packageName
-  )}/internalappsharingartifacts/bundle?uploadType=media`;
+  )}/artifacts/bundle?uploadType=media`;
 
   logger.log(
     `[play-upload] Uploading AAB (${(aabBytes.length / (1024 * 1024)).toFixed(

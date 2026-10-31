@@ -83,7 +83,7 @@ describe("Google Play Internal App Sharing & Internal Testing uploader", () => {
       }
       if (
         url ===
-          "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/com.jastrakowski.sixsixksiag/internalappsharingartifacts/bundle?uploadType=media" &&
+          "https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/internalappsharing/com.jastrakowski.sixsixksiag/artifacts/bundle?uploadType=media" &&
         init.method === "POST"
       ) {
         expect(init.headers["content-type"]).toBe("application/octet-stream");

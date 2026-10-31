@@ -2,6 +2,27 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
+HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+BUILD_STAMP="$ROOT/node_modules/.cache/ksiag-dist-build-sha"
+
+# In Cloudflare Workers Builds, `npm run build` runs this script first, and then
+# `npx wrangler deploy` / `npx wrangler preview` invokes `[build]` from
+# wrangler.toml a second time. Skip the redundant rebuild if `dist/` was already
+# built for this exact commit in the current CI job.
+if [[ "${WORKERS_CI:-0}" == "1" && "${FORCE_BUILD_DIST:-0}" != "1" ]]; then
+  if [[ -f "$BUILD_STAMP" && "$(cat "$BUILD_STAMP" 2>/dev/null || true)" == "$HEAD_SHA" ]] \
+    && [[ -f "$DIST/index.html" && -f "$DIST/audio-catalog.json" && -f "$DIST/bg/1879/books.json" && -f "$DIST/kjv/1769/books.json" ]]; then
+    echo "dist już gotowe dla commita ${HEAD_SHA:0:7} — pomijam ponowny przebieg."
+    exit 0
+  fi
+fi
+
+# Preserve an already generated dist/android-preview.json for the current commit
+# across `rm -rf "$DIST"` so a second build pass never wipes the Play Store link.
+SAVED_ANDROID_PREVIEW=""
+if [[ -f "$DIST/android-preview.json" ]] && grep -q "\"commit\": \"${HEAD_SHA}\"" "$DIST/android-preview.json" 2>/dev/null; then
+  SAVED_ANDROID_PREVIEW="$(cat "$DIST/android-preview.json")"
+fi
 
 # 1. Generate BG and KJV edition JSON from the git submodules in sources/ if missing.
 if [[ ! -f "$ROOT/data/bg/1879/books.json" || ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
@@ -31,6 +52,10 @@ fi
 
 rm -rf "$DIST"
 mkdir -p "$DIST"
+
+if [[ -n "$SAVED_ANDROID_PREVIEW" ]]; then
+  printf '%s\n' "$SAVED_ANDROID_PREVIEW" > "$DIST/android-preview.json"
+fi
 
 cp -a "$ROOT/web/." "$DIST/"
 mkdir -p "$DIST/bg" "$DIST/kjv"
@@ -105,6 +130,11 @@ test -f "$DIST/audio-catalog.json" || {
 if [[ "${SKIP_ANDROID_PLAY_UPLOAD:-0}" != "1" && -f "$ROOT/scripts/android-play-internal.sh" ]]; then
   PLAY_PREVIEW_METADATA_OUT="$DIST/android-preview.json" \
     bash "$ROOT/scripts/android-play-internal.sh" --if-non-main-branch
+fi
+
+if [[ -d "$ROOT/node_modules" ]]; then
+  mkdir -p "$(dirname "$BUILD_STAMP")"
+  printf '%s' "$HEAD_SHA" > "$BUILD_STAMP"
 fi
 
 file_n=$(find "$DIST" -type f | wc -l | tr -d ' ')

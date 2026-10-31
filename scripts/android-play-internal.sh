@@ -22,7 +22,7 @@ for arg in "$@"; do
 done
 
 detect_branch() {
-  local ref="${CF_PAGES_BRANCH:-${WORKERS_CI_BRANCH:-${ORIGIN_REF_NAME:-${GITHUB_REF_NAME:-${CI_COMMIT_REF_NAME:-${BUILDKITE_BRANCH:-}}}}}}"
+  local ref="${WORKERS_CI_BRANCH:-${CF_PAGES_BRANCH:-${ORIGIN_REF_NAME:-${GITHUB_REF_NAME:-${CI_COMMIT_REF_NAME:-${BUILDKITE_BRANCH:-}}}}}}"
   if [[ -z "$ref" ]]; then
     local raw="${ORIGIN_REF:-${GITHUB_REF:-${CI_COMMIT_REF:-}}}"
     case "$raw" in
@@ -37,11 +37,10 @@ detect_branch() {
     head_sha="$(git rev-parse HEAD 2>/dev/null || echo "")"
     if [[ -n "$head_sha" ]]; then
       if git show-ref --verify --quiet refs/remotes/origin/main && [[ "$head_sha" == "$(git rev-parse refs/remotes/origin/main)" ]]; then
-        if ! git show-ref --verify --quiet refs/remotes/origin/dev || [[ "$head_sha" != "$(git rev-parse refs/remotes/origin/dev)" ]]; then
-          ref="main"
-        fi
-      fi
-      if [[ "$ref" == "HEAD" ]]; then
+        ref="main"
+      elif git show-ref --verify --quiet refs/remotes/origin/master && [[ "$head_sha" == "$(git rev-parse refs/remotes/origin/master)" ]]; then
+        ref="master"
+      else
         local remote_match
         remote_match="$(git for-each-ref --format='%(objectname) %(refname:lstrip=3)' refs/remotes/origin | awk -v sha="$head_sha" '$1 == sha && $2 != "HEAD" && $2 != "main" && $2 != "master" { print $2; exit }')"
         if [[ -n "$remote_match" ]]; then
@@ -54,9 +53,15 @@ detect_branch() {
 }
 
 CURRENT_BRANCH="$(detect_branch)"
+METADATA_OUT="${PLAY_PREVIEW_METADATA_OUT:-$ROOT/dist/android-preview.json}"
+FULL_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
 if [[ "$IF_PREVIEW_BRANCH" == "1" ]]; then
   if [[ -z "$CURRENT_BRANCH" || "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" || "$CURRENT_BRANCH" == "HEAD" ]]; then
+    exit 0
+  fi
+  if [[ -f "$METADATA_OUT" ]] && grep -q "\"commit\": \"${FULL_SHA}\"" "$METADATA_OUT" 2>/dev/null; then
+    echo "[play-internal] Android preview metadata already built for commit ${FULL_SHA}; skipping duplicate upload."
     exit 0
   fi
   # Load local android/secrets/keystore.env if present.
@@ -106,7 +111,6 @@ if [[ "$UPLOAD_MODE" == "track" ]]; then
   export PLAY_QUERY_REMOTE_VERSION_CODE=1
 fi
 NEXT_VERSION_CODE="$(node "$ROOT/scripts/play-upload-internal.mjs" --next-version-code)"
-FULL_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 SHORT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo dev)"
 SAFE_BRANCH="$(printf '%s' "${CURRENT_BRANCH:-dev}" | tr -c 'A-Za-z0-9._-' '-')"
 SAFE_BRANCH="${SAFE_BRANCH#-}"
@@ -115,15 +119,13 @@ export KSIAG_VERSION_CODE="$NEXT_VERSION_CODE"
 export KSIAG_VERSION_NAME="${KSIAG_VERSION_NAME:-2.0.${NEXT_VERSION_CODE}-${SAFE_BRANCH}.${SHORT_SHA}}"
 
 echo "[play-internal] Building signed release AAB (branch=${CURRENT_BRANCH}, package=com.jastrakowski.sixsixksiag, versionCode=${KSIAG_VERSION_CODE}, versionName=${KSIAG_VERSION_NAME})…"
-bash "$ROOT/scripts/android-build.sh"
+KSIAG_BUNDLE_ONLY=1 bash "$ROOT/scripts/android-build.sh" --bundle-only
 
 AAB_PATH="$ROOT/android/app-release-bundle.aab"
 if [[ ! -f "$AAB_PATH" ]]; then
   echo "[play-internal] Expected AAB not found at $AAB_PATH" >&2
   exit 1
 fi
-
-METADATA_OUT="${PLAY_PREVIEW_METADATA_OUT:-$ROOT/dist/android-preview.json}"
 
 if [[ "$UPLOAD_MODE" == "track" ]]; then
   RELEASE_NAME="${PLAY_RELEASE_NAME:-${KSIAG_VERSION_NAME}}"

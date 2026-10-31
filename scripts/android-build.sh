@@ -7,6 +7,13 @@ ROOT="${KSIAG_ROOT:-$SCRIPT_ROOT}"
 # Prefer env helpers from the script's repo (harness main tree), not a stale worktree copy.
 source "$SCRIPT_ROOT/scripts/android-env.sh"
 
+BUNDLE_ONLY="${KSIAG_BUNDLE_ONLY:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    --bundle-only) BUNDLE_ONLY=1 ;;
+  esac
+done
+
 # Ensure Bible JSON in data/ exists before Gradle syncBibleAssets runs.
 if [[ ! -f "$ROOT/data/bg/1879/books.json" || ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
   echo "Generowanie tekstu wydań z submodułów w sources/…"
@@ -33,7 +40,20 @@ trap cleanup_keystore EXIT
 
 ksiag_ensure_android_sdk
 
-GRADLE_ARGS=(assembleRelease bundleRelease)
+if [[ "$BUNDLE_ONLY" == "1" ]]; then
+  GRADLE_ARGS=(bundleRelease)
+else
+  GRADLE_ARGS=(assembleRelease bundleRelease)
+fi
+
+if [[ "${WORKERS_CI:-0}" == "1" || "${CI:-0}" == "1" ]]; then
+  GRADLE_ARGS+=(
+    "--no-daemon"
+    "-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m"
+    "-Dkotlin.daemon.jvmargs=-Xmx1024m"
+  )
+fi
+
 if [[ -n "${KSIAG_VERSION_CODE:-${ANDROID_VERSION_CODE:-}}" ]]; then
   GRADLE_ARGS+=("-PksiagVersionCode=${KSIAG_VERSION_CODE:-${ANDROID_VERSION_CODE}}")
 fi
@@ -43,19 +63,25 @@ fi
 
 cd "$ROOT/android"
 ./gradlew "${GRADLE_ARGS[@]}"
-APK="app/build/outputs/apk/release/app-release.apk"
 AAB="app/build/outputs/bundle/release/app-release.aab"
-APKSIGNER="$ANDROID_HOME/build-tools/36.1.0/apksigner"
-if ! "$APKSIGNER" verify "$APK" >/dev/null 2>&1; then
-  echo "APK nie jest podpisany. W android/secrets/keystore.env lub zmiennych CI ustaw ANDROID_KEYSTORE_PASSWORD / KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD / KEY_PASSWORD i ANDROID_KEY_ALIAS / KEY_ALIAS (alias: android)." >&2
-  exit 1
-fi
 if ! "$JAVA_HOME/bin/jarsigner" -verify "$AAB" >/dev/null 2>&1; then
   echo "AAB nie jest podpisany." >&2
   exit 1
 fi
-cp "$APK" "$ROOT/android/app-release-signed.apk"
 cp "$AAB" "$ROOT/android/app-release-bundle.aab"
-ls -lh "$ROOT/android/app-release-signed.apk" "$ROOT/android/app-release-bundle.aab"
-echo "APK: $ROOT/android/app-release-signed.apk"
-echo "AAB (Play): $ROOT/android/app-release-bundle.aab"
+
+if [[ "$BUNDLE_ONLY" == "1" ]]; then
+  ls -lh "$ROOT/android/app-release-bundle.aab"
+  echo "AAB (Play): $ROOT/android/app-release-bundle.aab"
+else
+  APK="app/build/outputs/apk/release/app-release.apk"
+  APKSIGNER="$ANDROID_HOME/build-tools/36.1.0/apksigner"
+  if ! "$APKSIGNER" verify "$APK" >/dev/null 2>&1; then
+    echo "APK nie jest podpisany. W android/secrets/keystore.env lub zmiennych CI ustaw ANDROID_KEYSTORE_PASSWORD / KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD / KEY_PASSWORD i ANDROID_KEY_ALIAS / KEY_ALIAS (alias: android)." >&2
+    exit 1
+  fi
+  cp "$APK" "$ROOT/android/app-release-signed.apk"
+  ls -lh "$ROOT/android/app-release-signed.apk" "$ROOT/android/app-release-bundle.aab"
+  echo "APK: $ROOT/android/app-release-signed.apk"
+  echo "AAB (Play): $ROOT/android/app-release-bundle.aab"
+fi
