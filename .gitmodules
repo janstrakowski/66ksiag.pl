@@ -2,7 +2,9 @@
 	path = sources/biblia-druk-tekst
 	url = https://github.com/UczenJezusa/biblia-druk-tekst.git
 	branch = main
+	update = none
 [submodule "sources/bible-kjv"]
 	path = sources/bible-kjv
 	url = https://github.com/aruljohn/Bible-kjv.git
 	branch = master
+	update = none

@@ -19,4 +19,4 @@ Przykład: /kjv/1769/43-joh/3/16.txt
 ## Zasady
 - Kanoniczne ID ksiąg (43-joh); ta sama siatka rozdziałów we wszystkich tłumaczeniach
 - Cytując: podaj tłumaczenie + księga + rozdział + werset
-- Źródła: `sources/biblia-druk-tekst` (BG 1879), `sources/bible-kjv` (aruljohn/Bible-kjv). `git submodule update --init`
+- Źródła: `sources/biblia-druk-tekst` (BG 1879), `sources/bible-kjv` (aruljohn/Bible-kjv). `git submodule update --init --checkout`

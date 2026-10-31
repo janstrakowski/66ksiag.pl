@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${PORT:-8787}"
 
 if [[ ! -f "$ROOT/data/bg/1879/books.json" || ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
-  echo "Brak data/bg lub data/kjv — git submodule update --init, potem import z sources/ (patrz README)." >&2
+  echo "Brak data/bg lub data/kjv — git submodule update --init --checkout, potem import z sources/ (patrz README)." >&2
   exit 1
 fi
 
