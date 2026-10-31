@@ -92,7 +92,8 @@ Jeden przycisk. `x` to rozdziały już zapisane lokalnie, `N` to cały katalog. 
 
 ```bash
 bash scripts/dev-serve.sh          # http://127.0.0.1:8787
-npm run build && npx wrangler deploy
+npm run build && npx wrangler deploy   # production (66ksiag.pl) — Pi hook on main
+bash ci/preview-deploy.sh              # Workers Preview for branch dev only
 ```
 
 ## Harness (local tickets)

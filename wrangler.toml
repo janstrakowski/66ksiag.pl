@@ -24,3 +24,8 @@ directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
+
+# Branch previews (`npx wrangler preview`). Not read by `wrangler deploy`.
+# Previews do not inherit routes or the SYNC KV namespace, and they do not
+# take over 66ksiag.pl. Stable dev URL: https://dev-ksiag.<subdomain>.workers.dev
+[previews]

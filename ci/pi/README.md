@@ -1,5 +1,9 @@
 # Pi CI — deploy `main` to production
 
+This hook is the production path. It deploys only when `main` moves, via `wrangler deploy`, onto `66ksiag.pl`.
+
+Pushes to the long-lived `dev` branch do not come through here. They publish a Workers Preview (`npx wrangler preview --name dev`) from `ci/preview-deploy.sh`. That preview URL is `https://dev-ksiag.<account-subdomain>.workers.dev` and does not take over `66ksiag.pl`.
+
 The laptop pushes `origin` `main` (after merging a feature worktree; `drukarka:git/66ksiag-project.git`).  
 This directory is the **Pi-side** hook that builds and deploys on every update to `main`, plus rollback.
 

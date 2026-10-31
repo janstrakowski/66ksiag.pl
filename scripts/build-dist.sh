@@ -3,13 +3,22 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 
+allow_missing="${PREVIEW_ALLOW_MISSING_DATA:-0}"
 if [[ ! -f "$ROOT/data/bg/1879/books.json" ]]; then
-  echo "Brak data/bg/1879 — najpierw import BG" >&2
-  exit 1
+  if [[ "$allow_missing" == "1" ]]; then
+    echo "Uwaga: brak data/bg/1879 — podgląd bez tekstu BG" >&2
+  else
+    echo "Brak data/bg/1879 — najpierw import BG" >&2
+    exit 1
+  fi
 fi
 if [[ ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
-  echo "Brak data/kjv/1769 — najpierw: cargo run -p ksiag-import-kjv --release -- --source … --out data" >&2
-  exit 1
+  if [[ "$allow_missing" == "1" ]]; then
+    echo "Uwaga: brak data/kjv/1769 — podgląd bez tekstu KJV" >&2
+  else
+    echo "Brak data/kjv/1769 — najpierw: cargo run -p ksiag-import-kjv --release -- --source … --out data" >&2
+    exit 1
+  fi
 fi
 
 rm -rf "$DIST"

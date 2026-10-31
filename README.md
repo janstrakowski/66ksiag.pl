@@ -53,6 +53,27 @@ npm run deploy   # build dist/ + wrangler deploy
 
 Wymaga wcześniejszego `data/`. Worker serwuje assety i przekierowuje krótkie aliasy.
 
+`npm run deploy` idzie na produkcję (`66ksiag.pl`). Na Pi robi to hook `ci/pi` przy pushu `main`. Nie używaj go do podglądu.
+
+## Podgląd `dev` (nie produkcja)
+
+Push na długożyciowy branch `dev` uruchamia Origin CI (`origin.ci.ts`). Job buduje `dist/` i woła wyłącznie `npx wrangler preview --name dev` (`ci/preview-deploy.sh`). To nie jest `wrangler deploy` i nie przejmuje tras `66ksiag.pl`.
+
+Stabilny URL podglądu (zawsze ostatni push na `dev`):
+
+`https://dev-ksiag.<subdomena-konta>.workers.dev`
+
+Każde wdrożenie podglądu dostaje też niezmienny URL: `https://<id-wdrożenia>-ksiag.<subdomena-konta>.workers.dev`.
+
+Sekrety trzeba dodać w Origin (wartości nie leżą w gicie). Job czyta je przez `secret()` i przekazuje Wranglerowi:
+
+| Nazwa | Znaczenie |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Token API z uprawnieniem edycji Workers Scripts |
+| `CLOUDFLARE_ACCOUNT_ID` | Identyfikator konta Cloudflare |
+
+Tekst wydań (`data/bg`, `data/kjv` poza LFS) nie jest w tym commicie. Dopóki go nie ma w checkoutcie, podgląd serwuje samą PWA; rozdziały pojawią się, gdy tekst będzie w drzewie (np. submoduły).
+
 ## URL-e
 
 - UI: `/`, `/ksiegi`, `/czytaj/43-joh/3/16`
