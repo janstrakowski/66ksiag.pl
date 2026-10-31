@@ -9,7 +9,7 @@ export const EDITIONS = [
     title: "Biblia Gdańska",
     titleEn: "Gdańsk Bible",
     short: "BG 1879",
-    path: "/bg/1879",
+    path: "/api/bg",
     theme: "theme-bg",
   },
   {
@@ -20,7 +20,7 @@ export const EDITIONS = [
     title: "King James Version",
     titleEn: "King James Version",
     short: "KJV",
-    path: "/kjv/1769",
+    path: "/api/kjv",
     theme: "theme-kjv",
     audio: true, // Alexander Scourby — tylko KJV
   },

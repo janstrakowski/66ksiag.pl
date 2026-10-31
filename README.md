@@ -101,4 +101,4 @@ Klonowanie w Workers Builds idzie przez git-proxy z nagłówkiem `Authorization`
 
 - UI: `/`, `/ksiegi`, `/czytaj/43-joh/3/16`
 - Krótko: `/j/3/16`, `/jn/3/16`, `/jan/3/16`
-- API: `/bg/1879/43-joh/3.json`, `/bg/1879/43-joh/3/16.txt`
+- API: `/api/bg/43-joh/3.json`, `/api/bg/43-joh/3.txt`, `/api/kjv/43-joh/3` (ten sam MP3 co `/kjv/1769/43-joh/3.mp3`), `/api/bg/43-joh/3/16.json`, `/api/bg/43-joh/3/16.txt`, `/api/kjv/43-joh/3/16` (audio wersetu). Brak księgi lub wersetu → 404

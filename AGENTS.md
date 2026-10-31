@@ -20,14 +20,20 @@ Statyczne API Biblii (BG 1879 + KJV) i strona. Warstwa plików w `data/` jest ź
 
 ```
 /translations.json
-/bg/1879/…   /kjv/1769/…
-/{tr}/{ed}/manifest.json
-/{tr}/{ed}/books.json
-/{tr}/{ed}/{book}/{chapter}.json|.txt
-/{tr}/{ed}/{book}/{chapter}/{verse}.json|.txt
+/api/bg/…   /api/kjv/…
+/api/{bg|kjv}/manifest.json
+/api/{bg|kjv}/books.json
+/api/{bg|kjv}/{book}/{chapter}.json
+/api/{bg|kjv}/{book}/{chapter}.txt
+/api/{bg|kjv}/{book}/{chapter}                 # ten sam MP3 co /kjv/1769/…/*.mp3
+/api/{bg|kjv}/{book}/{chapter}/{verse}.json
+/api/{bg|kjv}/{book}/{chapter}/{verse}.txt
+/api/{bg|kjv}/{book}/{chapter}/{verse}         # audio wersetu, wycięte z MP3
 ```
 
-`{book}` = np. `43-joh`. Aliasy w `books.json`.
+`{book}` = np. `43-joh`. Aliasy w `books.json`. Wydanie (`1879`, `1769`) nie wchodzi do URL — jest w JSON.
+
+Upload zostaje pod `/bg/1879` i `/kjv/1769`: JSON rozdziału, `.words.json` i MP3 rozdziału. Bez `.txt` i bez plików per-werset (limit 20 000 plików). MP3 KJV są Static Assets; hash LFS bierze się z `audio-assets-manifest.json`. Worker składa tekst i wycina audio wersetu. Brak księgi, rozdziału albo wersetu na `/api/…` to HTTP 404, nie skorupa strony.
 
 ## Import tekstu
 

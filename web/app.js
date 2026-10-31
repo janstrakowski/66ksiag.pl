@@ -46,7 +46,7 @@ const audioPlayBtn = () => document.getElementById("audio-play-btn");
 const audioStopBtn = () => document.getElementById("audio-stop-btn");
 
 function editionPath() {
-  return edition?.path || "/bg/1879";
+  return edition?.path || "/api/bg";
 }
 
 function editionLabel() {
@@ -428,7 +428,7 @@ async function renderReader(route) {
     back.href = "/ksiegi";
     back.textContent = copy.backBooks;
     document.getElementById("share-btn").textContent = copy.share;
-    setCanonical(route.verse ? `${canonPath}/${route.verse}` : canonPath);
+    setCanonical(route.verse ? `${canonPath}/${route.verse}.txt` : `${canonPath}.txt`);
     if (location.pathname !== nice) {
       history.replaceState(null, "", nice);
     }
@@ -568,7 +568,7 @@ document.getElementById("reader").addEventListener("click", async (e) => {
     li.classList.add("is-sel");
     const path = `/czytaj/${ctx.book.id}/${ctx.chapter}/${n}`;
     history.replaceState(null, "", path);
-    setCanonical(`${editionPath()}/${ctx.book.id}/${ctx.chapter}/${n}`);
+    setCanonical(`${editionPath()}/${ctx.book.id}/${ctx.chapter}/${n}.txt`);
     return;
   }
 
