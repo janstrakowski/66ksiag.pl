@@ -66,9 +66,9 @@ W `wrangler.toml` jest konto `86e0b7dbeec0ebfff2333c8e8c4087fb` (`account_id`). 
 | Preview command | `npx wrangler preview` |
 | Preview builds | włączone |
 
-Push na `main` uruchamia build, potem `npx wrangler deploy`. Trasy zostają `66ksiag.pl/*` i `www.66ksiag.pl/*`.
+Push na `main` uruchamia build, potem `npx wrangler deploy`. To tworzy Custom Domains `66ksiag.pl` i `www.66ksiag.pl` oraz wildcard `*.66ksiag.pl`.
 
-Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje tras `66ksiag.pl/*` ani `www.66ksiag.pl/*`. Custom domain na `66ksiag.pl` ma `enabled = false` i `previews_enabled = true`, więc produkcja zostaje na trasach strefy, a podgląd idzie na `<branch>.66ksiag.pl`.
+Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje produkcji. Podgląd idzie na `<branch>.66ksiag.pl`.
 
 Podgląd brancha `dev`:
 
@@ -76,11 +76,12 @@ Podgląd brancha `dev`:
 
 Niezmienny URL jednego wdrożenia: `https://<id>-dev.66ksiag.pl`.
 
+Rekordy A (`66ksiag.pl`, `www`, `*.66ksiag.pl`) są usunięte. Dopóki najbliższy deploy produkcji nie zapisze Custom Domains, te nazwy się nie rozwiązują. `https://66ksiag.janstrakowski.workers.dev` zostaje. Nie dodawaj z powrotem rekordu A na `*.66ksiag.pl` — Cloudflare odrzuca taki wildcard jako zarządzany z zewnątrz (błąd **100117**).
+
 `npm run build` (`scripts/build-dist.sh`):
 1. Inicjalizuje submoduły w `sources/` i generuje `data/bg/1879` oraz `data/kjv/1769` (`scripts/import-editions.mjs`).
-2. Pobiera `data/kjv/1769/*/*.words.json` z Git LFS.
-3. Sprawdza sumy SHA-256 wskaźników Git LFS dla `data/kjv/1769/*/*.mp3` względem manifestu `_meta/lfs-manifest.json` w koszyku R2 `66ksiag-audio` (`scripts/sync-r2-audio.mjs`). Zmienione lub brakujące MP3 pobiera z LFS paczkami po `N` (domyślnie 40), wysyła do R2 i od razu usuwa z dysku przed kolejną paczką.
-4. Składa `dist/` (powłoka `web/` + JSON rozdziałów + `.words.json`), a Worker serwuje `/kjv/1769/{book}/{chapter}.mp3` bezpośrednio z R2 (`env.AUDIO`).
+2. Składa `dist/` (powłoka `web/` + JSON rozdziałów + `.words.json` + wskaźniki MP3).
+3. `npm install` patchuje wranglera 4.149. Przy deployu wskaźnik MP3 dostaje hash z `data/kjv/1769/audio-assets-manifest.json`. Cloudflare dociąga tylko brakujące rozdziały; reszta jest już na krawędzi jako Static Assets.
 
 Lokalne `npm run deploy` nadal robi `wrangler deploy` na tej maszynie. Automatyczna ścieżka to Workers Builds.
 

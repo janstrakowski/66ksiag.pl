@@ -8,35 +8,32 @@ preview_urls = true
 
 # Workers Builds does not read a build command from this file. The deploy
 # command does: `npx wrangler deploy` runs [build] before upload, so a push
-# still publishes web/ + edition JSON + R2 audio when the dashboard build
-# command is empty.
+# still publishes the site when the dashboard build command is empty.
 # In the app, production branch must be main.
 #   build command:     npm run build
 #   deploy command:    npx wrangler deploy
 #   preview command:   npx wrangler preview
 # Pushes to main deploy production. Every other branch, including dev,
 # runs wrangler preview and does not take the production routes.
+# npm install patches wrangler 4.149 so Git LFS pointer MP3s upload as
+# Static Assets under the hashes in audio-assets-manifest.json.
 
 [build]
 command = "bash scripts/build-dist.sh"
 
-# Apex i www zostają trasami strefy. To nie są Custom Domains.
-[[routes]]
-pattern = "66ksiag.pl/*"
-zone_name = "66ksiag.pl"
-
-[[routes]]
-pattern = "www.66ksiag.pl/*"
-zone_name = "66ksiag.pl"
-
-# Preview hostnames are <branch>.66ksiag.pl. enabled = false so this custom
-# domain does not receive production traffic. Branch dev:
-# https://dev.66ksiag.pl
+# Custom Domains create the DNS records. Apex and www were A records to
+# 85.128.128.104; those are gone, so zone routes no longer have a hostname
+# to attach to. The next `wrangler deploy` publishes:
+#   66ksiag.pl, www.66ksiag.pl, and *.66ksiag.pl for branch previews.
+# Branch dev: https://dev.66ksiag.pl
 [[routes]]
 pattern = "66ksiag.pl"
 custom_domain = true
 previews_enabled = true
-enabled = false
+
+[[routes]]
+pattern = "www.66ksiag.pl"
+custom_domain = true
 
 # Postęp planu: identyfikator slotu → szyfrogram ≤ 64 B.
 # Odczyt i zapis wymagają podpisu Ed25519. Klucz publiczny leży pod pub:{id}.
@@ -44,23 +41,12 @@ enabled = false
 binding = "SYNC"
 id = "99a40bb27a764d839669293aea208e8f"
 
-# Audio KJV (Scourby) синхronizowane w paczkach z Git LFS → R2.
-[[r2_buckets]]
-binding = "AUDIO"
-bucket_name = "66ksiag-audio"
-
+# Chapter MP3s are Static Assets. They are not routed through the Worker.
+# Previews do not inherit SYNC, so a branch preview cannot read or write
+# the production KV namespace.
 [assets]
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
-run_worker_first = ["/kjv/1769/*/*.mp3", "/api/*", "/sw.js", "/manifest.webmanifest"]
-
-# Previews do not inherit production bindings. Leave SYNC off this block so a
-# preview cannot read or write the production KV namespace, but bind the
-# read-only R2 audio bucket so previews can stream KJV audio.
-[previews]
-
-[[previews.r2_buckets]]
-binding = "AUDIO"
-bucket_name = "66ksiag-audio"
+run_worker_first = ["/api/*", "/sw.js", "/manifest.webmanifest"]

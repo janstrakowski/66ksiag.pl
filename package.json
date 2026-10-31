@@ -3,6 +3,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
+    "postinstall": "node scripts/patch-wrangler-assets.mjs",
     "build": "bash scripts/build-dist.sh",
     "dev": "bash scripts/dev-serve.sh",
     "deploy": "npm run build && npx wrangler deploy",
@@ -22,6 +23,6 @@
     "jsdom": "^29.0.1",
     "playwright": "^1.58.2",
     "vitest": "^4.1.2",
-    "wrangler": "^4.135.0"
+    "wrangler": "4.149.0"
   }
 }

@@ -47,20 +47,23 @@ cargo run -p ksiag-import-kjv --release -- \
 
 ## Audio KJV (Scourby) — self-hosted (Git LFS)
 
-KJV `data/kjv/1769/**/*.mp3` i `*.words.json` są w **Git LFS**. Tekst wydań w `data/` jest generowany z submodułów w `sources/`.
+KJV `data/kjv/1769/**/*.mp3` są w **Git LFS**. `*.words.json` są zwykłymi plikami gita (Workers Builds nie pobiera LFS). Tekst wydań w `data/` jest generowany z submodułów w `sources/`.
 
 ```bash
 python3 tools/audio-kjv/fetch_scourby.py
 # Do commita LFS potrzebne prawdziwe pliki (nie symlinki):
 python3 tools/audio-kjv/install_layout.py          # copy → data/kjv/1769/{book}/{ch}.mp3
 python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json (commit)
-git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
+node tools/audio-kjv/build_assets_manifest.mjs     # → data/kjv/1769/audio-assets-manifest.json
+git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json data/kjv/1769/audio-assets-manifest.json
 ```
 
-W czasie buildu (`scripts/build-dist.sh`) `scripts/sync-r2-audio.mjs` porównuje sumy SHA-256 wskaźników Git LFS z manifestem `_meta/lfs-manifest.json` w koszyku R2 `66ksiag-audio` i wysyła zmienione lub brakujące MP3 paczkami po `N` plików, usuwając każdą paczkę z dysku przed kolejną.
+`audio-assets-manifest.json` trzyma sha256 z wskaźnika LFS i hash Static Assets (`blake3(base64 + "mp3")`, 32 znaki hex). Po zmianie bajtów MP3 trzeba go przebudować i zacommitować. W czasie deployu wrangler wstawia ten hash zamiast hashowania wskaźnika. Cloudflare prosi tylko o brakujące hashe; te rozdziały są dociągane (lokalnie `git lfs pull`, w Builds z hosta public-domain) i usuwane z dysku po wysłaniu.
 
-Strona odtwarza `/kjv/1769/…/*.mp3` strumieniowo z tego samego originu (Worker serwuje je z R2 `env.AUDIO`). Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
-Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + `.words.json` (bez `.txt` i per-verse — limit Workers Assets).
+Strona odtwarza `/kjv/1769/…/*.mp3` z Workers Static Assets na tym samym originie. Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
+Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + `.words.json` + wskaźniki MP3 (bez `.txt` i per-verse — limit Workers Assets).
+
+Podgląd brancha to `https://<branch>.66ksiag.pl`. Apex, www i ten wildcard są Custom Domains; tworzy je `wrangler deploy`. Nie przywracaj rekordu A `*.66ksiag.pl`.
 
 ### Pobieranie audio w Androidzie
 
@@ -97,7 +100,7 @@ npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OP
 - Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
 - Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
 - Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
-- Production deploy: Workers Builds on `main` (`npx wrangler deploy`) to Worker `66ksiag` → `https://66ksiag.pl` and `https://www.66ksiag.pl`. Preview: `npx wrangler preview` on `dev` → `https://dev.66ksiag.pl`. The apex custom domain is preview-only (`enabled = false`).
+- Production deploy: Workers Builds on `main` (`npx wrangler deploy`) to Worker `66ksiag`. Custom Domains: `https://66ksiag.pl`, `https://www.66ksiag.pl`, and `https://<branch>.66ksiag.pl` for every other branch (`dev` → `https://dev.66ksiag.pl`).
 
 ## Testy
 

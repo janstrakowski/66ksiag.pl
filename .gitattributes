@@ -7,9 +7,8 @@
 *.otf filter=lfs diff=lfs merge=lfs -text
 *.woff filter=lfs diff=lfs merge=lfs -text
 *.woff2 filter=lfs diff=lfs merge=lfs -text
-*.words.json filter=lfs diff=lfs merge=lfs -text
 *.mp3 filter=lfs diff=lfs merge=lfs -text
 
-# Fonts and icons for the site are normal git files. Workers Builds can
-# deploy the shell without downloading Git LFS. Audio under data/ stays in LFS.
+# Fonts, icons, and KJV word timings are normal git files. Workers Builds
+# cannot download Git LFS through its git-proxy. Chapter MP3s stay in LFS.
 web/** -filter -diff -merge
