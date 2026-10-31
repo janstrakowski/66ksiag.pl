@@ -126,7 +126,7 @@ Google Play Developer API pozwala na automatyczne wgrywanie kolejnych wydań dop
 
 Przy każdym pushu na dowolną gałąź inną niż `main` (`dev`, gałęzie PR itd.):
 - `scripts/build-dist.sh` (uruchamiany w Cloudflare Workers Builds przed wczytaniem manifestu `dist/` przez Wranglera) wywołuje `bash scripts/android-play-internal.sh --if-non-main-branch`.
-- Skrypt buduje podpisany `android/app-release-bundle.aab` i wysyła go do **Google Play Internal App Sharing** (`POST /upload/androidpublisher/v3/applications/com.jastrakowski.sixsixksiag/internalappsharingartifacts/bundle?uploadType=media`).
+- Skrypt buduje podpisany `android/app-release-bundle.aab` i wysyła go do **Google Play Internal App Sharing** (`POST /upload/androidpublisher/v3/applications/internalappsharing/com.jastrakowski.sixsixksiag/artifacts/bundle?uploadType=media`).
 - Zwrócony link `downloadUrl` jest wypisywany w logu builda oraz zapisywany do `dist/android-preview.json` (`{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`), dzięki czemu podgląd każdej gałęzi udostępnia go pod adresem `https://<branch>.66ksiag.pl/android-preview.json` (np. `https://dev.66ksiag.pl/android-preview.json`).
 - Jednorazowe ustawienie w Play Console: **Test and release → Setup → Internal app sharing**:
   - **Manage uploaders**: dodaj adres e-mail konta usługowego (`ksiag-play-internal-ci@...iam.gserviceaccount.com`) lub zaznacz **Anyone you shared the link with can upload**.
