@@ -1,4 +1,4 @@
-/** Minimal books list for plan/audio unit tests (shared KJV grid). */
+/** Minimal books list for unit tests (shared KJV grid). */
 
 export function miniBooks() {
   return [

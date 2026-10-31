@@ -11,9 +11,7 @@ Hosting docelowy: **Cloudflare Workers + Static Assets**.
 
 Wszystkie tłumaczenia w tym projekcie używają **tej samej siatki rozdział/werset** (protestancka / KJV) i tych samych ID ksiąg (`01-gen` … `66-apo`).
 
-BG jest **przemapowana na numerację KJV**. Kolejne wersje też muszą być zremapowane — inaczej wspólny plan dzienny i przełączanie języka dają „dziwne akcje” (zaliczanie innego fragmentu).
-
-Plan dzienny jest **jeden na użytkownika**: zaliczenie rozdziału w BG lub KJV trafia do tej samej quoty (`bookId/chapter`).
+BG jest **przemapowana na numerację KJV**. Kolejne wersje też muszą być zremapowane — inaczej przełączanie języka daje inny fragment.
 
 ## Zasada: dwie warstwy
 
@@ -145,7 +143,6 @@ UI KJV (styl 1611) — osobne dema w `demos/kjv-1611/` (WIP).
 - Nowy deploy: **Workers + Static Assets** (nie nowy projekt Pages)
 - Statyczne pliki z `data/` + build `web/`
 - Aliasów krótkich można dograć Worker handlerem (rewrite) albo regułami hostingu; treść zawsze z tych samych plików
-- D1 / R2 / konta użytkowników — dopiero gdy pojawi się sync między urządzeniami
 
 ## Odkrywalność dla LLM
 
@@ -171,12 +168,11 @@ Narracja **Alexander Scourby** — tylko dla `kjv/1769` (BG nie ma audio).
 Strona odtwarza je strumieniowo i nie zapisuje rozdziałów offline. Pobranie na urządzenie jest w `android/`.  
 Opcjonalne `.words.json` w `data/` tylko do podświetlania słów. Fonty UI (Cardo, Cinzel) leżą w `web/assets/fonts/` — bez Google Fonts.
 
-Strona: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po końcu audio, auto-next w ramach dziennej quoty, stop po 100%, CTA „słuchaj dalej” (tryb beyond → aż do Apokalipsy).
+Strona: podkreślenie bieżącego słowa i automatyczne przejście do kolejnego rozdziału (aż do Apokalipsy).
 
 ## Świadomie odłożone
 
 - Wyszukiwanie pełnotekstowe w API
-- Konta, sync, push między urządzeniami
-- ~~Pakiet do Google Play~~ → `android/` (Bubblewrap TWA, `pl.ksiag.app`); listing/Play App Signing fingerprint w konsoli
+- ~~Pakiet do Google Play~~ → `android/` (`pl.ksiag.app`); listing/Play App Signing fingerprint w konsoli
 - Opakowanie Capacitor / inne sklepy
 - OpenAPI (można dodać jako opis tych samych ścieżek statycznych)

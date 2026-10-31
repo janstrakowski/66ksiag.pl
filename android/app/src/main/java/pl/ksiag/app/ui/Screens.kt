@@ -1,7 +1,5 @@
 package pl.ksiag.app.ui
 
-import android.graphics.Bitmap
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,29 +9,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -43,19 +28,14 @@ import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import pl.ksiag.app.model.Assignment
 import pl.ksiag.app.model.Book
 import pl.ksiag.app.model.Copy
-import pl.ksiag.app.model.MarkUi
-import pl.ksiag.app.model.Plan
 import pl.ksiag.app.model.Verse
 import pl.ksiag.app.model.estimateMinutesFromVerses
-import pl.ksiag.app.model.quotaPreview
 import pl.ksiag.app.model.toRoman
 
 @Composable
@@ -79,11 +59,7 @@ fun HomeScreen(
     copy: Copy,
     readMain: String,
     readSub: String,
-    showPortion: Boolean,
-    portionMain: String,
-    portionSub: String,
     showAudio: Boolean,
-    showContinue: Boolean,
     downloadLabel: String,
     downloadButton: String,
     downloadEnabled: Boolean,
@@ -92,12 +68,8 @@ fun HomeScreen(
     showClear: Boolean,
     clearLabel: String,
     onRead: () -> Unit,
-    onPortion: () -> Unit,
     onBooks: () -> Unit,
-    onPlan: () -> Unit,
-    onSync: () -> Unit,
     onChangeEdition: () -> Unit,
-    onContinue: () -> Unit,
     onDownload: () -> Unit,
     onClearAudio: () -> Unit,
     sourceName: String,
@@ -114,8 +86,6 @@ fun HomeScreen(
                 Meta(copy.homeMeta)
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(rem(0.4f))) {
                     Tablet(readMain, readSub, onClick = onRead)
-                    if (showPortion) Tablet(portionMain, portionSub, onClick = onPortion)
-                    if (showContinue) Tablet(copy.audioContinueMain, copy.audioContinueSub, ital = true, onClick = onContinue)
                     if (showAudio) {
                         Tablet(
                             downloadButton,
@@ -128,8 +98,6 @@ fun HomeScreen(
                         if (showClear) Linkish(clearLabel, onClearAudio)
                     }
                     Tablet(copy.booksLink, ital = true, onClick = onBooks)
-                    Tablet(copy.planLink, ital = true, onClick = onPlan)
-                    Tablet(copy.syncLink, ital = true, onClick = onSync)
                     Linkish(copy.changeEdition, onChangeEdition, modifier = Modifier.padding(top = rem(0.35f)))
                 }
             }
@@ -216,19 +184,14 @@ fun ReaderScreen(
     verses: List<Verse>,
     selected: Int?,
     error: String?,
-    mark: MarkUi,
     showAudio: Boolean,
     playing: Boolean,
     paused: Boolean = false,
-    portion: Boolean,
-    banner: String?,
     spokenVerse: Int?,
     spokenIndex: Int,
     onBack: () -> Unit,
-    onPlan: () -> Unit,
     onShare: () -> Unit,
     onSelect: (Int) -> Unit,
-    onMark: () -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     prevLabel: String?,
@@ -244,9 +207,8 @@ fun ReaderScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom,
         ) {
-            Linkish(if (portion) copy.backTitle else copy.backBooks, onBack)
+            Linkish(copy.backBooks, onBack)
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Linkish(copy.plan, onPlan)
                 Linkish(copy.share, onShare)
             }
         }
@@ -290,19 +252,6 @@ fun ReaderScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                         style = cinzel(0.58f, 0.14f, p.faint).copy(textAlign = TextAlign.Center),
                     )
-                    if (!banner.isNullOrEmpty()) {
-                        BasicText(
-                            banner,
-                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                            style = TextStyle(
-                                fontFamily = fonts.cardo,
-                                fontStyle = FontStyle.Italic,
-                                fontSize = 14.sp,
-                                color = p.ink2,
-                                textAlign = TextAlign.Center,
-                            ),
-                        )
-                    }
                     if (showAudio) {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                             Box(Modifier.weight(1f, fill = false)) {
@@ -339,33 +288,7 @@ fun ReaderScreen(
                             ),
                         )
                     }
-                    if (portion) {
-                        Spacer(Modifier.height(8.dp))
-                        Tablet(copy.chapterDone, onClick = onMark)
-                    } else if (!mark.hidden) {
-                        val label = when {
-                            mark.done -> copy.markedPlan
-                            mark.extraAction -> copy.markExtra
-                            else -> copy.markRead
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        if (mark.done) {
-                            BasicText(
-                                label,
-                                modifier = Modifier.fillMaxWidth(),
-                                style = TextStyle(
-                                    fontFamily = fonts.cardo,
-                                    fontStyle = FontStyle.Italic,
-                                    fontSize = 16.sp,
-                                    color = p.faint,
-                                    textAlign = TextAlign.Center,
-                                ),
-                            )
-                        } else {
-                            Tablet(label, ital = mark.extraAction, onClick = onMark)
-                        }
-                    }
-                    if (!portion) Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Box(Modifier.weight(1f)) {
                             if (prevLabel != null) Tablet(prevLabel, ital = true, onClick = onPrev)
                         }
@@ -377,177 +300,6 @@ fun ReaderScreen(
             }
         }
     }
-}
-
-@Composable
-fun PlanScreen(
-    copy: Copy,
-    plan: Plan,
-    books: List<Book>,
-    notifyAllowed: Boolean,
-    statusLine: String,
-    onHome: () -> Unit,
-    onAppoint: (Plan) -> Unit,
-    onAbandon: () -> Unit,
-    onNotifications: (Boolean) -> Unit,
-    onRead: () -> Unit,
-    onNotifySettings: () -> Unit,
-    continueMain: String,
-    continueSub: String,
-) {
-    val setupKey = "${plan.enabled}|${plan.goal}|${plan.mode}|${plan.fromBook}|${plan.toBook}|${plan.fromChapter}|${plan.toChapter}|${plan.chaptersPerDay}|${plan.minutesPerDay}"
-    var draft by remember(setupKey) { mutableStateOf(plan) }
-    val preview = quotaPreview(draft, copy.quotaChapters, copy.quotaTime)
-    KsiagPage(center = false, bottomReserve = 48.dp) {
-        TopBar(copy.plan, copy.titleCard, onHome)
-        Moulding {
-            Column(Modifier.fillMaxWidth().background(LocalPalette.current.paper)) {
-                Box(Modifier.fillMaxWidth().hatch(LocalPalette.current.ink).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                    BasicText(copy.dailyPlan.uppercase(), style = cinzel(0.6f, 0.2f, LocalPalette.current.ink))
-                }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(LocalPalette.current.ink))
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (!plan.enabled) {
-                        Fieldset(copy.goal) {
-                            RadioRow(copy.wholeBible, draft.goal == "bible") { draft = draft.copy(goal = "bible") }
-                            RadioRow(copy.oldTestament, draft.goal == "st") { draft = draft.copy(goal = "st") }
-                            RadioRow(copy.newTestament, draft.goal == "nt") { draft = draft.copy(goal = "nt") }
-                            RadioRow(copy.range, draft.goal == "range") { draft = draft.copy(goal = "range") }
-                            if (draft.goal == "range") {
-                                RangeRow(copy.from, books, draft.fromBook, draft.fromChapter, { draft = draft.copy(fromBook = it) }) {
-                                    draft = draft.copy(fromChapter = it)
-                                }
-                                RangeRow(copy.to, books, draft.toBook, draft.toChapter, { draft = draft.copy(toBook = it) }) {
-                                    draft = draft.copy(toChapter = it)
-                                }
-                            }
-                        }
-                        Fieldset(copy.daily) {
-                            RadioRow(copy.byChapters, draft.mode == "chapters") { draft = draft.copy(mode = "chapters") }
-                            if (draft.mode == "chapters") {
-                                NumberRow(draft.chaptersPerDay, copy.chaptersUnit) { draft = draft.copy(chaptersPerDay = it) }
-                            }
-                            RadioRow(copy.byTime, draft.mode == "time") { draft = draft.copy(mode = "time") }
-                            if (draft.mode == "time") {
-                                NumberRow(draft.minutesPerDay, copy.minutesUnit) { draft = draft.copy(minutesPerDay = it) }
-                            }
-                            Hint(preview)
-                            Hint(copy.timeHint, faint = true)
-                        }
-                        Tablet(copy.setPlan) { onAppoint(draft) }
-                    } else {
-                        Hint(appointmentSummary(copy, plan, books))
-                        if (statusLine.isNotEmpty()) Hint(statusLine)
-                        Tablet(copy.abandonPlan, ital = true, onClick = onAbandon)
-                        Tablet(continueMain, continueSub, ital = true, onClick = onRead)
-                    }
-                    Fieldset(copy.notifications) {
-                        RadioRow(copy.on, plan.notifications) { onNotifications(true) }
-                        RadioRow(copy.off, !plan.notifications) { onNotifications(false) }
-                        Hint(copy.notifyHint, faint = true)
-                        if (plan.notifications && !notifyAllowed) {
-                            Hint(copy.notifyDeniedHint)
-                            Linkish(copy.notifySettings, onNotifySettings)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun appointmentSummary(copy: Copy, plan: Plan, books: List<Book>): String {
-    val goal = when (plan.goal) {
-        "st" -> copy.oldTestament
-        "nt" -> copy.newTestament
-        "range" -> {
-            val from = books.find { it.id == plan.fromBook }?.short.orEmpty()
-            val to = books.find { it.id == plan.toBook }?.short.orEmpty()
-            "${copy.from} $from ${plan.fromChapter} · ${copy.to} $to ${plan.toChapter}"
-        }
-        else -> copy.wholeBible
-    }
-    return "$goal · ${quotaPreview(plan, copy.quotaChapters, copy.quotaTime)}"
-}
-
-@Composable
-fun SyncScreen(
-    copy: Copy,
-    enabled: Boolean,
-    code: String,
-    pairing: String,
-    status: String,
-    onHome: () -> Unit,
-    onToggle: (Boolean) -> Unit,
-    onCopy: () -> Unit,
-    onNew: () -> Unit,
-    onJoin: (String) -> Unit,
-    onScan: () -> Unit,
-) {
-    var join by remember { mutableStateOf("") }
-    val p = LocalPalette.current
-    val fonts = LocalFonts.current
-    KsiagPage(center = false) {
-        TopBar(copy.syncNav, copy.titleCard, onHome)
-        Moulding {
-            Column(Modifier.fillMaxWidth().background(p.paper).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                BasicText(copy.cloudTitle.uppercase(), style = cinzel(0.62f, 0.16f, p.ink))
-                Tablet(copy.cloudEnable, if (enabled) copy.on else copy.off) { onToggle(!enabled) }
-                Hint(copy.cloudHint, faint = true)
-                if (enabled && code.isNotEmpty()) {
-                    Hint(copy.cloudKeep, faint = true)
-                    BasicText(
-                        code,
-                        modifier = Modifier.fillMaxWidth(),
-                        style = TextStyle(
-                            fontFamily = fonts.cardo,
-                            fontSize = 16.sp,
-                            letterSpacing = 0.04.em,
-                            color = p.ink,
-                            textAlign = TextAlign.Center,
-                        ),
-                    )
-                    QrMark(pairing, copy.cloudQr)
-                    Tablet(copy.cloudCopy, ital = true, onClick = onCopy)
-                    Tablet(copy.cloudNew, ital = true, onClick = onNew)
-                    Hint(copy.cloudJoinLabel)
-                    BasicTextField(
-                        value = join,
-                        onValueChange = { join = it },
-                        modifier = Modifier.fillMaxWidth().border(1.dp, p.ink).padding(8.dp),
-                        textStyle = TextStyle(fontFamily = fonts.cardo, fontSize = 16.sp, color = p.ink),
-                        cursorBrush = SolidColor(p.ink),
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                    )
-                    Tablet(copy.cloudJoin) { onJoin(join) }
-                    Tablet(copy.cloudScan, ital = true, onClick = onScan)
-                    if (status.isNotEmpty()) Hint(status)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun QrMark(text: String, description: String) {
-    val p = LocalPalette.current
-    val bitmap = remember(text, p.ink, p.paper) {
-        val size = 512
-        val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size)
-        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val fg = p.ink.toArgb()
-        val bg = p.paper.toArgb()
-        for (x in 0 until size) {
-            for (y in 0 until size) bmp.setPixel(x, y, if (matrix.get(x, y)) fg else bg)
-        }
-        bmp.asImageBitmap()
-    }
-    Image(
-        bitmap,
-        contentDescription = description,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        contentScale = ContentScale.FillWidth,
-    )
 }
 
 @Composable
@@ -689,118 +441,6 @@ private fun Hint(text: String, modifier: Modifier = Modifier, faint: Boolean = f
             color = if (faint) p.faint else p.ink2,
         ),
     )
-}
-
-@Composable
-private fun Fieldset(legend: String, content: @Composable () -> Unit) {
-    val p = LocalPalette.current
-    Column(
-        Modifier.fillMaxWidth().border(1.dp, p.ink.copy(alpha = 0.35f)).padding(horizontal = 10.dp, vertical = 8.dp),
-    ) {
-        BasicText(legend.uppercase(), style = cinzel(0.55f, 0.16f, p.ink))
-        content()
-    }
-}
-
-@Composable
-private fun RadioRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    val p = LocalPalette.current
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier.width(16.dp).height(16.dp).border(1.dp, p.ink),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) Box(Modifier.width(8.dp).height(8.dp).background(p.ink))
-        }
-        Spacer(Modifier.width(8.dp))
-        BasicText(label, style = TextStyle(fontFamily = LocalFonts.current.cardo, fontSize = 16.sp, color = p.ink))
-    }
-}
-
-@Composable
-private fun NumberRow(value: Int, unit: String, onChange: (Int) -> Unit) {
-    val p = LocalPalette.current
-    var text by remember(value) { mutableStateOf(value.toString()) }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-        BasicTextField(
-            value = text,
-            onValueChange = {
-                text = it.filter { ch -> ch.isDigit() }.take(3)
-                onChange(text.toIntOrNull() ?: 1)
-            },
-            textStyle = TextStyle(fontFamily = LocalFonts.current.cardo, fontSize = 16.sp, color = p.ink),
-            cursorBrush = SolidColor(p.ink),
-            keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-            modifier = Modifier.width(64.dp).border(1.dp, p.ink).background(mix(p.paper, Color.White, 0.7f)).padding(6.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        BasicText(unit, style = TextStyle(fontFamily = LocalFonts.current.cardo, fontSize = 16.sp, color = p.ink))
-    }
-}
-
-@Composable
-private fun RangeRow(
-    label: String,
-    books: List<Book>,
-    bookId: String,
-    chapter: Int,
-    onBook: (String) -> Unit,
-    onChapter: (Int) -> Unit,
-) {
-    val p = LocalPalette.current
-    var open by remember { mutableStateOf(false) }
-    val short = books.find { it.id == bookId }?.short ?: bookId
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        BasicText(label, modifier = Modifier.width(36.dp), style = TextStyle(fontFamily = LocalFonts.current.cardo, fontSize = 15.sp, color = p.ink))
-        BasicText(
-            short,
-            modifier = Modifier
-                .weight(1f)
-                .border(1.dp, p.ink)
-                .background(mix(p.paper, Color.White, 0.7f))
-                .clickable { open = true }
-                .padding(6.dp),
-            style = TextStyle(fontFamily = LocalFonts.current.cardo, fontSize = 16.sp, color = p.ink),
-        )
-        Spacer(Modifier.width(6.dp))
-        var text by remember(chapter) { mutableStateOf(chapter.toString()) }
-        BasicTextField(
-            value = text,
-            onValueChange = {
-                text = it.filter { ch -> ch.isDigit() }.take(3)
-                onChapter(text.toIntOrNull()?.coerceAtLeast(1) ?: 1)
-            },
-            textStyle = TextStyle(fontFamily = LocalFonts.current.cardo, fontSize = 16.sp, color = p.ink),
-            cursorBrush = SolidColor(p.ink),
-            keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-            modifier = Modifier.width(52.dp).border(1.dp, p.ink).background(mix(p.paper, Color.White, 0.7f)).padding(6.dp),
-        )
-    }
-    if (open) {
-        Dialog(onDismissRequest = { open = false }) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(p.paper)
-                    .border(1.dp, p.ink)
-                    .padding(8.dp),
-            ) {
-                books.forEach { b ->
-                    BasicText(
-                        b.short,
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            onBook(b.id)
-                            open = false
-                        }.padding(vertical = 6.dp, horizontal = 8.dp),
-                        style = TextStyle(fontFamily = LocalFonts.current.cardo, fontSize = 16.sp, color = p.ink),
-                    )
-                }
-            }
-        }
-    }
 }
 
 private val spokenWord = Regex("[A-Za-z']+")

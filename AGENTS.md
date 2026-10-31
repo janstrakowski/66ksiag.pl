@@ -107,8 +107,8 @@ npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OP
 Wymaga lokalnego `data/` (BG + KJV) oraz `web/audio-catalog.json`.
 
 ```bash
-npm run test:unit          # Vitest: plan, i18n, editions, audio, katalog, kontrakty data/
-npm run test:e2e           # Playwright: picker, reader, plan, self-hosted audio, API
+npm run test:unit          # Vitest: place, i18n, editions, audio, katalog, kontrakty data/
+npm run test:e2e           # Playwright: picker, reader, self-hosted audio, API
 npm test                   # unit + e2e
 ```
 

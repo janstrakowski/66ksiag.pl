@@ -32,7 +32,6 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      /* safe: długi plan nie wystaje górą poza viewport / ramkę */
       justify-content: safe center;
       overflow-x: clip;
     }
@@ -495,10 +494,7 @@
     }
     .audio-bar[hidden] { display: none !important; }
     body.has-audio-bar { padding-bottom: 2.6rem; }
-    body.has-plan-banner.has-audio-bar { padding-bottom: 4.6rem; }
-    body.has-plan-banner.has-audio-bar .audio-bar { bottom: 2.1rem; }
 
-    #reader.is-plan .folio-nav { display: none; }
     .folio-nav {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -522,7 +518,7 @@
       text-transform: uppercase;
       opacity: 0;
       transition: transform 0.22s ease, opacity 0.22s ease, bottom 0.22s ease;
-      /* nad plan-banner (30) i audio-bar (28) */
+      /* nad audio-bar (28) */
       z-index: 40;
       max-width: min(92vw, 24rem);
       white-space: nowrap;
@@ -531,13 +527,10 @@
       pointer-events: none;
     }
     .toast.is-on { transform: translate(-50%, 0); opacity: 1; }
-    /* Nad dolnym paskiem postępu / audio */
-    body.has-plan-banner .toast { bottom: 3.1rem; }
+    /* Nad dolnym paskiem audio */
     body.has-audio-bar .toast { bottom: 3.1rem; }
-    body.has-plan-banner.has-audio-bar .toast { bottom: 5.2rem; }
 
     .shell.is-reader { justify-content: flex-start; }
-    body.has-plan-banner { padding-bottom: 2.6rem; }
     .book-list .chapters { font-size: 0.75rem; color: var(--faint); }
     .error-box { padding: 1rem; color: var(--ink-2); font-style: italic; }
     .testament-label {
@@ -559,189 +552,6 @@
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--faint);
-    }
-
-    .chapter-done { margin-top: 0.85rem; }
-    .chapter-done .tablet { width: 100%; }
-    .chapter-done.is-done .tablet {
-      background: transparent;
-      box-shadow: none;
-      font-family: Cardo, serif;
-      font-style: italic;
-      font-weight: 400;
-      font-size: 1rem;
-      letter-spacing: 0.02em;
-      text-transform: none;
-      pointer-events: none;
-      color: var(--faint);
-    }
-    /* ponad program: inny akcent niż zaliczenie planowe */
-    .chapter-done.is-extra-action .tablet {
-      font-family: Cardo, serif;
-      font-style: italic;
-      font-weight: 400;
-      font-size: 1.02rem;
-      letter-spacing: 0.02em;
-      text-transform: none;
-      background: transparent;
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 55%, transparent);
-    }
-    .chapter-done.is-extra.is-done .tablet {
-      color: var(--ink-2);
-      border-top: 1px dashed color-mix(in srgb, var(--ink) 35%, transparent);
-      border-radius: 0;
-      padding-top: 0.55rem;
-    }
-
-    .plan-banner {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 30;
-      background: var(--ink);
-      color: var(--paper);
-      text-align: center;
-      padding: 0.55rem 0.75rem;
-      font-family: Cinzel, Cardo, serif;
-      font-size: 0.62rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      border-top: 1px solid color-mix(in srgb, var(--paper) 35%, transparent);
-    }
-    .plan-banner[hidden] { display: none !important; }
-
-    .plan-panel { padding-bottom: 0.85rem; max-width: 100%; }
-    .plan-form {
-      padding: 0.75rem 0.85rem 0.25rem;
-      display: grid;
-      gap: 0.85rem;
-      max-width: 100%;
-      min-width: 0;
-    }
-    .plan-form fieldset {
-      margin: 0;
-      border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
-      padding: 0.55rem 0.65rem 0.7rem;
-      min-width: 0;
-      max-width: 100%;
-    }
-    .plan-form legend {
-      font-family: Cinzel, serif;
-      font-size: 0.55rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      padding: 0 0.25rem;
-    }
-    .plan-check,
-    .plan-radio,
-    .plan-field {
-      display: flex;
-      gap: 0.45rem;
-      align-items: center;
-      margin: 0.35rem 0;
-      font-size: 1rem;
-    }
-    .plan-range {
-      display: grid;
-      gap: 0.45rem;
-      margin-top: 0.45rem;
-      min-width: 0;
-    }
-    .plan-range label {
-      display: grid;
-      grid-template-columns: 2rem minmax(0, 1fr) 3.2rem;
-      gap: 0.35rem;
-      align-items: center;
-      font-size: 0.95rem;
-      min-width: 0;
-    }
-    .plan-form select,
-    .plan-form input[type="number"] {
-      font: inherit;
-      color: var(--ink);
-      background: color-mix(in srgb, var(--paper) 70%, #fff);
-      border: 1px solid var(--ink);
-      padding: 0.25rem 0.35rem;
-      max-width: 100%;
-      min-width: 0;
-      width: 100%;
-    }
-    .plan-form input[type="number"] { width: 100%; }
-    .plan-hint {
-      margin: 0.35rem 0 0;
-      font-size: 0.92rem;
-      font-style: italic;
-      color: var(--ink-2);
-    }
-    .plan-hint.faint { font-size: 0.82rem; color: var(--faint); }
-    .plan-form .tablet { width: 100%; }
-    .plan-form a.tablet { margin-top: 0.15rem; }
-    #plan-setup,
-    #plan-active {
-      display: grid;
-      gap: 0.85rem;
-    }
-    #plan-setup[hidden],
-    #plan-active[hidden] { display: none !important; }
-    .plan-reset-block {
-      margin-top: 0.85rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
-    }
-    .plan-reset-label {
-      margin: 0 0.85rem 0.15rem;
-      font-family: Cinzel, serif;
-      font-size: 0.55rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--faint);
-    }
-    .plan-reset-actions {
-      padding: 0.35rem 0.85rem 0.85rem;
-      display: grid;
-      gap: 0.25rem;
-    }
-    .plan-reset-actions .tablet { width: 100%; margin-top: 0.35rem; }
-    .plan-reset-actions .plan-hint { margin: 0.15rem 0 0.2rem; }
-    #cloud-panel[hidden] { display: none !important; }
-    .cloud-code {
-      margin: 0.45rem 0 0;
-      font-family: ui-monospace, "Cascadia Code", monospace;
-      font-size: 0.78rem;
-      letter-spacing: 0.04em;
-      line-height: 1.45;
-      word-break: break-all;
-    }
-    .cloud-qr {
-      display: flex;
-      justify-content: center;
-      margin: 0.55rem 0;
-    }
-    .cloud-qr svg {
-      width: min(100%, 220px);
-      height: auto;
-    }
-    .cloud-join-label {
-      display: block;
-      margin-top: 0.65rem;
-      font-size: 0.92rem;
-    }
-    #cloud-join-input {
-      font: inherit;
-      color: var(--ink);
-      background: color-mix(in srgb, var(--paper) 70%, #fff);
-      border: 1px solid var(--ink);
-      padding: 0.35rem 0.4rem;
-      width: 100%;
-      max-width: 100%;
-      resize: vertical;
-    }
-    .cloud-scan-video {
-      width: 100%;
-      background: #000;
-      margin: 0.35rem 0 0.6rem;
     }
 
     .confirm-overlay {
@@ -782,32 +592,4 @@
       gap: 0.4rem;
     }
     .confirm-actions .tablet { width: 100%; }
-    .notify-blocked {
-      margin-top: 0.45rem;
-      padding: 0.45rem 0.55rem;
-      border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
-      background: color-mix(in srgb, var(--paper) 75%, #fff);
-      max-width: 100%;
-      overflow-wrap: anywhere;
-    }
-    .notify-unblock {
-      margin: 0.35rem 0 0.45rem;
-      padding-left: 1.2rem;
-      font-size: 0.92rem;
-      line-height: 1.4;
-      color: var(--ink-2);
-    }
-    .notify-unblock li + li { margin-top: 0.25rem; }
-    .notify-settings-link {
-      display: block;
-      margin-top: 0.45rem;
-      font-style: italic;
-      color: var(--ink);
-      text-decoration: underline;
-      text-underline-offset: 0.15em;
-    }
-    #notify-recheck {
-      width: 100%;
-      margin-top: 0.55rem;
-    }
-    #notify-recheck[hidden] { display: none !important; }
+

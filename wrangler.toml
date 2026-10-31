@@ -35,18 +35,10 @@ previews_enabled = true
 pattern = "www.66ksiag.pl"
 custom_domain = true
 
-# Postęp planu: identyfikator slotu → szyfrogram ≤ 64 B.
-# Odczyt i zapis wymagają podpisu Ed25519. Klucz publiczny leży pod pub:{id}.
-[[kv_namespaces]]
-binding = "SYNC"
-id = "99a40bb27a764d839669293aea208e8f"
-
 # Chapter MP3s are Static Assets. They are not routed through the Worker.
-# Previews do not inherit SYNC, so a branch preview cannot read or write
-# the production KV namespace.
 [assets]
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
-run_worker_first = ["/api/*", "/sw.js", "/manifest.webmanifest"]
+run_worker_first = ["/sw.js", "/manifest.webmanifest"]

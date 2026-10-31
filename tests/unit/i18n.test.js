@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planCopy, t } from "../../web/i18n.js";
+import { t } from "../../web/i18n.js";
 import { EDITIONS, findEdition } from "../../web/editions.js";
 
 describe("i18n", () => {
@@ -24,38 +24,13 @@ describe("i18n", () => {
     expect(t(kjv).homeSourceUrl).toBeUndefined();
   });
 
-  it("eta and quota formatters differ by language", () => {
+  it("eta and audio strings differ by language", () => {
     expect(t(bg).etaMinutes(6)).toMatch(/ok\.\s*6/);
     expect(t(kjv).etaMinutes(6)).toMatch(/about 6 minutes/i);
-    expect(t(bg).quotaChapters(3)).toMatch(/rozdz/);
-    expect(t(kjv).quotaChapters(3)).toMatch(/chapters/);
-  });
-
-  it("planCopy includes plan-form keys", () => {
-    const pl = planCopy(bg);
-    const en = planCopy(kjv);
-    expect(pl.setPlan).toBe("Ustaw");
-    expect(pl.abandonPlan).toBe("Porzuć");
-    expect(en.setPlan).toBe("Appoint");
-    expect(en.abandonPlan).toBe("Put off");
-    expect(pl.notifyOfferYes).toBe("Włącz");
-    expect(en.notifyOfferNo).toBe("Not now");
-    expect(pl.cloudHint).toMatch(/chmurze/);
-    expect(pl.cloudHint).toMatch(/szyfrowane/);
-    expect(en.cloudHint).toMatch(/cloud/i);
-    expect(en.cloudHint).toMatch(/ciphered/);
-    expect(en.blockedSteps).toHaveLength(4);
-    expect(pl.blockedSteps).toHaveLength(4);
-    expect(en.audioListen).toBe("Hear");
-    expect(pl.audioListen).toBe("Słuchaj");
-    expect(en.audioDownload).toBeUndefined();
-    expect(pl.audioDownload).toBeUndefined();
-  });
-
-  it("banner helpers and planPct", () => {
-    expect(t(bg).planPct(40)).toMatch(/40%/);
-    expect(t(kjv).planPct(40)).toMatch(/40%/);
-    expect(t(kjv).bannerBefore + "12" + t(kjv).bannerAfter).toMatch(/12%/);
+    expect(t(kjv).audioListen).toBe("Hear");
+    expect(t(bg).audioListen).toBe("Słuchaj");
+    expect(t(kjv).audioDownload).toBeUndefined();
+    expect(t(bg).audioDownload).toBeUndefined();
   });
 
   it("null edition falls back to PL", () => {

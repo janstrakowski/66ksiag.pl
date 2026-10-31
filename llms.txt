@@ -1,7 +1,7 @@
 # 66ksiąg
 > Biblia jako statyczne API (BG 1879 + KJV) i strona. Aplikacja natywna jest w `android/`.
 
-Wspólna numeracja KJV; BG zremapowana. Plan dzienny wspólny dla języków.
+Wspólna numeracja KJV; BG zremapowana.
 
 ## Docs
 - Architektura: ARCHITECTURE.md

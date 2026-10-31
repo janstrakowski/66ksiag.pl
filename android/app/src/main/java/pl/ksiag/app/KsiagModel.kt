@@ -28,46 +28,23 @@ import pl.ksiag.app.audio.DownloadState
 import pl.ksiag.app.audio.PlaybackBus
 import pl.ksiag.app.audio.PlaybackService
 import pl.ksiag.app.data.AudioFiles
-import pl.ksiag.app.data.AudioSession
-import pl.ksiag.app.data.Cloud
-import pl.ksiag.app.data.CloudState
 import pl.ksiag.app.data.Repository
 import pl.ksiag.app.data.Store
-import pl.ksiag.app.model.Assignment
 import pl.ksiag.app.model.Book
 import pl.ksiag.app.model.ChapterText
-import pl.ksiag.app.model.armed
 import pl.ksiag.app.model.Edition
 import pl.ksiag.app.model.ORIGIN
-import pl.ksiag.app.model.Plan
 import pl.ksiag.app.model.TimedWord
-import pl.ksiag.app.model.isDailyPlanComplete
-import pl.ksiag.app.model.pileStatus
-import pl.ksiag.app.model.planFinishDate
-import pl.ksiag.app.model.readingMinutes
-import pl.ksiag.app.model.advanceCursor
 import pl.ksiag.app.model.copyFor
-import pl.ksiag.app.model.markChapterRead
 import pl.ksiag.app.model.nextChapterInBible
-import pl.ksiag.app.model.nextMarkTarget
 import pl.ksiag.app.model.prevChapterInBible
-import pl.ksiag.app.model.progressPct
 import pl.ksiag.app.model.resolveBook
 import pl.ksiag.app.model.stripTags
-import pl.ksiag.app.model.todayAssignment
-import pl.ksiag.app.model.toRoman
-import pl.ksiag.app.model.wantsNotifications
-import pl.ksiag.app.notify.Debt
-import pl.ksiag.app.notify.Notifier
-import pl.ksiag.app.notify.Reminders
 
 sealed interface Route {
     data object Pick : Route
     data object Home : Route
     data object Books : Route
-    data object Plan : Route
-    data object Sync : Route
-    data object Portion : Route
     data class Read(val bookId: String, val chapter: Int, val verse: Int?) : Route
 }
 
@@ -102,8 +79,6 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         private set
     var books by mutableStateOf<List<Book>>(emptyList())
         private set
-    var plan by mutableStateOf(Plan())
-        private set
     var reader by mutableStateOf<ReaderState?>(null)
         private set
     var readerError by mutableStateOf<String?>(null)
@@ -118,48 +93,28 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         private set
     var download by mutableStateOf(DownloadState())
         private set
-    var askNotify by mutableStateOf(false)
-    var askScan by mutableStateOf(false)
-    var session by mutableStateOf(AudioSession())
-        private set
-    var cloud by mutableStateOf(CloudState())
-        private set
-    var cloudStatus by mutableStateOf("")
-        private set
     var spokenVerse by mutableStateOf<Int?>(null)
         private set
     var spokenIndex by mutableStateOf(-1)
         private set
 
     private var pending: Route? = null
-    private var pendingJoin: String? = null
-    private var pendingPlan: Plan? = null
-    private var pendingNotifyOnly = false
     private var controller: MediaController? = null
     private var playBook: String? = null
     private var playChapter: Int? = null
-    private var audioMode: String = "idle"
     private var lastEndedId: String? = null
     private var readerGen = 0
     private var toastJob: Job? = null
     private var playRequested = false
-    private var audioModePreset: String? = null
-    private var pushJob: Job? = null
     private var wordJob: Job? = null
-    private var lastPull = 0L
     private var spokenWords: List<TimedWord> = emptyList()
 
     val canBack: Boolean get() = stack.isNotEmpty()
 
     init {
         edition = store.edition()
-        plan = store.plan()
-        session = store.audioSession()
-        cloud = store.cloud()
         route = if (edition == null) Route.Pick else Route.Home
         if (edition != null) refreshHome()
-        if (plan.wantsNotifications()) Reminders.schedule(app)
-        Debt.sync(app)
         viewModelScope.launch {
             DownloadBus.state.collectLatest { download = it }
         }
@@ -176,15 +131,11 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
 
     fun openUri(uri: Uri?) {
         if (uri == null || uri.host != "66ksiag.pl") return
-        uri.fragment?.let { frag -> if (Cloud.parseToken(frag) != null) pendingJoin = frag }
         val parts = uri.path.orEmpty().trim('/').split('/').filter { it.isNotEmpty() }
         val target: Route = when (parts.firstOrNull()) {
             null -> if (edition == null) Route.Pick else Route.Home
             "wybor", "choose" -> Route.Pick
             "ksiegi", "books" -> Route.Books
-            "plan" -> Route.Plan
-            "synchronizacja", "sync" -> Route.Sync
-            "porcja", "portion" -> Route.Portion
             "czytaj" -> Route.Read(parts.getOrNull(1) ?: return, parts.getOrNull(2)?.toIntOrNull() ?: 1, parts.getOrNull(3)?.toIntOrNull())
             else -> {
                 val ch = parts.getOrNull(1)?.toIntOrNull()
@@ -201,19 +152,14 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
             Route.Pick -> changeEdition()
             Route.Home -> go(Route.Home, push = false)
             Route.Books -> go(Route.Books)
-            Route.Plan -> go(Route.Plan)
-            Route.Sync -> go(Route.Sync)
-            Route.Portion -> openPortion()
             is Route.Read -> openReader(target.bookId, target.chapter, target.verse, push = false)
         }
-        consumeJoin()
     }
 
     fun selectEdition(id: String) {
         val next = Edition.find(id) ?: return
         edition = next
         store.saveEdition(next)
-        Debt.sync(getApplication())
         books = emptyList()
         reader = null
         stack = emptyList()
@@ -223,12 +169,8 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         when (queued) {
             is Route.Read -> openReader(queued.bookId, queued.chapter, queued.verse, push = false)
             Route.Books -> go(Route.Books)
-            Route.Plan -> go(Route.Plan)
-            Route.Sync -> go(Route.Sync)
-            Route.Portion -> openPortion()
             else -> refreshHome()
         }
-        consumeJoin()
     }
 
     fun changeEdition() {
@@ -244,11 +186,10 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         if (push && route != next) stack = stack + route
         route = next
         if (next == Route.Home) refreshHome()
-        if (next == Route.Books || next == Route.Plan || next == Route.Sync) {
+        if (next == Route.Books) {
             viewModelScope.launch {
                 try {
                     ensureBooks()
-                    if (next == Route.Sync) pullCloud(force = true)
                 } catch (e: Exception) {
                     readerError = e.message
                 }
@@ -269,15 +210,9 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         verse: Int?,
         push: Boolean = true,
         autoplay: Boolean = false,
-        portion: Boolean = false,
     ) {
-        if (portion) {
-            if (push && route != Route.Portion) stack = stack + route
-            route = Route.Portion
-        } else {
-            if (push && route !is Route.Read) stack = stack + route
-            route = Route.Read(bookKey, chapter, verse)
-        }
+        if (push && route !is Route.Read) stack = stack + route
+        route = Route.Read(bookKey, chapter, verse)
         val gen = ++readerGen
         val ed = edition ?: return
         viewModelScope.launch {
@@ -290,8 +225,8 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
                 if (gen != readerGen) return@launch
                 reader = ReaderState(book, chapter, text)
                 readerError = null
-                selectedVerse = if (portion) null else verse
-                if (!portion) store.rememberPlace(ed.id, book.id, chapter)
+                selectedVerse = verse
+                store.rememberPlace(ed.id, book.id, chapter)
                 if (autoplay) startPlayback()
             } catch (e: Exception) {
                 if (gen != readerGen) return@launch
@@ -316,136 +251,7 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         openReader(next.book, next.chapter, null, push = false)
     }
 
-    fun markRead() = markPortion()
-
-    fun markPortion() {
-        val r = reader ?: return
-        if (books.isEmpty()) return
-        val result = markChapterRead(plan, r.book.id, r.chapter, books, payDebt = true)
-        if (result.kind == "already" || result.kind == "off" || result.kind == "skip") return
-        persistMarked(advanceCursor(result.plan, books), result.kind)
-        val owed = plan.owed
-        if (owed != null && owed <= 0 && !plan.beyond) {
-            askBeyondPortion()
-            return
-        }
-        openPortion(push = false)
-    }
-
-    fun openPortion(push: Boolean = true) {
-        viewModelScope.launch {
-            val list = try {
-                ensureBooks()
-            } catch (_: Exception) {
-                return@launch
-            }
-            if (!plan.enabled) {
-                go(Route.Home, push = false)
-                return@launch
-            }
-            if (plan.owed != null && plan.owed!! <= 0 && !plan.beyond) {
-                askBeyondPortion()
-                return@launch
-            }
-            val target = nextMarkTarget(list, plan)
-            if (target == null) {
-                go(Route.Home, push = false)
-                return@launch
-            }
-            openReader(target.book, target.chapter, null, push = push, portion = true)
-        }
-    }
-
     fun readingPlace() = edition?.id?.let { store.place(it) }
-
-    fun portionLine(): String {
-        if (books.isEmpty()) return ""
-        val copy = copyFor(edition)
-        val finish = planFinishDate(books, plan)
-        val finishText = if (finish == null) "" else copy.planFinish(finish.dayOfMonth, finish.monthValue - 1, finish.year)
-        if (plan.beyond) return listOf(copy.beyondPlan, finishText).filter { it.isNotEmpty() }.joinToString(" · ")
-        val st = pileStatus(plan)
-        if (st.owed <= 0) return ""
-        val mins = readingMinutes(st.owed, plan)
-        return listOf(
-            copy.pileProgress(st.done, st.pile),
-            if (st.behind > 0) copy.behindToday(st.behind, st.quota) else "",
-            if (mins != null) copy.etaMinutes(mins) else "",
-            finishText,
-        ).filter { it.isNotEmpty() }.joinToString(" · ")
-    }
-
-    fun finishText(): String {
-        val finish = planFinishDate(books, plan) ?: return ""
-        return copyFor(edition).planFinish(finish.dayOfMonth, finish.monthValue - 1, finish.year)
-    }
-
-    fun setCloudEnabled(on: Boolean) {
-        viewModelScope.launch {
-            if (!on) {
-                pushJob?.cancel()
-                Cloud.disable(store)
-                cloud = store.cloud()
-                cloudStatus = ""
-                return@launch
-            }
-            val code = withContext(Dispatchers.IO) { Cloud.enable(store) }
-            cloud = store.cloud()
-            cloudStatus = code
-            if (code == "on") pullCloud(force = true)
-            val text = cloudMessage(code)
-            if (text.isNotEmpty()) flash(text)
-        }
-    }
-
-    fun askNewCloudCode() {
-        val copy = copyFor(edition)
-        confirm = Confirm(copy.cloudNewTitle, copy.cloudNewBody) {
-            confirm = null
-            viewModelScope.launch {
-                val code = withContext(Dispatchers.IO) { Cloud.rotate(store) }
-                cloud = store.cloud()
-                cloudStatus = code
-                val text = cloudMessage(code)
-                if (text.isNotEmpty()) flash(text)
-            }
-        }
-    }
-
-    fun joinCloud(raw: String) {
-        viewModelScope.launch {
-            val list = try {
-                ensureBooks()
-            } catch (_: Exception) {
-                cloudStatus = "offline"
-                return@launch
-            }
-            val code = withContext(Dispatchers.IO) { Cloud.join(store, raw, list) }
-            plan = store.plan()
-            cloud = store.cloud()
-            cloudStatus = code
-            Debt.sync(getApplication())
-            val text = cloudMessage(code)
-            if (text.isNotEmpty()) flash(text)
-        }
-    }
-
-    fun cloudMessage(code: String): String {
-        val copy = copyFor(edition)
-        return when (code) {
-            "saved", "remote", "local", "same" -> copy.cloudStatusSaved
-            "joined" -> copy.cloudStatusJoined
-            "uploaded" -> copy.cloudStatusUploaded
-            "offline" -> copy.cloudStatusOffline
-            "bad" -> copy.cloudStatusBad
-            "error" -> copy.cloudStatusError
-            else -> ""
-        }
-    }
-
-    fun noteScanUnavailable() = flash(copyFor(edition).cloudScanUnavailable)
-
-    fun noteCopied() = flash(copyFor(edition).cloudCopied)
 
     fun openSource() {
         val url = copyFor(edition).homeSourceUrl
@@ -453,104 +259,6 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         getApplication<Application>().startActivity(
             Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
-    }
-
-    fun appointPlan(draft: Plan) {
-        val copy = copyFor(edition)
-        if (plan.notifications) {
-            commitAppointed(draft, notifications = true)
-            return
-        }
-        confirm = Confirm(
-            title = copy.notifyOfferTitle,
-            body = copy.notifyOfferBody,
-            okLabel = copy.notifyOfferYes,
-            cancelLabel = copy.notifyOfferNo,
-            onCancel = {
-                confirm = null
-                commitAppointed(draft, notifications = false)
-            },
-        ) {
-            confirm = null
-            commitAppointed(draft, notifications = true)
-        }
-    }
-
-    fun abandonPlan() {
-        val copy = copyFor(edition)
-        confirm = Confirm(
-            title = copy.abandonTitle,
-            body = copy.abandonBody,
-            okLabel = copy.abandonPlan,
-        ) {
-            confirm = null
-            val next = plan.copy(enabled = false).armed()
-            plan = next
-            store.savePlan(next)
-            Reminders.sync(getApplication(), false)
-            Debt.sync(getApplication())
-            scheduleCloudPush()
-            flash(copy.planDisabled)
-        }
-    }
-
-    /** Przełącznik powiadomień, niezależny od Ustaw. Ta sama flaga co pytanie przy ustawianiu. */
-    fun setNotifications(on: Boolean) {
-        if (plan.notifications == on) return
-        if (!on) {
-            persistNotifications(on = false, granted = true)
-            return
-        }
-        if (!Notifier.allowed(getApplication())) {
-            pendingNotifyOnly = true
-            val next = plan.copy(notifications = true)
-            pendingPlan = next
-            plan = next
-            store.savePlan(next)
-            Reminders.sync(getApplication(), next.wantsNotifications())
-            Debt.sync(getApplication())
-            scheduleCloudPush()
-            askNotify = true
-            return
-        }
-        persistNotifications(on = true, granted = true)
-    }
-
-    fun onNotifyPermission(granted: Boolean) {
-        val draft = pendingPlan ?: return
-        val notifyOnly = pendingNotifyOnly
-        pendingPlan = null
-        pendingNotifyOnly = false
-        if (notifyOnly) {
-            persistNotifications(on = true, granted = granted)
-            return
-        }
-        commitPlan(draft, granted, appoint = true)
-    }
-
-    private fun commitAppointed(draft: Plan, notifications: Boolean) {
-        val next = draft.copy(enabled = true, notifications = notifications)
-        if (notifications && !Notifier.allowed(getApplication())) {
-            pendingNotifyOnly = false
-            pendingPlan = next
-            askNotify = true
-            return
-        }
-        commitPlan(next, granted = !notifications || Notifier.allowed(getApplication()), appoint = true)
-    }
-
-    private fun persistNotifications(on: Boolean, granted: Boolean) {
-        val copy = copyFor(edition)
-        var next = plan.copy(notifications = on)
-        if (on && granted) next = next.copy(startNotifiedDay = null)
-        plan = next
-        store.savePlan(next)
-        Reminders.sync(getApplication(), next.wantsNotifications())
-        Debt.sync(getApplication())
-        scheduleCloudPush()
-        if (!on) return
-        if (!granted) flash(copy.notifyDeniedFlash)
-        else flash(if (Notifier.allowed(getApplication())) copy.notifyEnabledFlash else copy.notifyFailedFlash)
     }
 
     fun dismissConfirm() {
@@ -610,21 +318,8 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
             } else {
                 nextChapterInBible(list, bookId, chapter)
             } ?: return@launch
-            if (audioMode == "idle") audioModePreset = "single"
-            else audioModePreset = audioMode
-            val portion = route == Route.Portion || audioMode == "plan" || audioMode == "portion"
-            openReader(next.book, next.chapter, null, push = false, autoplay = true, portion = portion)
+            openReader(next.book, next.chapter, null, push = false, autoplay = true)
         }
-    }
-
-    fun continueListening() {
-        val s = session
-        val book = s.nextBook ?: return
-        val ch = s.nextChapter ?: return
-        session = AudioSession()
-        store.saveAudioSession(session)
-        audioModePreset = "beyond"
-        openReader(book, ch, null, push = true, autoplay = true)
     }
 
     fun startDownload() {
@@ -648,55 +343,10 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun openNotifySettings() {
-        Notifier.settings(getApplication())
-    }
-
-    fun assignment(): Assignment? {
-        val list = books
-        if (!plan.enabled || list.isEmpty()) return null
-        return todayAssignment(list, plan, ::toRoman)
-    }
-
-    private fun commitPlan(draft: Plan, granted: Boolean, appoint: Boolean = false) {
-        val copy = copyFor(edition)
-        val wasOn = plan.notifications
-        var next = plan.copy(
-            enabled = draft.enabled,
-            goal = draft.goal,
-            mode = draft.mode,
-            fromBook = draft.fromBook,
-            toBook = draft.toBook,
-            fromChapter = draft.fromChapter,
-            toChapter = draft.toChapter,
-            chaptersPerDay = draft.chaptersPerDay,
-            minutesPerDay = draft.minutesPerDay,
-            notifications = draft.notifications,
-        ).armed()
-        val turnedOn = next.notifications && granted && !wasOn
-        if (next.notifications && granted) next = next.copy(startNotifiedDay = null)
-        plan = next
-        store.savePlan(next)
-        Reminders.sync(getApplication(), next.wantsNotifications())
-        Debt.sync(getApplication())
-        scheduleCloudPush()
-        when {
-            next.notifications && !granted -> flash(copy.notifyDeniedFlash)
-            turnedOn && next.enabled ->
-                flash(if (Notifier.allowed(getApplication())) copy.notifyEnabledFlash else copy.notifyFailedFlash)
-            appoint && next.enabled ->
-                flash(copy.planSaved(pl.ksiag.app.model.quotaPreview(next, copy.quotaChapters, copy.quotaTime)))
-            !next.enabled -> flash(copy.planDisabled)
-        }
-    }
-
     private fun refreshHome() {
         viewModelScope.launch {
             try {
                 ensureBooks()
-                plan = store.plan()
-                Debt.sync(getApplication())
-                pullCloud()
             } catch (_: Exception) {
             }
             if (edition?.audio == true && !DownloadBus.state.value.running) {
@@ -705,7 +355,6 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
                 download = DownloadState(have = have, catalog = catalog)
                 DownloadBus.state.value = download
             }
-            session = store.audioSession()
         }
     }
 
@@ -769,19 +418,8 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             if (!inCatalog) {
-                audioModePreset = null
                 flash(copyFor(edition).audioUnavailable)
                 return@launch
-            }
-            audioMode = audioModePreset ?: when {
-                route == Route.Portion && (plan.beyond || isDailyPlanComplete(plan)) -> "portion"
-                route == Route.Portion -> "plan"
-                else -> "single"
-            }
-            audioModePreset = null
-            if (audioMode == "plan") {
-                session = AudioSession()
-                store.saveAudioSession(session)
             }
             lastEndedId = null
             trackWords(ed, r.book.id, r.chapter)
@@ -812,65 +450,22 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
         if (id == lastEndedId) return
         lastEndedId = id
         viewModelScope.launch {
-            val endedMode = audioMode
-            creditFromAudio(bookId, chapter, payDebt = endedMode == "plan" || endedMode == "portion")
             val list = try {
                 ensureBooks()
             } catch (_: Exception) {
                 return@launch
             }
-            if (endedMode == "portion" && plan.enabled) {
-                val next = nextMarkTarget(list, plan)
-                if (next != null) {
-                    openReader(next.book, next.chapter, null, push = false, autoplay = true, portion = true)
-                    return@launch
-                }
-                stopAudio()
-                return@launch
-            }
-            val copy = copyFor(edition)
-            if (endedMode == "plan" && plan.enabled) {
-                if (isDailyPlanComplete(plan)) {
-                    val next = nextChapterInBible(list, bookId, chapter)
-                    session = AudioSession(offerContinue = next != null, nextBook = next?.book, nextChapter = next?.chapter)
-                    store.saveAudioSession(session)
-                    audioMode = "idle"
-                    stopAudio()
-                    flash(copy.audioSessionEnded)
-                    return@launch
-                }
-                val next = nextMarkTarget(list, plan)
-                if (next != null) {
-                    openReader(next.book, next.chapter, null, push = false, autoplay = true, portion = true)
-                    return@launch
-                }
-            }
-            if (endedMode == "single" || endedMode == "beyond" || (endedMode == "plan" && !plan.enabled)) {
-                val next = nextChapterInBible(list, bookId, chapter)
-                if (next != null) {
-                    openReader(next.book, next.chapter, null, push = false, autoplay = true)
-                    return@launch
-                }
-                session = AudioSession()
-                store.saveAudioSession(session)
-                audioMode = "idle"
-                stopAudio()
-                flash(copy.audioBibleEnded)
+            val next = nextChapterInBible(list, bookId, chapter)
+            if (next != null) {
+                openReader(next.book, next.chapter, null, push = false, autoplay = true)
                 return@launch
             }
             stopAudio()
+            flash(copyFor(edition).audioBibleEnded)
         }
     }
 
-    private fun creditFromAudio(bookId: String, chapter: Int, payDebt: Boolean) {
-        if (books.isEmpty()) return
-        val result = markChapterRead(plan, bookId, chapter, books, payDebt = payDebt)
-        if (result.kind == "already" || result.kind == "off" || result.kind == "skip") return
-        persistMarked(advanceCursor(result.plan, books), result.kind)
-    }
-
     fun stopAudio() {
-        audioMode = "idle"
         playBook = null
         playChapter = null
         controller?.stop()
@@ -903,84 +498,6 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
             delay(2200)
             if (toast == msg) toast = null
         }
-    }
-
-    private fun persistMarked(next: Plan, kind: String) {
-        plan = next
-        store.savePlan(next)
-        val copy = copyFor(edition)
-        val pct = progressPct(plan)
-        if (kind == "extra") flash(copy.beyondPlan)
-        else {
-            Debt.sync(getApplication())
-            if (pct != null && pct >= 100) flash(copy.planFinished) else if (pct != null) flash(copy.planPct(pct))
-        }
-        scheduleCloudPush()
-    }
-
-    private fun askBeyondPortion() {
-        val copy = copyFor(edition)
-        confirm = Confirm(
-            title = copy.portionDoneTitle,
-            body = copy.portionDoneBody,
-            okLabel = copy.portionContinue,
-            cancelLabel = copy.portionHome,
-            onCancel = {
-                confirm = null
-                go(Route.Home, push = false)
-            },
-        ) {
-            confirm = null
-            plan = plan.copy(beyond = true)
-            store.savePlan(plan)
-            scheduleCloudPush()
-            openPortion(push = false)
-        }
-    }
-
-    private fun scheduleCloudPush() {
-        val state = store.cloud()
-        if (state.token.isEmpty()) return
-        store.saveCloud(state.copy(updatedMin = Cloud.bumpUpdated(state.updatedMin)))
-        cloud = store.cloud()
-        if (!cloud.enabled) return
-        pushJob?.cancel()
-        pushJob = viewModelScope.launch {
-            delay(400)
-            val code = withContext(Dispatchers.IO) { Cloud.pushNow(store) }
-            cloudStatus = code
-        }
-    }
-
-    private fun pullCloud(force: Boolean = false) {
-        val state = store.cloud()
-        if (!state.enabled || state.token.isEmpty()) return
-        val now = System.currentTimeMillis()
-        if (!force && now - lastPull < 15_000) return
-        lastPull = now
-        viewModelScope.launch {
-            val list = try {
-                ensureBooks()
-            } catch (_: Exception) {
-                lastPull = 0
-                return@launch
-            }
-            val code = withContext(Dispatchers.IO) { Cloud.pull(store, list) }
-            if (code == "remote") {
-                plan = store.plan()
-                Debt.sync(getApplication())
-            }
-            cloud = store.cloud()
-            if (code == "offline" || code == "error" || code == "bad") cloudStatus = code
-            else if (code == "saved" || code == "uploaded" || code == "remote") cloudStatus = code
-        }
-    }
-
-    private fun consumeJoin() {
-        val raw = pendingJoin ?: return
-        if (edition == null) return
-        pendingJoin = null
-        joinCloud(raw)
     }
 
     private fun trackWords(ed: pl.ksiag.app.model.Edition, bookId: String, chapter: Int) {

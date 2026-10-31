@@ -3,7 +3,6 @@
  * Strona nie zapisuje rozdziałów offline.
  */
 
-const STORAGE_KEY = "ksiag-audio-v1";
 const CATALOG_URL = "/audio-catalog.json";
 const AUDIO_BASE = "/kjv/1769";
 
@@ -19,29 +18,6 @@ export function appIconList() {
 let catalogPromise = null;
 /** @type {Map<string, object> | null} */
 let catalogByKey = null;
-
-export function loadAudioSession() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultSession();
-    return { ...defaultSession(), ...JSON.parse(raw) };
-  } catch {
-    return defaultSession();
-  }
-}
-
-export function saveAudioSession(session) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-}
-
-function defaultSession() {
-  return {
-    mode: "idle",
-    offerContinue: false,
-    nextBook: null,
-    nextChapter: null,
-  };
-}
 
 /** Kanoniczna ścieżka MP3 na tym samym originie. */
 export function audioPath(bookId, chapter) {

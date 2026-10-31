@@ -41,21 +41,23 @@ class ParityShotTest {
             KsiagTheme(kjv = false) {
                 HomeScreen(
                     copy = copy,
-                    assignment = null,
-                    planEnabled = false,
-                    planDone = false,
-                    readOnTarget = false,
+                    readMain = copy.startRead,
+                    readSub = copy.startGenesis,
                     showAudio = false,
-                    showContinue = false,
                     downloadLabel = "",
-                    downloadRunning = false,
+                    downloadButton = copy.audioDownload,
+                    downloadEnabled = true,
+                    showMeter = false,
+                    meterPct = 0,
+                    showClear = false,
+                    clearLabel = copy.audioClear,
                     onRead = {},
                     onBooks = {},
-                    onPlan = {},
                     onChangeEdition = {},
-                    onContinue = {},
                     onDownload = {},
                     onClearAudio = {},
+                    sourceName = copy.homeSourceName,
+                    onSource = {},
                 )
             }
         }

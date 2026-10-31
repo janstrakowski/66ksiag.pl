@@ -7,7 +7,7 @@ Polska Biblia jako **statyczne API** i **strona**.
 - llms.txt: [llms.txt](./llms.txt)
 - Licencja: [MIT](./LICENSE)
 
-Wydania: **BG 1879** (PL) i **KJV** (EN, `/kjv/1769`). Wspólna numeracja KJV; jeden plan dzienny na obie. KJV ma audio Scourby’ego (podświetlanie słów, zaliczanie do planu) — patrz `tools/audio-kjv/`. Hosting: Cloudflare Workers + Static Assets.
+Wydania: **BG 1879** (PL) i **KJV** (EN, `/kjv/1769`). Wspólna numeracja KJV. KJV ma audio Scourby’ego (podświetlanie słów) — patrz `tools/audio-kjv/`. Hosting: Cloudflare Workers + Static Assets.
 
 ## Szybki start
 
