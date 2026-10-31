@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Publish the long-lived `dev` branch as a Cloudflare Workers Preview.
-# This script never runs `wrangler deploy` and never updates 66ksiag.pl.
+# Publish the long-lived `dev` branch at https://devpreview.66ksiag.pl.
+# Deploys wrangler env `devpreview` (worker ksiag-devpreview) only.
+# Never deploys the top-level worker `ksiag` and never attaches
+# 66ksiag.pl or www.66ksiag.pl.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,22 +22,27 @@ if ! publish_is_dev; then
   exit 1
 fi
 
+python3 "$ROOT/ci/route-guard.py" preview wrangler.toml
+
 if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
   echo "preview-deploy: missing Cloudflare credentials in the environment." >&2
-  echo "Add these secrets on the Origin repository (do not commit the values):" >&2
-  echo "  CLOUDFLARE_API_TOKEN   API token with Workers Scripts: Edit and Workers Routes: Edit on zone 66ksiag.pl" >&2
-  echo "  CLOUDFLARE_ACCOUNT_ID  Cloudflare account id" >&2
+  echo "  CLOUDFLARE_API_TOKEN   Origin CI secret(\"CLOUDFLARE_API_TOKEN\"). Do not commit the value." >&2
+  echo "  CLOUDFLARE_ACCOUNT_ID  set in origin.ci.ts for this repository." >&2
   exit 1
 fi
 
-# Fixed argv. `deploy` and `versions` are rejected so this cannot promote production.
-cmd=(npx wrangler preview --name dev --json)
-for arg in "${cmd[@]}"; do
-  if [[ "$arg" == "deploy" || "$arg" == "versions" ]]; then
-    echo "preview-deploy: refusing a production-capable wrangler command." >&2
-    exit 1
-  fi
-done
+# Exact argv. --env devpreview is a different worker. A bare deploy would
+# publish the production routes, so any other argument is refused.
+cmd=(npx wrangler deploy --env devpreview)
+if [[ ${#cmd[@]} -ne 5 \
+  || "${cmd[0]}" != "npx" \
+  || "${cmd[1]}" != "wrangler" \
+  || "${cmd[2]}" != "deploy" \
+  || "${cmd[3]}" != "--env" \
+  || "${cmd[4]}" != "devpreview" ]]; then
+  echo "preview-deploy: refusing unexpected wrangler command: ${cmd[*]}" >&2
+  exit 1
+fi
 
 export GIT_LFS_SKIP_SMUDGE=1
 
@@ -76,47 +83,16 @@ if [[ ! -f dist/index.html ]]; then
   exit 1
 fi
 
-echo "preview-deploy: wrangler preview --name dev (not deploy)"
-output="$("${cmd[@]}")"
+echo "preview-deploy: wrangler deploy --env devpreview → https://devpreview.66ksiag.pl"
+set +e
+output="$("${cmd[@]}" 2>&1)"
+status=$?
+set -e
 printf '%s\n' "$output"
-
-preview_url="$(
-  printf '%s' "$output" | python3 -c '
-import json, sys
-raw = sys.stdin.read()
-start = raw.find("{")
-end = raw.rfind("}")
-if start < 0 or end < start:
-    sys.exit(2)
-data = json.loads(raw[start : end + 1])
-urls = []
-
-def take(value):
-    if isinstance(value, str) and "workers.dev" in value:
-        urls.append(value)
-    elif isinstance(value, list):
-        for item in value:
-            take(item)
-    elif isinstance(value, dict):
-        for key in ("url", "preview_url", "href"):
-            take(value.get(key))
-        take(value.get("urls"))
-
-preview = data.get("preview")
-take(preview if preview is not None else data)
-if not urls:
-    sys.exit(3)
-print(urls[0])
-'
-)" || {
-  echo "preview-deploy: wrangler succeeded but no workers.dev URL was found in the JSON." >&2
-  exit 1
-}
-
-if [[ "$preview_url" == *66ksiag.pl* ]]; then
-  echo "preview-deploy: refusing preview URL on the production host: ${preview_url}" >&2
-  exit 1
+if [[ "$status" -ne 0 ]]; then
+  echo "preview-deploy: wrangler exited ${status}." >&2
+  exit "$status"
 fi
 
-echo "preview-deploy: url ${preview_url}"
-echo "preview-deploy: stable pattern https://dev-ksiag.<account-subdomain>.workers.dev"
+printf '%s\n' "$output" | python3 "$ROOT/ci/route-guard.py" preview-output -
+echo "preview-deploy: url https://devpreview.66ksiag.pl"

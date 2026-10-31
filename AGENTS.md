@@ -95,7 +95,7 @@ Jeden przycisk na karcie tytułowej aplikacji. `x` to rozdziały już zapisane l
 ```bash
 bash scripts/dev-serve.sh          # http://127.0.0.1:8787
 bash ci/production-deploy.sh       # main only: wrangler deploy → 66ksiag.pl (Origin CI)
-bash ci/preview-deploy.sh          # dev only: Workers Preview, not 66ksiag.pl
+bash ci/preview-deploy.sh          # dev only: https://devpreview.66ksiag.pl (worker ksiag-devpreview)
 ```
 
 ## Harness (local tickets)
@@ -110,7 +110,7 @@ npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OP
 - Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
 - Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
 - Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
-- Production deploy: Origin CI on `main` (`ci/production-deploy.sh`). Preview: `ci/preview-deploy.sh` on `dev`.
+- Production deploy: Origin CI on `main` (`ci/production-deploy.sh`) → `https://66ksiag.pl` and `https://www.66ksiag.pl`. Preview: `ci/preview-deploy.sh` on `dev` → `https://devpreview.66ksiag.pl`.
 
 ## Testy
 

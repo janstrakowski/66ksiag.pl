@@ -1,4 +1,5 @@
 name = "ksiag"
+account_id = "86e0b7dbeec0ebfff2333c8e8c4087fb"
 main = "worker/src/index.ts"
 compatibility_date = "2025-10-01"
 workers_dev = true
@@ -25,7 +26,23 @@ binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
 
-# Branch previews (`npx wrangler preview`). Not read by `wrangler deploy`.
-# Previews do not inherit routes or the SYNC KV namespace, and they do not
-# take over 66ksiag.pl. Stable dev URL: https://dev-ksiag.<subdomain>.workers.dev
+# `npx wrangler preview` does not read [env.devpreview]. Keep this empty so a
+# preview session still does not inherit production routes or SYNC.
 [previews]
+
+# Push on `dev` deploys only this environment:
+#   npx wrangler deploy --env devpreview
+# The worker name is ksiag-devpreview, not ksiag. Routes set here replace the
+# inherited production routes, so this deploy does not take 66ksiag.pl or
+# www.66ksiag.pl. kv_namespaces is not inheritable; the empty list keeps the
+# production SYNC namespace off this worker.
+# Hostname: https://devpreview.66ksiag.pl
+[env.devpreview]
+name = "ksiag-devpreview"
+workers_dev = true
+kv_namespaces = []
+
+[[env.devpreview.routes]]
+pattern = "devpreview.66ksiag.pl"
+custom_domain = true
+zone_name = "66ksiag.pl"

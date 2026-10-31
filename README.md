@@ -62,22 +62,20 @@ Job produkcyjny wymaga tekstu wydań w checkoutcie (`data/bg/1879/books.json` i 
 
 ## Podgląd `dev` (nie produkcja)
 
-Push na długożyciowy branch `dev` uruchamia ten sam plik Origin CI. Job woła wyłącznie `npx wrangler preview --name dev` (`ci/preview-deploy.sh`). To nie jest `wrangler deploy` i nie przejmuje tras `66ksiag.pl`.
+Push na długożyciowy branch `dev` uruchamia ten sam plik Origin CI. Job woła `npx wrangler deploy --env devpreview` (`ci/preview-deploy.sh`). To osobny worker `ksiag-devpreview`. Nie jest to worker produkcyjny `ksiag` i nie dostaje tras `66ksiag.pl/*` ani `www.66ksiag.pl/*`.
 
 Stabilny URL podglądu (zawsze ostatni push na `dev`):
 
-`https://dev-ksiag.<subdomena-konta>.workers.dev`
+`https://devpreview.66ksiag.pl`
 
-Każde wdrożenie podglądu dostaje też niezmienny URL: `https://<id-wdrożenia>-ksiag.<subdomena-konta>.workers.dev`.
+To Custom Domain na strefie `66ksiag.pl`. Wrangler zakłada rekord DNS przy wdrożeniu podglądu. Produkcja zostaje na trasach `66ksiag.pl/*` i `www.66ksiag.pl/*`.
 
-Sekrety trzeba dodać w Origin (wartości nie leżą w gicie). Oba joby czytają je przez `secret()` i przekazują Wranglerowi:
-
-| Nazwa | Znaczenie |
+| Nazwa | Skąd |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Token API: edycja Workers Scripts oraz edycja Workers Routes na strefie `66ksiag.pl` |
-| `CLOUDFLARE_ACCOUNT_ID` | Identyfikator konta Cloudflare |
+| `CLOUDFLARE_ACCOUNT_ID` | Wpisane w `origin.ci.ts` i `wrangler.toml` (`account_id`). To nie jest token. |
+| `CLOUDFLARE_API_TOKEN` | Tylko przez `secret("CLOUDFLARE_API_TOKEN")`. Wartości nie ma w gicie. |
 
-Osobny sekret na custom domain nie jest potrzebny. Host produkcyjny to trasa w `wrangler.toml` (`zone_name = "66ksiag.pl"`), nie Custom Domain.
+Notatki Origin opisują helpery `glob()`, `exists()` i `ecrLogin`. Nie opisują magazynu sekretów ani `secret()`. Dopóki ten helper nie odda tokenu, żywe wdrożenie podglądu i produkcji nie startuje. Tokenu nie wkleja się do repozytorium. Szablon „Edit Cloudflare Workers” musi móc edytować Workers Scripts. Custom Domain dodatkowo tworzy rekord DNS na strefie; jeśli Cloudflare odrzuci ten krok, token potrzebuje jeszcze Zone DNS: Edit na `66ksiag.pl`. Osobnego sekretu na custom domain nie ma.
 
 Tekst wydań (`data/bg`, `data/kjv` poza LFS) nie jest w tym commicie. Dopóki go nie ma w checkoutcie, podgląd serwuje samą stronę; rozdziały pojawią się, gdy tekst będzie w drzewie (np. submoduły).
 

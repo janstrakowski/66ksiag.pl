@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Origin CI entrypoint. Push to dev → Workers Preview. Push to main → production.
+# Origin CI entrypoint. Push to dev → https://devpreview.66ksiag.pl. Push to main → production.
 # Neither path calls the Raspberry Pi.
 set -euo pipefail
 

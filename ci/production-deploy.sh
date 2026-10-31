@@ -27,16 +27,12 @@ fi
 
 if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
   echo "production-deploy: missing Cloudflare credentials in the environment." >&2
-  echo "Add these secrets on the Origin repository (do not commit the values):" >&2
-  echo "  CLOUDFLARE_API_TOKEN   API token with Workers Scripts: Edit and Workers Routes: Edit on zone 66ksiag.pl" >&2
-  echo "  CLOUDFLARE_ACCOUNT_ID  Cloudflare account id" >&2
+  echo "  CLOUDFLARE_API_TOKEN   Origin CI secret(\"CLOUDFLARE_API_TOKEN\"). Do not commit the value." >&2
+  echo "  CLOUDFLARE_ACCOUNT_ID  set in origin.ci.ts for this repository." >&2
   exit 1
 fi
 
-if ! grep -q 'pattern = "66ksiag.pl/\*"' wrangler.toml || ! grep -q 'zone_name = "66ksiag.pl"' wrangler.toml; then
-  echo "production-deploy: wrangler.toml is missing the 66ksiag.pl route. Refusing." >&2
-  exit 1
-fi
+python3 "$ROOT/ci/route-guard.py" production wrangler.toml
 
 # Fixed argv. preview would not attach the production routes.
 cmd=(npx wrangler deploy)
