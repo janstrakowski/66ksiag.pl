@@ -87,8 +87,8 @@ Tego OAuth nie da się dokończyć z repozytorium.
 1. Otwórz [aplikację Cloudflare](https://cursor.com/codebase/settings/apps/public/cloudflare).
 2. Wybierz **Install**.
 3. Jako właściciela Origin wybierz `jastrakowski` i nadaj dostęp do repozytorium `jastrakowski/66ksiag`.
-4. Dokończ połączenie z kontem Cloudflare `86e0b7dbeec0ebfff2333c8e8c4087fb` i wskaż workera `66ksiag`. To jest aplikacja podpięta do repozytorium. Stary worker `ksiag` nadal trzyma trasy do pierwszego udanego deployu; potem można go usunąć.
-5. W ustawieniach builda workera `66ksiag` ustaw branch produkcyjny `main`, włącz preview builds i polecenia z tabeli wyżej.
+4. Dokończ połączenie z kontem Cloudflare `86e0b7dbeec0ebfff2333c8e8c4087fb` i wskaż workera `66ksiag`. Ta nazwa jest już w `wrangler.toml`. Zmiana nazwy w panelu zostawia trasy na tym samym workerze.
+5. W ustawieniach builda workera `66ksiag` ustaw branch produkcyjny `main`, włącz preview builds i polecenia z tabeli wyżej. Repo ma być podpięte do tego workera, nie do osobnej aplikacji.
 
 Klonowanie w Workers Builds idzie przez git-proxy z nagłówkiem `Authorization` aplikacji Cloudflare. Błąd „Failed: error occurred while checking out repository” na tym kroku jest odmową tego dostępu do `jastrakowski/66ksiag`. Repozytorium nie trzyma credentiala do tego proxy. Trzeba ponownie zainstalować aplikację i nadać jej to repozytorium.
 
