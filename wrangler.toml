@@ -3,9 +3,19 @@ account_id = "86e0b7dbeec0ebfff2333c8e8c4087fb"
 main = "worker/src/index.ts"
 compatibility_date = "2025-10-01"
 workers_dev = true
+# Worker Previews on workers.dev as well as the custom domain below.
+preview_urls = true
 
-# Istniejące rekordy DNS na strefie — Routes zamiast Custom Domain
-# (Custom Domain wymaga pustego hostname bez A/CNAME).
+# Workers Builds (Cloudflare app on Cursor Origin) reads this file.
+# It does not read a build command from here. In the app:
+#   production branch: main
+#   build command:     npm run build
+#   deploy command:    npx wrangler deploy
+#   preview command:   npx wrangler preview
+# Pushes to main deploy production. Every other branch, including dev,
+# runs wrangler preview and does not take the production routes.
+
+# Istniejące rekordy DNS na apex i www — Routes, nie Custom Domain.
 [[routes]]
 pattern = "66ksiag.pl/*"
 zone_name = "66ksiag.pl"
@@ -13,6 +23,15 @@ zone_name = "66ksiag.pl"
 [[routes]]
 pattern = "www.66ksiag.pl/*"
 zone_name = "66ksiag.pl"
+
+# Preview-only custom domain. enabled = false keeps production off this host.
+# Worker Previews serve <branch>.devpreview.66ksiag.pl.
+# Branch dev: https://dev.devpreview.66ksiag.pl
+[[routes]]
+pattern = "devpreview.66ksiag.pl"
+custom_domain = true
+previews_enabled = true
+enabled = false
 
 # Postęp planu: identyfikator slotu → szyfrogram ≤ 64 B.
 # Odczyt i zapis wymagają podpisu Ed25519. Klucz publiczny leży pod pub:{id}.
@@ -26,23 +45,7 @@ binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
 
-# `npx wrangler preview` does not read [env.devpreview]. Keep this empty so a
-# preview session still does not inherit production routes or SYNC.
+# Previews do not inherit production bindings. Leave SYNC off this block so a
+# preview cannot read or write the production KV namespace. Routes and cron
+# triggers are not valid here; the preview hostname is the route above.
 [previews]
-
-# Push on `dev` deploys only this environment:
-#   npx wrangler deploy --env devpreview
-# The worker name is ksiag-devpreview, not ksiag. Routes set here replace the
-# inherited production routes, so this deploy does not take 66ksiag.pl or
-# www.66ksiag.pl. kv_namespaces is not inheritable; the empty list keeps the
-# production SYNC namespace off this worker.
-# Hostname: https://devpreview.66ksiag.pl
-[env.devpreview]
-name = "ksiag-devpreview"
-workers_dev = true
-kv_namespaces = []
-
-[[env.devpreview.routes]]
-pattern = "devpreview.66ksiag.pl"
-custom_domain = true
-zone_name = "66ksiag.pl"

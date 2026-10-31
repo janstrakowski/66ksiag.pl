@@ -69,7 +69,7 @@ python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json 
 git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 ```
 
-Audio LFS można zsynchronizować na dysk Pi (`bash scripts/push-origin.sh` — rsync na `/mnt/pi-data/git-lfs/66ksiag`). To magazyn plików audio, nie deploy. Produkcja idzie z Origin CI przy pushu `main`.
+Audio LFS można zsynchronizować na dysk Pi (`bash scripts/push-origin.sh` — rsync na `/mnt/pi-data/git-lfs/66ksiag`). To magazyn plików audio, nie deploy. Produkcja idzie z Workers Builds (aplikacja Cloudflare w Cursorze) przy pushu `main`.
 
 Strona odtwarza `/kjv/1769/…/*.mp3` strumieniowo z tego samego originu. Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
 Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
@@ -94,13 +94,12 @@ Jeden przycisk na karcie tytułowej aplikacji. `x` to rozdziały już zapisane l
 
 ```bash
 bash scripts/dev-serve.sh          # http://127.0.0.1:8787
-bash ci/production-deploy.sh       # main only: wrangler deploy → 66ksiag.pl (Origin CI)
-bash ci/preview-deploy.sh          # dev only: https://devpreview.66ksiag.pl (worker ksiag-devpreview)
+npm run deploy                     # local wrangler deploy; automatic deploys are Workers Builds
 ```
 
 ## Harness (local tickets)
 
-Ticket UI + Cursor `agent` CLI + git worktrees on the **dev machine**. Pushing `main` deploys production from Origin CI.
+Ticket UI + Cursor `agent` CLI + git worktrees on the **dev machine**. Pushing `main` deploys production from Workers Builds after the Cloudflare app is connected.
 
 ```bash
 npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OPEN=1 to skip)
@@ -110,7 +109,7 @@ npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OP
 - Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
 - Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
 - Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
-- Production deploy: Origin CI on `main` (`ci/production-deploy.sh`) → `https://66ksiag.pl` and `https://www.66ksiag.pl`. Preview: `ci/preview-deploy.sh` on `dev` → `https://devpreview.66ksiag.pl`.
+- Production deploy: Workers Builds on `main` (`npx wrangler deploy`) → `https://66ksiag.pl` and `https://www.66ksiag.pl`. Preview: `npx wrangler preview` on `dev` → `https://dev.devpreview.66ksiag.pl`. The preview custom domain `devpreview.66ksiag.pl` is not a production route.
 
 ## Testy
 
