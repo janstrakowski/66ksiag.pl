@@ -34,7 +34,7 @@ import {
 } from "./agent.mjs";
 import { listDir, readFile } from "./files.mjs";
 import { startAndroidTest, androidStatus, subscribeAndroid } from "./android.mjs";
-import { mergeTicketToDev, mergeDevToMain, rollbackViaSsh } from "./merge.mjs";
+import { mergeTicketToDev, mergeDevToMain } from "./merge.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.resolve(__dirname, "../web");
@@ -287,15 +287,6 @@ async function handleApi(req, res, url) {
       unsub();
     });
     return;
-  }
-
-  if (req.method === "POST" && pathname === "/api/rollback") {
-    try {
-      const result = rollbackViaSsh();
-      return json(res, 200, result);
-    } catch (err) {
-      return json(res, 500, { error: err.message });
-    }
   }
 
   return json(res, 404, { error: "Not found" });

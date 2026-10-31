@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import {
   REPO_ROOT,
   DEV_WORKTREE,
@@ -97,21 +96,5 @@ export function mergeDevToMain() {
     mainSha: currentSha(REPO_ROOT),
     pushStdout: push.stdout,
     pushStderr: push.stderr,
-  };
-}
-
-export function rollbackViaSsh() {
-  const host = process.env.HARNESS_PI_HOST || "drukarka";
-  const remoteCmd =
-    process.env.HARNESS_PI_ROLLBACK ||
-    'bash "$HOME/66ksiag-deploy/ci/pi/rollback.sh"';
-  const r = spawnSync("ssh", [host, remoteCmd], { encoding: "utf8" });
-  if (r.status !== 0) {
-    throw new Error((r.stderr || r.stdout || "ssh rollback failed").trim());
-  }
-  return {
-    ok: true,
-    stdout: (r.stdout || "").trim(),
-    stderr: (r.stderr || "").trim(),
   };
 }

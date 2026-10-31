@@ -67,7 +67,7 @@ python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json 
 git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 ```
 
-Audio LFS nadal można zsynchronizować na dysk Pi (`bash scripts/push-origin.sh` — rsync na `/mnt/pi-data/git-lfs/66ksiag`). To nie jest deploy. Produkcja idzie z Origin CI przy pushu `main`. Szczegóły: `ci/pi/README.md`.
+Audio LFS można zsynchronizować na dysk Pi (`bash scripts/push-origin.sh` — rsync na `/mnt/pi-data/git-lfs/66ksiag`). To magazyn plików audio, nie deploy. Produkcja idzie z Origin CI przy pushu `main`.
 
 PWA czyta `/kjv/1769/…/*.mp3` z tego samego originu. „Pobierz audio” = Cache Storage.  
 Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
@@ -108,7 +108,7 @@ npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OP
 - Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
 - Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
 - Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
-- Production deploy: Origin CI on `main` (`ci/production-deploy.sh`). The harness rollback button still SSHs to the Pi and runs `ci/pi/rollback.sh`. See [ci/pi/README.md](./ci/pi/README.md).
+- Production deploy: Origin CI on `main` (`ci/production-deploy.sh`). Preview: `ci/preview-deploy.sh` on `dev`.
 
 ## Testy
 

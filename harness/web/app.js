@@ -316,17 +316,6 @@ $("#btn-merge-main").addEventListener("click", async () => {
   }
 });
 
-$("#btn-rollback").addEventListener("click", async () => {
-  if (!confirm("SSH to the Pi and roll back the last Cloudflare deploy?")) return;
-  try {
-    const r = await api("/api/rollback", { method: "POST", body: "{}" });
-    log(`Rollback: ${r.stdout || "ok"}`);
-  } catch (err) {
-    log(`Rollback failed: ${err.message}`);
-    alert(err.message);
-  }
-});
-
 $("#btn-android-dev").addEventListener("click", async () => {
   try {
     connectAndroidLog();
