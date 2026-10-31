@@ -3,7 +3,7 @@ account_id = "86e0b7dbeec0ebfff2333c8e8c4087fb"
 main = "worker/src/index.ts"
 compatibility_date = "2025-10-01"
 workers_dev = true
-# Worker Previews on workers.dev as well as the custom domain below.
+# Worker Previews on workers.dev as well as <branch>.66ksiag.pl.
 preview_urls = true
 
 # Workers Builds (Cloudflare app on Cursor Origin) reads this file.
@@ -15,7 +15,7 @@ preview_urls = true
 # Pushes to main deploy production. Every other branch, including dev,
 # runs wrangler preview and does not take the production routes.
 
-# Istniejące rekordy DNS na apex i www — Routes, nie Custom Domain.
+# Apex i www zostają trasami strefy. To nie są Custom Domains.
 [[routes]]
 pattern = "66ksiag.pl/*"
 zone_name = "66ksiag.pl"
@@ -24,13 +24,11 @@ zone_name = "66ksiag.pl"
 pattern = "www.66ksiag.pl/*"
 zone_name = "66ksiag.pl"
 
-# Preview-only custom domain. enabled = false keeps production off this host.
-# wrangler preview cannot publish the apex https://devpreview.66ksiag.pl.
-# It always inserts the branch name: https://dev.devpreview.66ksiag.pl
-# A wildcard on *.66ksiag.pl would also cover www.66ksiag.pl, so that parent
-# is not used.
+# Preview hostnames are <branch>.66ksiag.pl. enabled = false so this custom
+# domain does not receive production traffic. Branch dev:
+# https://dev.66ksiag.pl
 [[routes]]
-pattern = "devpreview.66ksiag.pl"
+pattern = "66ksiag.pl"
 custom_domain = true
 previews_enabled = true
 enabled = false

@@ -71,15 +71,13 @@ W `wrangler.toml` jest konto `86e0b7dbeec0ebfff2333c8e8c4087fb` (`account_id`). 
 
 Push na `main` uruchamia build, potem `npx wrangler deploy`. Trasy zostają `66ksiag.pl/*` i `www.66ksiag.pl/*`.
 
-Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje tras produkcji. Custom domain `devpreview.66ksiag.pl` ma `enabled = false` i `previews_enabled = true`, więc produkcja go nie dostaje.
-
-`wrangler preview` nie umie wystawić samego `https://devpreview.66ksiag.pl`. Adres podglądu to zawsze `<branch>.<ta domena>`. Wildcard na `*.66ksiag.pl` objąłby też `www`, więc go nie ma.
+Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje tras `66ksiag.pl/*` ani `www.66ksiag.pl/*`. Custom domain na `66ksiag.pl` ma `enabled = false` i `previews_enabled = true`, więc produkcja zostaje na trasach strefy, a podgląd idzie na `<branch>.66ksiag.pl`.
 
 Podgląd brancha `dev`:
 
-`https://dev.devpreview.66ksiag.pl`
+`https://dev.66ksiag.pl`
 
-Niezmienny URL jednego wdrożenia: `https://<id>-dev.devpreview.66ksiag.pl`.
+Niezmienny URL jednego wdrożenia: `https://<id>-dev.66ksiag.pl`.
 
 `npm run build` wymaga `data/bg/1879/books.json` i `data/kjv/1769/books.json`. Bez nich build kończy się przed Wranglerem.
 
@@ -94,6 +92,8 @@ Tego OAuth nie da się dokończyć z repozytorium.
 3. Jako właściciela Origin wybierz `jastrakowski` i nadaj dostęp do repozytorium `jastrakowski/66ksiag`.
 4. Dokończ połączenie z kontem Cloudflare `86e0b7dbeec0ebfff2333c8e8c4087fb` i wskaż workera `ksiag`.
 5. W ustawieniach builda tego workera ustaw branch produkcyjny `main`, włącz preview builds i polecenia z tabeli wyżej.
+
+Klonowanie w Workers Builds idzie przez git-proxy z nagłówkiem `Authorization` aplikacji Cloudflare. Błąd „Failed: error occurred while checking out repository” na tym kroku jest odmową tego dostępu do `jastrakowski/66ksiag`. Repozytorium nie trzyma credentiala do tego proxy. Trzeba ponownie zainstalować aplikację i nadać jej to repozytorium.
 
 Tekst wydań (`data/bg`, `data/kjv` poza LFS) nie jest w tym commicie. Dopóki go nie ma w checkoutcie, podgląd serwuje samą stronę; rozdziały pojawią się, gdy tekst będzie w drzewie (np. submoduły).
 
