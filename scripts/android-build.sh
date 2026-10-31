@@ -50,7 +50,7 @@ if ! "$APKSIGNER" verify "$APK" >/dev/null 2>&1; then
   echo "APK nie jest podpisany. W android/secrets/keystore.env lub zmiennych CI ustaw ANDROID_KEYSTORE_PASSWORD / KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD / KEY_PASSWORD i ANDROID_KEY_ALIAS / KEY_ALIAS (alias: android)." >&2
   exit 1
 fi
-if ! jarsigner -verify "$AAB" >/dev/null 2>&1; then
+if ! "$JAVA_HOME/bin/jarsigner" -verify "$AAB" >/dev/null 2>&1; then
   echo "AAB nie jest podpisany." >&2
   exit 1
 fi
