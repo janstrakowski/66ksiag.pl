@@ -13,7 +13,7 @@ Wydania: **BG 1879** (PL) i **KJV** (EN, `/kjv/1769`). Wspólna numeracja KJV; j
 
 ```bash
 # 1. Źródła tekstu (submoduły; po świeżym klonie)
-git submodule update --init
+git submodule update --init --checkout
 
 # 2. Import → data/ (JSON + TXT; poza gitem)
 cargo run -p ksiag-import --release -- \

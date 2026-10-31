@@ -254,11 +254,18 @@ async function main() {
       console.log(
         `[r2-audio] Batch ${batchNum}/${totalBatches}: pulling ${pointersToPull.length} MP3(s) from Git LFS...`
       );
-      execFileSync(
-        "git",
-        ["lfs", "pull", `--include=${pointersToPull.join(",")}`, "--exclude="],
-        { cwd: ROOT, stdio: "inherit" }
-      );
+      try {
+        execFileSync(
+          "git",
+          ["lfs", "pull", `--include=${pointersToPull.join(",")}`, "--exclude="],
+          { cwd: ROOT, stdio: "inherit" }
+        );
+      } catch (err) {
+        console.warn(
+          `[r2-audio] git lfs pull failed (git-proxy may not forward LFS batch API): ${err.message}. Skipping remaining R2 audio uploads for this build.`
+        );
+        return;
+      }
     }
 
     console.log(

@@ -105,10 +105,25 @@ function ensureSubmodules() {
   const kjvFile = join(ROOT, "sources/bible-kjv/Genesis.json");
   if (!existsSync(bgDir) || !existsSync(kjvFile)) {
     console.log("Initializing text submodules in sources/...");
-    execFileSync("git", ["submodule", "update", "--init", "--depth", "1"], {
-      cwd: ROOT,
-      stdio: "inherit",
-    });
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "http.extraHeader=",
+        "-c",
+        "http.https://github.com/.extraHeader=",
+        "submodule",
+        "update",
+        "--init",
+        "--checkout",
+        "--depth",
+        "1",
+      ],
+      {
+        cwd: ROOT,
+        stdio: "inherit",
+      }
+    );
   }
 }
 

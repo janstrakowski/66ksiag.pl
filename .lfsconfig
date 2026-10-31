@@ -1,5 +1,5 @@
 [lfs]
-	# Workers Builds clones this repo. Do not download the audio objects
-	# during checkout; a failed or multi-gigabyte LFS fetch stops the deploy
-	# before wrangler runs. The site shell does not need them.
-	fetchexclude = data/**
+	# Skip smudging all LFS files during git clone / git checkout so Workers
+	# Builds git-proxy checkout never fails on android/, demos/, store/, or
+	# data/. Build scripts pull needed LFS paths explicitly.
+	fetchexclude = *

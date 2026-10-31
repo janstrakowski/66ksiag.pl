@@ -31,7 +31,7 @@ Statyczne API Biblii (BG 1879 + KJV) i strona. Warstwa plików w `data/` jest ź
 
 ## Import tekstu
 
-Tekst wydań w `data/` jest w `.gitignore`. Źródła tekstu to submoduły w `sources/` (audio Scourby zostaje w `vendor/`, poza gitem). Po klonie: `git submodule update --init`.
+Tekst wydań w `data/` jest w `.gitignore`. Źródła tekstu to submoduły w `sources/` (audio Scourby zostaje w `vendor/`, poza gitem). Po klonie: `git submodule update --init --checkout` (albo `node scripts/import-editions.mjs`).
 
 ```bash
 # BG — sources/biblia-druk-tekst (pin: tools/import/SOURCE_PIN.txt)
