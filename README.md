@@ -53,28 +53,44 @@ npm run deploy   # build dist/ + wrangler deploy
 
 Wymaga wcześniejszego `data/`. Worker serwuje assety i przekierowuje krótkie aliasy.
 
-Push na `main` uruchamia Origin CI (`origin.ci.ts` → `ci/production-deploy.sh` → `npx wrangler deploy`). Trasy w `wrangler.toml` zostają na `66ksiag.pl` i `www.66ksiag.pl`. Raspberry Pi nie bierze udziału w tym wdrożeniu. Lokalne `npm run deploy` robi to samo polecenie Wranglera, gdy ktoś odpala je ręcznie.
+Deploy idzie z aplikacji Cloudflare w Cursorze (Workers Builds). Tokenu API nie ma w gicie. Cloudflare zakłada własny token, gdy łączysz konto. Raspberry Pi nie bierze udziału w tym wdrożeniu.
 
-Job produkcyjny wymaga tekstu wydań w checkoutcie (`data/bg/1879/books.json` i `data/kjv/1769/books.json`). Bez niego kończy się przed Wranglerem i nie podmienia `66ksiag.pl` na samą skorupę.
+W `wrangler.toml` jest konto `86e0b7dbeec0ebfff2333c8e8c4087fb` (`account_id`). Workers Builds nie czyta polecenia build z tego pliku. W aplikacji ustaw:
 
-## Podgląd `dev` (nie produkcja)
-
-Push na długożyciowy branch `dev` uruchamia ten sam plik Origin CI. Job woła wyłącznie `npx wrangler preview --name dev` (`ci/preview-deploy.sh`). To nie jest `wrangler deploy` i nie przejmuje tras `66ksiag.pl`.
-
-Stabilny URL podglądu (zawsze ostatni push na `dev`):
-
-`https://dev-ksiag.<subdomena-konta>.workers.dev`
-
-Każde wdrożenie podglądu dostaje też niezmienny URL: `https://<id-wdrożenia>-ksiag.<subdomena-konta>.workers.dev`.
-
-Sekrety trzeba dodać w Origin (wartości nie leżą w gicie). Oba joby czytają je przez `secret()` i przekazują Wranglerowi:
-
-| Nazwa | Znaczenie |
+| Ustawienie | Wartość |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Token API: edycja Workers Scripts oraz edycja Workers Routes na strefie `66ksiag.pl` |
-| `CLOUDFLARE_ACCOUNT_ID` | Identyfikator konta Cloudflare |
+| Worker | `ksiag` (ta sama nazwa co `name` w `wrangler.toml`) |
+| Production branch | `main` |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Preview command | `npx wrangler preview` |
+| Preview builds | włączone |
 
-Osobny sekret na custom domain nie jest potrzebny. Host produkcyjny to trasa w `wrangler.toml` (`zone_name = "66ksiag.pl"`), nie Custom Domain.
+Push na `main` uruchamia build, potem `npx wrangler deploy`. Trasy zostają `66ksiag.pl/*` i `www.66ksiag.pl/*`.
+
+Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje tras `66ksiag.pl/*` ani `www.66ksiag.pl/*`. Custom domain na `66ksiag.pl` ma `enabled = false` i `previews_enabled = true`, więc produkcja zostaje na trasach strefy, a podgląd idzie na `<branch>.66ksiag.pl`.
+
+Podgląd brancha `dev`:
+
+`https://dev.66ksiag.pl`
+
+Niezmienny URL jednego wdrożenia: `https://<id>-dev.66ksiag.pl`.
+
+`npm run build` wymaga `data/bg/1879/books.json` i `data/kjv/1769/books.json`. Bez nich build kończy się przed Wranglerem.
+
+Lokalne `npm run deploy` nadal robi `wrangler deploy` na tej maszynie. Automatyczna ścieżka to Workers Builds.
+
+### Połączenie aplikacji (ręcznie)
+
+Tego OAuth nie da się dokończyć z repozytorium.
+
+1. Otwórz [aplikację Cloudflare](https://cursor.com/codebase/settings/apps/public/cloudflare).
+2. Wybierz **Install**.
+3. Jako właściciela Origin wybierz `jastrakowski` i nadaj dostęp do repozytorium `jastrakowski/66ksiag`.
+4. Dokończ połączenie z kontem Cloudflare `86e0b7dbeec0ebfff2333c8e8c4087fb` i wskaż workera `ksiag`.
+5. W ustawieniach builda tego workera ustaw branch produkcyjny `main`, włącz preview builds i polecenia z tabeli wyżej.
+
+Klonowanie w Workers Builds idzie przez git-proxy z nagłówkiem `Authorization` aplikacji Cloudflare. Błąd „Failed: error occurred while checking out repository” na tym kroku jest odmową tego dostępu do `jastrakowski/66ksiag`. Repozytorium nie trzyma credentiala do tego proxy. Trzeba ponownie zainstalować aplikację i nadać jej to repozytorium.
 
 Tekst wydań (`data/bg`, `data/kjv` poza LFS) nie jest w tym commicie. Dopóki go nie ma w checkoutcie, podgląd serwuje samą stronę; rozdziały pojawią się, gdy tekst będzie w drzewie (np. submoduły).
 

@@ -1,10 +1,21 @@
 name = "ksiag"
+account_id = "86e0b7dbeec0ebfff2333c8e8c4087fb"
 main = "worker/src/index.ts"
 compatibility_date = "2025-10-01"
 workers_dev = true
+# Worker Previews on workers.dev as well as <branch>.66ksiag.pl.
+preview_urls = true
 
-# Istniejące rekordy DNS na strefie — Routes zamiast Custom Domain
-# (Custom Domain wymaga pustego hostname bez A/CNAME).
+# Workers Builds (Cloudflare app on Cursor Origin) reads this file.
+# It does not read a build command from here. In the app:
+#   production branch: main
+#   build command:     npm run build
+#   deploy command:    npx wrangler deploy
+#   preview command:   npx wrangler preview
+# Pushes to main deploy production. Every other branch, including dev,
+# runs wrangler preview and does not take the production routes.
+
+# Apex i www zostają trasami strefy. To nie są Custom Domains.
 [[routes]]
 pattern = "66ksiag.pl/*"
 zone_name = "66ksiag.pl"
@@ -12,6 +23,15 @@ zone_name = "66ksiag.pl"
 [[routes]]
 pattern = "www.66ksiag.pl/*"
 zone_name = "66ksiag.pl"
+
+# Preview hostnames are <branch>.66ksiag.pl. enabled = false so this custom
+# domain does not receive production traffic. Branch dev:
+# https://dev.66ksiag.pl
+[[routes]]
+pattern = "66ksiag.pl"
+custom_domain = true
+previews_enabled = true
+enabled = false
 
 # Postęp planu: identyfikator slotu → szyfrogram ≤ 64 B.
 # Odczyt i zapis wymagają podpisu Ed25519. Klucz publiczny leży pod pub:{id}.
@@ -25,7 +45,7 @@ binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
 
-# Branch previews (`npx wrangler preview`). Not read by `wrangler deploy`.
-# Previews do not inherit routes or the SYNC KV namespace, and they do not
-# take over 66ksiag.pl. Stable dev URL: https://dev-ksiag.<subdomain>.workers.dev
+# Previews do not inherit production bindings. Leave SYNC off this block so a
+# preview cannot read or write the production KV namespace. Routes and cron
+# triggers are not valid here; the preview hostname is the route above.
 [previews]

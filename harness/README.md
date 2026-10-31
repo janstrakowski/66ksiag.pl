@@ -19,6 +19,6 @@ Opens `http://127.0.0.1:3900/` (set `HARNESS_NO_OPEN=1` to skip). Dev preview: `
 | Preview | Agent (or **Request preview**) starts `dev-serve.sh` and registers the port |
 | Files | Read-only explorer + text viewer |
 | Android | **Test on Android (USB)** runs `android-build.sh` + `android-install.sh` |
-| Merge | Ticket → `dev` (conflicts stay open for chat); dashboard **Merge dev → main** (ff-only + push). The push of `main` deploys via Origin CI |
+| Merge | Ticket → `dev` (conflicts stay open for chat); dashboard **Merge dev → main** (ff-only + push). The push of `main` deploys via Workers Builds |
 
 Runtime state is gitignored under `.harness/`.
