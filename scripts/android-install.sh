@@ -35,4 +35,4 @@ fi
 adb devices -l
 echo "Instaluję $APK …"
 adb install -r "$APK"
-echo "Gotowe. Uruchom: adb shell monkey -p pl.ksiag.app -c android.intent.category.LAUNCHER 1"
+echo "Gotowe. Uruchom: adb shell monkey -p com.jastrakowski.sixsixksiag -c android.intent.category.LAUNCHER 1"

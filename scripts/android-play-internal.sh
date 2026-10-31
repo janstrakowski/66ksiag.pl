@@ -95,7 +95,7 @@ SHORT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo dev)"
 export KSIAG_VERSION_CODE="$NEXT_VERSION_CODE"
 export KSIAG_VERSION_NAME="${KSIAG_VERSION_NAME:-2.0.${NEXT_VERSION_CODE}-dev.${SHORT_SHA}}"
 
-echo "[play-internal] Building signed release AAB (package=pl.ksiag.app, versionCode=${KSIAG_VERSION_CODE}, versionName=${KSIAG_VERSION_NAME})…"
+echo "[play-internal] Building signed release AAB (package=com.jastrakowski.sixsixksiag, versionCode=${KSIAG_VERSION_CODE}, versionName=${KSIAG_VERSION_NAME})…"
 bash "$ROOT/scripts/android-build.sh"
 
 AAB_PATH="$ROOT/android/app-release-bundle.aab"
@@ -112,6 +112,6 @@ export PLAY_RELEASE_NOTES_EN="${PLAY_RELEASE_NOTES_EN:-Dev branch build (${SHORT
 echo "[play-internal] Uploading $AAB_PATH to Google Play track 'internal'…"
 node "$ROOT/scripts/play-upload-internal.mjs" \
   --aab "$AAB_PATH" \
-  --package "pl.ksiag.app" \
+  --package "com.jastrakowski.sixsixksiag" \
   --track "internal" \
   --release-name "$RELEASE_NAME"

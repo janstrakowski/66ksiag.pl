@@ -165,7 +165,7 @@ describe("Google Play Internal Testing uploader", () => {
       const creds = parseServiceAccountCredentials(JSON.stringify(SAMPLE_SA));
       const result = await uploadBundleToInternalTrack({
         aabPath,
-        packageName: "pl.ksiag.app",
+        packageName: "com.jastrakowski.sixsixksiag",
         credentials: creds,
         releaseName: "2.0.1793563800-dev",
         releaseNotesPl: "Wydanie testowe",
@@ -213,7 +213,7 @@ describe("Google Play Internal Testing uploader", () => {
     };
 
     const maxCode = await queryExistingInternalMaxVersionCode({
-      packageName: "pl.ksiag.app",
+      packageName: "com.jastrakowski.sixsixksiag",
       accessToken: "tok",
       fetchImpl: fakeFetch,
     });
