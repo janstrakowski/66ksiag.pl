@@ -63,7 +63,7 @@ git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json data/kjv/1769/audio-a
 Strona odtwarza `/kjv/1769/…/*.mp3` z Workers Static Assets na tym samym originie. Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
 Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + `.words.json` + wskaźniki MP3 (bez `.txt` i per-verse — limit Workers Assets).
 
-Podgląd brancha to `https://<branch>.66ksiag.pl`. Zanim ten wildcard powstanie, usuń rekord DNS `*.66ksiag.pl` A `85.128.128.104`. Zostaw MX i TXT.
+Podgląd brancha to `https://<branch>.66ksiag.pl`. Apex, www i ten wildcard są Custom Domains; tworzy je `wrangler deploy`. Nie przywracaj rekordu A `*.66ksiag.pl`.
 
 ### Pobieranie audio w Androidzie
 
@@ -100,7 +100,7 @@ npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OP
 - Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
 - Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
 - Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
-- Production deploy: Workers Builds on `main` (`npx wrangler deploy`) to Worker `66ksiag` → `https://66ksiag.pl` and `https://www.66ksiag.pl`. Preview: `npx wrangler preview` on `dev` → `https://dev.66ksiag.pl`. The apex custom domain is preview-only (`enabled = false`).
+- Production deploy: Workers Builds on `main` (`npx wrangler deploy`) to Worker `66ksiag`. Custom Domains: `https://66ksiag.pl`, `https://www.66ksiag.pl`, and `https://<branch>.66ksiag.pl` for every other branch (`dev` → `https://dev.66ksiag.pl`).
 
 ## Testy
 

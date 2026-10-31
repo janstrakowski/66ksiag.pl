@@ -66,9 +66,9 @@ W `wrangler.toml` jest konto `86e0b7dbeec0ebfff2333c8e8c4087fb` (`account_id`). 
 | Preview command | `npx wrangler preview` |
 | Preview builds | włączone |
 
-Push na `main` uruchamia build, potem `npx wrangler deploy`. Trasy zostają `66ksiag.pl/*` i `www.66ksiag.pl/*`.
+Push na `main` uruchamia build, potem `npx wrangler deploy`. To tworzy Custom Domains `66ksiag.pl` i `www.66ksiag.pl` oraz wildcard `*.66ksiag.pl`.
 
-Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje tras `66ksiag.pl/*` ani `www.66ksiag.pl/*`. Custom domain na `66ksiag.pl` ma `enabled = false` i `previews_enabled = true`, więc produkcja zostaje na trasach strefy, a podgląd idzie na `<branch>.66ksiag.pl`.
+Push na `dev` (i na każdy inny branch) uruchamia ten sam build, potem `npx wrangler preview`. To nie przejmuje produkcji. Podgląd idzie na `<branch>.66ksiag.pl`.
 
 Podgląd brancha `dev`:
 
@@ -76,7 +76,7 @@ Podgląd brancha `dev`:
 
 Niezmienny URL jednego wdrożenia: `https://<id>-dev.66ksiag.pl`.
 
-Zanim wildcard podglądu powstanie, w DNS strefy `66ksiag.pl` usuń rekord **A** `*.66ksiag.pl` → `85.128.128.104` (Proxied). Cloudflare nie nadpisze tego rekordu (błąd **100117**) i `npx wrangler deploy` zakończy się błędem, choć trasy `66ksiag.pl/*` i `www.66ksiag.pl/*` zostają. MX i TXT zostaw, jeśli poczta ma działać.
+Rekordy A (`66ksiag.pl`, `www`, `*.66ksiag.pl`) są usunięte. Dopóki najbliższy deploy produkcji nie zapisze Custom Domains, te nazwy się nie rozwiązują. `https://66ksiag.janstrakowski.workers.dev` zostaje. Nie dodawaj z powrotem rekordu A na `*.66ksiag.pl` — Cloudflare odrzuca taki wildcard jako zarządzany z zewnątrz (błąd **100117**).
 
 `npm run build` (`scripts/build-dist.sh`):
 1. Inicjalizuje submoduły w `sources/` i generuje `data/bg/1879` oraz `data/kjv/1769` (`scripts/import-editions.mjs`).

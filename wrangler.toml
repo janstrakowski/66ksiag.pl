@@ -21,26 +21,19 @@ preview_urls = true
 [build]
 command = "bash scripts/build-dist.sh"
 
-# Apex i www zostają trasami strefy. To nie są Custom Domains.
-[[routes]]
-pattern = "66ksiag.pl/*"
-zone_name = "66ksiag.pl"
-
-[[routes]]
-pattern = "www.66ksiag.pl/*"
-zone_name = "66ksiag.pl"
-
-# Preview hostnames are <branch>.66ksiag.pl. enabled = false so this custom
-# domain does not receive production traffic. Branch dev:
-# https://dev.66ksiag.pl
-# This creates a wildcard hostname. Delete the DNS A record
-# *.66ksiag.pl → 85.128.128.104 first. Cloudflare will not replace that
-# externally managed wildcard (error 100117). Leave MX and TXT in place.
+# Custom Domains create the DNS records. Apex and www were A records to
+# 85.128.128.104; those are gone, so zone routes no longer have a hostname
+# to attach to. The next `wrangler deploy` publishes:
+#   66ksiag.pl, www.66ksiag.pl, and *.66ksiag.pl for branch previews.
+# Branch dev: https://dev.66ksiag.pl
 [[routes]]
 pattern = "66ksiag.pl"
 custom_domain = true
 previews_enabled = true
-enabled = false
+
+[[routes]]
+pattern = "www.66ksiag.pl"
+custom_domain = true
 
 # Postęp planu: identyfikator slotu → szyfrogram ≤ 64 B.
 # Odczyt i zapis wymagają podpisu Ed25519. Klucz publiczny leży pod pub:{id}.
