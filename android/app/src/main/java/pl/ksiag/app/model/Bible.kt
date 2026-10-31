@@ -17,8 +17,8 @@ data class Edition(
     val audio: Boolean,
 ) {
     companion object {
-        val BG = Edition("bg-1879", "bg", "1879", "pl", "BG 1879", "/bg/1879", false)
-        val KJV = Edition("kjv-1769", "kjv", "1769", "en", "KJV", "/kjv/1769", true)
+        val BG = Edition("bg-1879", "bg", "1879", "pl", "BG 1879", "/api/bg", false)
+        val KJV = Edition("kjv-1769", "kjv", "1769", "en", "KJV", "/api/kjv", true)
         val all = listOf(BG, KJV)
         fun find(id: String?): Edition? = all.find { it.id == id }
     }

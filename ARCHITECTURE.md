@@ -2,8 +2,8 @@
 
 Aplikacja do czytania Biblii w wielu tłumaczeniach. Wydania:
 
-- **BG 1879** (`/bg/1879`) — Biblia Gdańska, PL ([biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst))
-- **KJV** (`/kjv/1769`) — King James Version, EN (tekst PD; UI inspirowane skanami 1611)
+- **BG 1879** (`/api/bg`) — Biblia Gdańska, PL ([biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst)). Wydanie `1879` zostaje w JSON i w pliku pod `/bg/1879`.
+- **KJV** (`/api/kjv`) — King James Version, EN (tekst PD; UI inspirowane skanami 1611). Wydanie `1769` zostaje w JSON i w pliku pod `/kjv/1769`.
 
 Hosting docelowy: **Cloudflare Workers + Static Assets**.
 
@@ -26,9 +26,7 @@ BG jest **przemapowana na numerację KJV**. Kolejne wersje też muszą być zrem
 └──────────────────────────────────────────┘
 ```
 
-Warstwa danych jest źródłem prawdy. Frontend i agenci AI tylko konsumują te same ścieżki — bez osobnej logiki „co to jest werset 16”.
-
-Na MVP nie ma dynamicznego API serwerowego: hierarchia plików na statycznym hostingu *jest* API.
+Warstwa danych jest źródłem prawdy. Frontend i agenci AI konsumują `/api/{bg|kjv}/…`. Worker czyta JSON rozdziału i MP3 z `/bg/1879` i `/kjv/1769` i składa resztę.
 
 ## Identyfikatory i URL-e
 
@@ -37,28 +35,31 @@ Na MVP nie ma dynamicznego API serwerowego: hierarchia plików na statycznym hos
 Stabilne, używane w API, SEO (`rel=canonical`) i share:
 
 ```
-/bg/1879/manifest.json
-/kjv/1769/manifest.json
+/api/bg/manifest.json
+/api/kjv/manifest.json
 /translations.json
-/{translation}/{edition}/books.json
-/{translation}/{edition}/43-joh/3.json
-/{translation}/{edition}/43-joh/3/16.txt
+/api/{bg|kjv}/books.json
+/api/{bg|kjv}/43-joh/3.json
+/api/{bg|kjv}/43-joh/3.txt
+/api/kjv/43-joh/3
+/api/{bg|kjv}/43-joh/3/16.json
+/api/{bg|kjv}/43-joh/3/16.txt
+/api/kjv/43-joh/3/16
 ```
 
-- `{translation}` — np. `bg`, `kjv`
-- `{edition}` — np. `1879`, `1769`
+- `bg` / `kjv` — tłumaczenie w publicznym URL; wydanie (`1879`, `1769`) jest w środku JSON
 - `{book}` — wspólne ID, np. `43-joh`
 - rozdział i werset — liczby bez zer wiodących w URL (`3`, nie `03`); w imporcie BG pliki `03.txt` mapujemy na `3`
 
 ### Krótkie aliasy
 
-Wygodne do wpisywania i share w UI. Zawsze wskazują na kanoniczny URL (redirect 301 albo `Link: rel=canonical`):
+Wygodne do wpisywania i share w UI. Otwierają czytnik (redirect 302). `rel=canonical` wskazuje na `.txt` API:
 
 ```
 /j/3/16
 /jn/3/16
 /jan/3/16
-  → /bg/1879/43-joh/3/16
+  → /czytaj/43-joh/3/16
 ```
 
 Mapowanie aliasów → `43-joh` żyje w `books.json` (per wydanie, te same aliasy). Krótki URL otwiera czytnik; treść pochodzi z tłumaczenia wybranego na stronie.
@@ -141,8 +142,8 @@ UI KJV (styl 1611) — osobne dema w `demos/kjv-1611/` (WIP).
 ## Cloudflare
 
 - Nowy deploy: **Workers + Static Assets** (nie nowy projekt Pages)
-- Statyczne pliki z `data/` + build `web/`
-- Aliasów krótkich można dograć Worker handlerem (rewrite) albo regułami hostingu; treść zawsze z tych samych plików
+- Upload: `web/` oraz JSON rozdziału, `.words.json` i MP3 rozdziału pod `/bg/1879` i `/kjv/1769`. Bez `.txt` i bez plików per-werset (limit 20 000 plików). MP3 KJV idą hashem z `audio-assets-manifest.json`
+- Worker: `/api/{bg|kjv}/…` — tekst liczony z JSON, audio wersetu wycięte z MP3. `/api/kjv/{book}/{chapter}` oddaje zapisany MP3. Brak księgi, rozdziału lub wersetu → 404. `run_worker_first` obejmuje `/api/*`, `/sw.js` i `/manifest.webmanifest`
 
 ## Odkrywalność dla LLM
 
@@ -159,14 +160,15 @@ Tekst historyczny BG jest w domenie publicznej; cyfrowa korekta pochodzi z zewn�
 Narracja **Alexander Scourby** — tylko dla `kjv/1769` (BG nie ma audio).
 
 ```
-/kjv/1769/audio-manifest.json
-/kjv/1769/{book}/{chapter}.mp3
-/kjv/1769/{book}/{chapter}.words.json   # timestamps słów (lokalny Whisper)
+/kjv/1769/{book}/{chapter}.mp3          # Static Asset, odtwarzany przez stronę
+/api/kjv/{book}/{chapter}               # ten sam plik
+/api/kjv/{book}/{chapter}/{verse}       # werset wycięty z tego MP3
+/kjv/1769/{book}/{chapter}.words.json   # timestamps słów
 ```
 
 **MP3 są self-hosted** pod `/kjv/1769/{book}/{chapter}.mp3` (katalog: `web/audio-catalog.json`).  
-Strona odtwarza je strumieniowo i nie zapisuje rozdziałów offline. Pobranie na urządzenie jest w `android/`.  
-Opcjonalne `.words.json` w `data/` tylko do podświetlania słów. Fonty UI (Cardo, Cinzel) leżą w `web/assets/fonts/` — bez Google Fonts.
+Strona odtwarza je strumieniowo z Static Assets i nie zapisuje rozdziałów offline. Pobranie na urządzenie jest w `android/`.  
+`.words.json` służy do podświetlania i do cięcia audio wersetu. Fonty UI (Cardo, Cinzel) leżą w `web/assets/fonts/` — bez Google Fonts.
 
 Strona: podkreślenie bieżącego słowa i automatyczne przejście do kolejnego rozdziału (aż do Apokalipsy).
 

@@ -9,12 +9,15 @@ Wspólna numeracja KJV; BG zremapowana.
 - Licencja: MIT (LICENSE)
 
 ## API
-- Katalog: /translations.json
-- BG: /bg/1879/…   KJV: /kjv/1769/…
-- Rozdział: /{tr}/{ed}/{book}/{chapter}.json|.txt
-- Werset: /{tr}/{ed}/{book}/{chapter}/{verse}.json|.txt
+- Katalog: /translations.json i /api/{bg|kjv}/books.json
+- BG: /api/bg/…   KJV: /api/kjv/…   (wydanie 1879 / 1769 jest w JSON, nie w URL)
+- Rozdział: /api/{bg|kjv}/{book}/{chapter}.json (zapisany plik) oraz .txt (liczone)
+- Rozdział audio: /api/kjv/{book}/{chapter} — ten sam MP3 co /kjv/1769/{book}/{chapter}.mp3
+- Werset: /api/{bg|kjv}/{book}/{chapter}/{verse}.json|.txt (liczone z JSON rozdziału)
+- Werset audio: /api/kjv/{book}/{chapter}/{verse} (wycięte z MP3 rozdziału)
+- Brak księgi, rozdziału albo wersetu: HTTP 404, nie HTML
 
-Przykład: /kjv/1769/43-joh/3/16.txt
+Przykład: /api/kjv/43-joh/3/16.txt
 
 ## Zasady
 - Kanoniczne ID ksiąg (43-joh); ta sama siatka rozdziałów we wszystkich tłumaczeniach

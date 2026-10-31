@@ -425,7 +425,7 @@ class KsiagModel(app: Application) : AndroidViewModel(app) {
             trackWords(ed, r.book.id, r.chapter)
             playBook = r.book.id
             playChapter = r.chapter
-            val uri = if (hasLocal) Uri.fromFile(local) else Uri.parse("$ORIGIN${ed.path}/${r.book.id}/${r.chapter}.mp3")
+            val uri = if (hasLocal) Uri.fromFile(local) else Uri.parse("$ORIGIN/${ed.translation}/${ed.edition}/${r.book.id}/${r.chapter}.mp3")
             val item = MediaItem.Builder()
                 .setUri(uri)
                 .setMediaId("${r.book.id}/${r.chapter}")

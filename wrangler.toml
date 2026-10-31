@@ -35,10 +35,15 @@ previews_enabled = true
 pattern = "www.66ksiag.pl"
 custom_domain = true
 
-# Chapter MP3s are Static Assets. They are not routed through the Worker.
+# Chapter MP3s stay Static Assets at /kjv/1769/… and are not listed under
+# run_worker_first. /api/* is the computed Bible API (text and verse audio).
 [assets]
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
-run_worker_first = ["/sw.js", "/manifest.webmanifest"]
+run_worker_first = ["/api/*", "/sw.js", "/manifest.webmanifest"]
+
+# Required by `npx wrangler preview`. Kept empty so branch previews do not
+# inherit the production SYNC KV namespace; Static Assets stay at top level.
+[previews]

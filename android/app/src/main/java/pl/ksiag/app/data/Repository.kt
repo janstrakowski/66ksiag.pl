@@ -28,14 +28,14 @@ class Repository(context: Context) {
     }
 
     fun books(edition: Edition): List<Book> {
-        val asset = bundled("bible${edition.path}/books.json")
+        val asset = bundledEdition(edition, "books.json")
         if (asset != null) return parseBooks(asset)
         val file = File(dir, "books-${edition.id}.json")
         return parseBooks(fetch("${edition.path}/books.json", file))
     }
 
     fun cachedBooks(edition: Edition): List<Book>? {
-        bundled("bible${edition.path}/books.json")?.let {
+        bundledEdition(edition, "books.json")?.let {
             return try {
                 parseBooks(it)
             } catch (_: Exception) {
@@ -54,7 +54,7 @@ class Repository(context: Context) {
     fun chapter(edition: Edition, bookId: String, chapter: Int): ChapterText {
         val key = "${edition.path}/$bookId/$chapter"
         chapters[key]?.let { return it }
-        val asset = bundled("bible${edition.path}/$bookId/$chapter.json")
+        val asset = bundledEdition(edition, "$bookId/$chapter.json")
         if (asset != null) {
             val text = parseChapter(asset)
             chapters[key] = text
@@ -75,7 +75,7 @@ class Repository(context: Context) {
     fun words(edition: Edition, bookId: String, chapter: Int): List<TimedWord> {
         val file = File(dir, "${edition.id}-$bookId-$chapter.words.json")
         return try {
-            parseWords(fetch("${edition.path}/$bookId/$chapter.words.json", file))
+            parseWords(fetch("/${edition.translation}/${edition.edition}/$bookId/$chapter.words.json", file))
         } catch (_: Exception) {
             emptyList()
         }
@@ -97,6 +97,10 @@ class Repository(context: Context) {
             null
         }
     }
+
+    /** APK assets stay at bible/{tr}/{ed}/. `edition.path` is the public /api URL. */
+    private fun bundledEdition(edition: Edition, relative: String): String? =
+        bundled("bible/${edition.translation}/${edition.edition}/$relative")
 
     private fun bundled(assetPath: String): String? = try {
         app.assets.open(assetPath).bufferedReader().use { it.readText() }

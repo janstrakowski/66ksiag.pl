@@ -198,6 +198,20 @@ test.describe("API / static contracts", () => {
     expect(res.status()).toBe(404);
   });
 
+  test("computed /api chapter and verse text", async ({ request }) => {
+    const bg = await request.get("/api/bg/01-gen/1.json");
+    const txt = await request.get("/api/bg/01-gen/1.txt");
+    const verse = await request.get("/api/kjv/01-gen/1/1.txt");
+    expect(bg.ok()).toBeTruthy();
+    expect(txt.ok()).toBeTruthy();
+    expect(verse.ok()).toBeTruthy();
+    expect(await txt.text()).toContain("# bg/1879 01-gen 1");
+    expect(await verse.text()).toContain("# kjv/1769 01-gen 1:1");
+    const missing = await request.get("/api/kjv/01-gen/999.json");
+    expect(missing.status()).toBe(404);
+    expect(await missing.text()).not.toContain("<html");
+  });
+
   test("self-hosted Scourby mp3 for Genesis 1", async ({ request }) => {
     const res = await request.get("/kjv/1769/01-gen/1.mp3");
     expect(res.ok()).toBeTruthy();

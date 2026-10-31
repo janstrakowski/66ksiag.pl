@@ -1,6 +1,9 @@
+import { handleBibleApi } from "./bible.ts";
+
 /**
- * Cloudflare Worker: krótkie aliasy → UI, SPA assets.
- * Audio Scourby jest plikiem Static Assets pod /kjv/1769/{book}/{chapter}.mp3.
+ * Cloudflare Worker: aliasy czytnika, /api/{bg|kjv} i SPA.
+ * MP3 rozdziału zostaje Static Asset pod /kjv/1769/{book}/{chapter}.mp3.
+ * /api/kjv/{book}/{chapter} oddaje ten sam plik; audio wersetu jest z niego wycięte.
  */
 
 interface Env {
@@ -52,6 +55,7 @@ export default {
       parts[0] !== "choose" &&
       parts[0] !== "assets" &&
       parts[0] !== "audio" &&
+      parts[0] !== "api" &&
       /^\d+$/.test(parts[1])
     ) {
       const books = await loadBooks(env, url.origin);
@@ -65,6 +69,9 @@ export default {
         return Response.redirect(new URL(dest, url.origin).toString(), 302);
       }
     }
+
+    const bible = await handleBibleApi(request, env);
+    if (bible) return bible;
 
     const retired = retiredAsset(request);
     if (retired) return retired;
