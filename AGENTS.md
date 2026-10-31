@@ -12,7 +12,7 @@ Dla agentów AI i contributorów. Szczegóły: [ARCHITECTURE.md](./ARCHITECTURE.
 
 ## Co to jest
 
-Statyczne API Biblii (BG 1879 + KJV) + CLI + strona. Warstwa plików w `data/` jest źródłem prawdy. Aplikacją jest klient w `android/`; `web/` jest zwykłą stroną (bez rejestracji service workera i bez manifestu aplikacji). Worker na `/sw.js` oddaje tylko skrypt, który kasuje cache powłoki i wyrejestrowuje już zainstalowanego workera.
+Statyczne API Biblii (BG 1879 + KJV) + CLI + strona. Warstwa plików w `data/` jest źródłem prawdy. Aplikacją jest klient w `android/`; `web/` jest zwykłą stroną (bez rejestracji service workera, bez manifestu aplikacji i bez pobierania audio). Worker na `/sw.js` oddaje tylko skrypt, który kasuje cache powłoki, kasuje pobrane audio i wyrejestrowuje już zainstalowanego workera.
 
 **Numeracja:** wszystkie tłumaczenia na siatce KJV / tych samych ID (`01-gen`…). BG jest zremapowana; nowe wersje też muszą być.
 
@@ -69,12 +69,12 @@ git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 
 Push na Pi (`origin`): `bash scripts/push-origin.sh` — rsync obiektów LFS na `/mnt/pi-data/git-lfs/66ksiag`, potem `git push` (bez HTTP LFS API). Szczegóły: `ci/pi/README.md`.
 
-Strona czyta `/kjv/1769/…/*.mp3` z tego samego originu. „Pobierz audio” = Cache Storage.  
+Strona odtwarza `/kjv/1769/…/*.mp3` strumieniowo z tego samego originu. Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
 Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
 
-### Pobieranie audio na karcie tytułowej
+### Pobieranie audio w Androidzie
 
-Jeden przycisk. `x` to rozdziały już zapisane lokalnie, `N` to cały katalog. Częściowe pobranie nie jest „pobranym audio”. Ten sam układ na stronie i w Androidzie.
+Jeden przycisk na karcie tytułowej aplikacji. `x` to rozdziały już zapisane lokalnie, `N` to cały katalog. Częściowe pobranie nie jest „pobranym audio”. Strona tego przycisku nie ma.
 
 - Przycisk jest aktywny wtedy i tylko wtedy, gdy audio nie jest pobrane w całości.
 - „Download audio” / „Pobierz audio” wtedy i tylko wtedy, gdy nie ma ani jednego rozdziału i nic się nie pobiera.
@@ -83,7 +83,7 @@ Jeden przycisk. `x` to rozdziały już zapisane lokalnie, `N` to cały katalog. 
 - Gdy całość jest pobrana, przycisk jest nieaktywny i nosi „Audio is already downloaded.” / „Audio jest już pobrane.” — nie żaden z trzech napisów powyżej.
 - „Clear downloaded audio” / „Usuń pobrane audio” jest widoczne wtedy i tylko wtedy, gdy audio jest pobrane w całości albo pobieranie jest wstrzymane. W trakcie pobierania go nie ma.
 - „Audio is served here…” tylko gdy nie ma ani jednego rozdziału i nic się nie pobiera.
-- Przy części — także po anulowaniu — status to „Wanting: x / N” (PL: „Brakujące: x / N”). Strona pobiera rozdział po rozdziale w karcie, bez Background Fetch. `x` rośnie po każdym zapisanym rozdziale i nie cofa się. Po anulowaniu zostaje na tej samej liczbie.
+- Przy części — także po anulowaniu — status to „Wanting: x / N” (PL: „Brakujące: x / N”). Android pobiera rozdział po rozdziale. `x` rośnie po każdym zapisanym rozdziale i nie cofa się. Po anulowaniu zostaje na tej samej liczbie.
 - Gdy całość jest pobrana, status to „Audio is already downloaded.” / „Audio jest już pobrane.”
 
 ## Front

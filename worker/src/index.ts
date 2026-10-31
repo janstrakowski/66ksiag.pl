@@ -243,8 +243,8 @@ export default {
 /**
  * Strona nie rejestruje service workera. Stare instalacje i tak odpytują
  * `/sw.js` przy aktualizacji — SPA zwróciłoby index.html i zostawiło starą
- * powłokę. Ten skrypt kasuje cache powłoki (`ksiag-vN`) i się wyrejestrowuje.
- * Pobrane audio (`ksiag-scourby-mp3-v1`) zostaje.
+ * powłokę. Ten skrypt kasuje cache powłoki (`ksiag-vN`) i pobrane audio, potem
+ * się wyrejestrowuje.
  */
 const RETIRED_SW = `self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -253,7 +253,9 @@ self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(
-      keys.filter((key) => /^ksiag-v\\d+$/.test(key)).map((key) => caches.delete(key))
+      keys
+        .filter((key) => /^ksiag-v\\d+$/.test(key) || key === "ksiag-scourby-mp3-v1")
+        .map((key) => caches.delete(key))
     );
     await self.registration.unregister();
     const windows = await self.clients.matchAll({ type: "window" });

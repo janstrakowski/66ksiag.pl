@@ -46,15 +46,10 @@ describe("i18n", () => {
     expect(en.cloudHint).toMatch(/ciphered/);
     expect(en.blockedSteps).toHaveLength(4);
     expect(pl.blockedSteps).toHaveLength(4);
-    expect(en.audioDownloadProgress(4, 1189, 0, "about 2 min left")).toBe(
-      "Wanting: 4 / 1189 · about 2 min left",
-    );
-    expect(en.audioDownloadPartial(4, 1189)).toBe("Wanting: 4 / 1189");
-    expect(en.audioDownloadDone(1189)).toBe("Audio is already downloaded.");
-    expect(en.audioDownloadResume).toBe("Resume audio");
-    expect(pl.audioDownloadPartial(4, 1189)).toBe("Brakujące: 4 / 1189");
-    expect(pl.audioDownloadDone()).toBe("Audio jest już pobrane.");
-    expect(pl.audioDownloadResume).toBe("Wznów audio");
+    expect(en.audioListen).toBe("Hear");
+    expect(pl.audioListen).toBe("Słuchaj");
+    expect(en.audioDownload).toBeUndefined();
+    expect(pl.audioDownload).toBeUndefined();
   });
 
   it("banner helpers and planPct", () => {

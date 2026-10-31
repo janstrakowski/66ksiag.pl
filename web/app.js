@@ -40,7 +40,6 @@ import {
 } from "./editions.js";
 import { t, planCopy } from "./i18n.js";
 
-let audioDownloadAbort = null;
 /** Lazy — BG nie ładuje audio.js (~16 KB) ani katalogu (~193 KB). */
 let audioMod = null;
 let audioPlayer = null;
@@ -1011,20 +1010,6 @@ async function renderHome() {
     document.getElementById("home-audio-continue-sub").textContent = copy.audioContinueSub;
   }
 
-  const dlWrap = document.getElementById("home-audio-download-wrap");
-  const dlBtn = document.getElementById("home-audio-download");
-  const dlStatus = document.getElementById("home-audio-download-status");
-  if (dlWrap) {
-    dlWrap.hidden = !editionSupportsAudio();
-    if (editionSupportsAudio()) {
-      const clearBtn = document.getElementById("home-audio-clear");
-      if (clearBtn) clearBtn.textContent = copy.audioClear;
-      if (dlBtn) dlBtn.textContent = copy.audioDownload;
-      if (dlStatus) dlStatus.textContent = "";
-      void paintAudioDownloadFromCache(copy).catch(() => {});
-    }
-  }
-
   setCanonical("/");
   show("home");
 }
@@ -1698,115 +1683,6 @@ document.getElementById("home-audio-continue").addEventListener("click", () => {
   navigateToChapter(sess.nextBook, sess.nextChapter, { autoplay: true });
 });
 
-async function paintAudioDownload(copy, { have, total, running, eta }) {
-  const mod = await ensureAudioModule();
-  const ui = mod.audioDownloadUi({ have, total, running });
-  const dlBtn = document.getElementById("home-audio-download");
-  const dlStatus = document.getElementById("home-audio-download-status");
-  const clearBtn = document.getElementById("home-audio-clear");
-  const meter = document.getElementById("home-audio-dl-meter");
-  const fill = document.getElementById("home-audio-dl-fill");
-  const labels = {
-    download: copy.audioDownload,
-    cancel: copy.audioDownloadCancel,
-    resume: copy.audioDownloadResume,
-    done: copy.audioDownloadDone(ui.total),
-  };
-  if (dlBtn) {
-    dlBtn.textContent = labels[ui.button];
-    dlBtn.disabled = !ui.enabled;
-  }
-  if (dlStatus) {
-    if (ui.status === "hint") dlStatus.textContent = copy.audioDownloadHint;
-    else if (ui.status === "done") dlStatus.textContent = copy.audioDownloadDone(ui.total);
-    else if (running && eta) dlStatus.textContent = copy.audioDownloadProgress(ui.have, ui.total, ui.pct, eta);
-    else dlStatus.textContent = copy.audioDownloadPartial(ui.have, ui.total);
-  }
-  if (clearBtn) {
-    clearBtn.hidden = !ui.showClear;
-    clearBtn.textContent = copy.audioClear;
-  }
-  if (meter) meter.hidden = !running;
-  if (fill && running) fill.style.width = `${ui.pct}%`;
-}
-
-async function paintAudioDownloadFromCache(copy) {
-  const mod = await ensureAudioModule();
-  const cat = await mod.loadAudioCatalog();
-  const have = await mod.countCachedChapters(cat);
-  const total = cat.count || cat.chapters.length;
-  await paintAudioDownload(copy, { have, total, running: Boolean(audioDownloadAbort) });
-}
-
-document.getElementById("home-audio-download")?.addEventListener("click", async () => {
-  if (!editionSupportsAudio()) return;
-  const mod = await ensureAudioModule();
-  const copy = t(edition);
-  const dlBtn = document.getElementById("home-audio-download");
-  if (dlBtn?.disabled) return;
-
-  if (audioDownloadAbort) {
-    audioDownloadAbort.abort();
-    return;
-  }
-
-  audioDownloadAbort = new AbortController();
-  const cat = await mod.loadAudioCatalog();
-  const have0 = await mod.countCachedChapters(cat);
-  const total0 = cat.count || cat.chapters.length;
-  await paintAudioDownload(copy, { have: have0, total: total0, running: true });
-
-  const formatEta = (etaSec) => {
-    if (etaSec == null || !Number.isFinite(etaSec)) return copy.audioEtaUnknown;
-    if (etaSec <= 0) return "";
-    if (etaSec < 60) return copy.audioEtaSeconds(Math.max(1, Math.ceil(etaSec)));
-    if (etaSec < 3600) return copy.audioEtaMinutes(Math.max(1, Math.ceil(etaSec / 60)));
-    return copy.audioEtaHours(Math.max(1, Math.ceil(etaSec / 3600)));
-  };
-
-  try {
-    await mod.downloadAllAudio(
-      ({ done, total, etaSec }) => {
-        const eta =
-          etaSec == null || !Number.isFinite(etaSec) || etaSec <= 0 ? undefined : formatEta(etaSec);
-        paintAudioDownload(copy, {
-          have: done,
-          total,
-          running: true,
-          eta,
-        }).catch(() => {});
-      },
-      {
-        signal: audioDownloadAbort.signal,
-        title: copy.audioDownloadNotifyTitle,
-        formatEta,
-      }
-    );
-    flash(copy.audioDownloadFinished);
-  } catch (e) {
-    if (e?.name !== "AbortError" && e?.message !== "aborted") {
-      flash(copy.audioDownloadFailed);
-      console.error(e);
-    }
-  } finally {
-    audioDownloadAbort = null;
-    await paintAudioDownloadFromCache(copy);
-  }
-});
-
-document.getElementById("home-audio-clear")?.addEventListener("click", async () => {
-  const mod = await ensureAudioModule();
-  const copy = t(edition);
-  if (audioDownloadAbort) {
-    const ctrl = audioDownloadAbort;
-    audioDownloadAbort = null;
-    ctrl.abort();
-  }
-  await mod.clearDownloadedAudio();
-  flash(copy.audioCleared);
-  await paintAudioDownloadFromCache(copy);
-});
-
 audioBarToggle.addEventListener("click", async () => {
   if (!audioPlayer) return;
   if (audioPlayer.isPlaying()) audioPlayer.pause();
@@ -1826,13 +1702,13 @@ document.addEventListener("click", (e) => {
   route();
 });
 
-/** Wyrejestruj starą instalację PWA i skasuj cache powłoki. Audio w Cache Storage zostaje. */
+/** Wyrejestruj starą instalację i skasuj cache powłoki oraz pobrane audio. */
 function retireInstalledApp() {
-  const shellCache = /^ksiag-v\d+$/;
+  const staleCache = (key) => /^ksiag-v\d+$/.test(key) || key === "ksiag-scourby-mp3-v1";
   const dropShell = () => {
     if (!("caches" in window)) return Promise.resolve();
     return caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => shellCache.test(key)).map((key) => caches.delete(key)))
+      Promise.all(keys.filter(staleCache).map((key) => caches.delete(key)))
     );
   };
   const dropWorker = () => {

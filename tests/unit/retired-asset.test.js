@@ -9,7 +9,7 @@ describe("retired web-app assets", () => {
     const body = await sw.text();
     expect(body).toContain("self.registration.unregister()");
     expect(body).toContain("ksiag-v\\d+");
-    expect(body).not.toContain("ksiag-scourby");
+    expect(body).toContain("ksiag-scourby-mp3-v1");
     expect(body).not.toContain("addAll");
 
     const edition = retiredAsset(new Request("https://66ksiag.pl/bg/1879/manifest.json"));

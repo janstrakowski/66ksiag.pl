@@ -454,35 +454,9 @@
       padding: 0 0.08em;
     }
 
-    #home-audio-download-wrap {
-      display: grid;
-      gap: 0.35rem;
-      justify-items: stretch;
-    }
-    #home-audio-download-wrap[hidden] { display: none !important; }
-    #home-audio-download-status {
-      margin: 0;
-      font-size: 0.85rem;
-      line-height: 1.35;
-    }
-    .audio-dl-meter[hidden] { display: none !important; }
-    .audio-dl-bar {
-      height: 0.45rem;
-      border: 1px solid var(--ink);
-      background: color-mix(in srgb, var(--paper) 70%, var(--paper-deep));
-      overflow: hidden;
-    }
-    .audio-dl-bar-fill {
-      height: 100%;
-      width: 0%;
-      background: var(--ink);
-      transition: width 0.25s ease;
-    }
-
     /* BG / Gdańska — zero UI audio (Scourby tylko KJV) */
     body.theme-bg #audio-controls,
-    body.theme-bg #audio-bar,
-    body.theme-bg #home-audio-download-wrap {
+    body.theme-bg #audio-bar {
       display: none !important;
     }
 

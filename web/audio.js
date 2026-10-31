@@ -1,10 +1,9 @@
 /**
- * KJV Scourby audio — self-hosted /kjv/1769/{book}/{chapter}.mp3,
- * opcjonalny offline cache (Cache Storage w tej karcie).
+ * KJV Scourby audio — strumień z /kjv/1769/{book}/{chapter}.mp3.
+ * Strona nie zapisuje rozdziałów offline.
  */
 
 const STORAGE_KEY = "ksiag-audio-v1";
-const CACHE_NAME = "ksiag-scourby-mp3-v1";
 const CATALOG_URL = "/audio-catalog.json";
 const AUDIO_BASE = "/kjv/1769";
 
@@ -17,62 +16,9 @@ export function appIconList() {
   ];
 }
 
-function appIconUrl() {
-  return `${typeof location !== "undefined" ? location.origin : ""}/assets/icon-192.png`;
-}
-
 let catalogPromise = null;
 /** @type {Map<string, object> | null} */
 let catalogByKey = null;
-let objectUrl = null;
-
-/** @returns {number | null} sekundy */
-export function etaFromProgress(done, total, startedAtMs) {
-  const elapsed = (Date.now() - startedAtMs) / 1000;
-  if (elapsed < 2 || done < 1 || total <= done) return done >= total ? 0 : null;
-  const rate = done / elapsed;
-  if (rate <= 0) return null;
-  return Math.max(0, (total - done) / rate);
-}
-
-/**
- * Stan przycisku pobierania na karcie tytułowej.
- * have = rozdziały już zapisane, total = cały katalog, running = pobieranie trwa.
- * Częściowe pobranie nie jest „pobranym”.
- * @returns {{ button: "download"|"cancel"|"resume"|"done", enabled: boolean, status: "hint"|"wanting"|"done", showClear: boolean, have: number, total: number, pct: number }}
- */
-export function audioDownloadUi({ have = 0, total = 0, running = false } = {}) {
-  const n = Math.max(0, Number(have) || 0);
-  const all = Math.max(0, Number(total) || 0);
-  const complete = !running && all > 0 && n >= all;
-  const partial = n > 0 && !complete;
-  let button = "download";
-  if (running) button = "cancel";
-  else if (partial) button = "resume";
-  else if (complete) button = "done";
-  let status = "hint";
-  if (running || partial) status = "wanting";
-  else if (complete) status = "done";
-  const pct = all > 0 ? Math.min(100, Math.round((n / all) * 100)) : 0;
-  return {
-    button,
-    enabled: !complete,
-    status,
-    showClear: !running && n > 0,
-    have: n,
-    total: all,
-    pct,
-  };
-}
-
-export function etaFromBytes(downloaded, downloadTotal, startedAtMs) {
-  const elapsed = (Date.now() - startedAtMs) / 1000;
-  if (elapsed < 2 || !downloadTotal || downloaded < 8 * 1024) return null;
-  if (downloaded >= downloadTotal) return 0;
-  const rate = downloaded / elapsed;
-  if (rate <= 0) return null;
-  return Math.max(0, (downloadTotal - downloaded) / rate);
-}
 
 export function loadAudioSession() {
   try {
@@ -102,7 +48,7 @@ export function audioPath(bookId, chapter) {
   return `${AUDIO_BASE}/${bookId}/${Number(chapter)}.mp3`;
 }
 
-/** @deprecated użyj audioPath — zachowane dla testów / starego SW cache. */
+/** Alias audioPath, zachowany dla testów. */
 export function proxyPath(bookId, chapter) {
   return audioPath(bookId, chapter);
 }
@@ -144,180 +90,6 @@ export async function chapterHasAudio(bookId, chapter) {
   } catch {
     return false;
   }
-}
-
-async function cachedResponse(bookId, chapter) {
-  if (!("caches" in window)) return null;
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    return cache.match(audioPath(bookId, chapter));
-  } catch {
-    return null;
-  }
-}
-
-export async function isChapterCached(bookId, chapter) {
-  const res = await cachedResponse(bookId, chapter);
-  return !!res;
-}
-
-export async function countCachedChapters(catalog) {
-  if (!("caches" in window) || !catalog?.chapters?.length) return 0;
-  const cache = await caches.open(CACHE_NAME);
-  let n = 0;
-  for (const c of catalog.chapters) {
-    if (await cache.match(audioPath(c.book, c.chapter))) n += 1;
-  }
-  return n;
-}
-
-async function missingChapters(catalog) {
-  const cache = await caches.open(CACHE_NAME);
-  const missing = [];
-  for (const c of catalog.chapters) {
-    if (!(await cache.match(audioPath(c.book, c.chapter)))) missing.push(c);
-  }
-  return missing;
-}
-
-function emitMissingProgress(onProgress, opts) {
-  const {
-    done,
-    total,
-    have,
-    catalog,
-    startedAt,
-    mode,
-    bytes,
-    bytesTotal,
-  } = opts;
-  const etaSec =
-    bytes != null && bytesTotal
-      ? etaFromBytes(bytes, bytesTotal, startedAt)
-      : etaFromProgress(done, total, startedAt);
-  const shownHave = have != null ? have : done;
-  const shownTotal = catalog != null ? catalog : total;
-  const pct = shownTotal > 0 ? Math.min(100, Math.round((shownHave / shownTotal) * 100)) : 0;
-  onProgress?.({
-    done: shownHave,
-    total: shownTotal,
-    pct,
-    etaSec,
-    mode,
-    bytes,
-    bytesTotal,
-  });
-}
-
-async function notifyProgress(done, total, etaSec, title, formatEta) {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
-  try {
-    const eta = formatEta ? formatEta(etaSec) : "";
-    const body = eta ? `${done} / ${total} · ${eta}` : `${done} / ${total}`;
-    const opts = {
-      body,
-      tag: "ksiag-audio-download",
-      renotify: true,
-      silent: done > 0 && done < total,
-      icon: appIconUrl(),
-      badge: appIconUrl(),
-    };
-    new Notification(title || "66ksiąg · audio", opts);
-  } catch {
-    /* ignore */
-  }
-}
-
-async function downloadViaForeground(catalog, missing, onProgress, { signal, title, formatEta }) {
-  const missingTotal = missing.length;
-  const catalogTotal = catalog.chapters.length;
-  const already = catalogTotal - missingTotal;
-  const cache = await caches.open(CACHE_NAME);
-  let completed = 0;
-  const startedAt = Date.now();
-
-  if ("Notification" in window && Notification.permission === "default") {
-    try {
-      await Notification.requestPermission();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  emitMissingProgress(onProgress, {
-    done: 0,
-    total: missingTotal,
-    have: already,
-    catalog: catalogTotal,
-    startedAt,
-    mode: "foreground",
-  });
-
-  for (const c of missing) {
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const key = audioPath(c.book, c.chapter);
-    const res = await fetch(key, { signal });
-    if (!res.ok) throw new Error(`download ${c.book}/${c.chapter}: ${res.status}`);
-    await cache.put(key, res.clone());
-    completed += 1;
-    const etaSec = etaFromProgress(completed, missingTotal, startedAt);
-    emitMissingProgress(onProgress, {
-      done: completed,
-      total: missingTotal,
-      have: already + completed,
-      catalog: catalogTotal,
-      startedAt,
-      mode: "foreground",
-    });
-    if (completed === 1 || completed === missingTotal || completed % 5 === 0) {
-      await notifyProgress(already + completed, catalogTotal, etaSec, title, formatEta);
-    }
-  }
-  await notifyProgress(catalogTotal, catalogTotal, 0, title, formatEta);
-  return { done: catalogTotal, total: catalogTotal, mode: "foreground" };
-}
-
-/**
- * Pobierz brakujące rozdziały po kolei w tej karcie.
- * Licznik na stronie rusza dopiero, gdy rozdział jest zapisany — bez Background Fetch.
- */
-export async function downloadAllAudio(onProgress, { signal, title, formatEta } = {}) {
-  const catalog = await loadAudioCatalog();
-  const missing = await missingChapters(catalog);
-  if (!missing.length) {
-    const catalogTotal = catalog.chapters.length;
-    onProgress?.({ done: catalogTotal, total: catalogTotal, pct: 100, etaSec: 0, mode: "cached" });
-    return { done: catalogTotal, total: catalogTotal, mode: "cached" };
-  }
-
-  return downloadViaForeground(catalog, missing, onProgress, {
-    signal,
-    title,
-    formatEta,
-  });
-}
-
-export async function clearDownloadedAudio() {
-  if (!("caches" in window)) return;
-  await caches.delete(CACHE_NAME);
-}
-
-function revokeObjectUrl() {
-  if (objectUrl) {
-    URL.revokeObjectURL(objectUrl);
-    objectUrl = null;
-  }
-}
-
-async function resolvePlaySrc(bookId, chapter, remoteUrl) {
-  revokeObjectUrl();
-  const hit = await cachedResponse(bookId, chapter);
-  if (hit) {
-    const blob = await hit.blob();
-    objectUrl = URL.createObjectURL(blob);
-    return objectUrl;
-  }
-  return remoteUrl;
 }
 
 function verseTextFromDom(verseNum) {
@@ -438,8 +210,7 @@ export function createAudioController({ audioEl, hooks }) {
       /* highlight opcjonalny */
     }
 
-    const src = await resolvePlaySrc(b, ch, entry.url);
-    audioEl.src = src;
+    audioEl.src = entry.url;
     mediaVerse = null;
     updateMediaSession({
       bookId: b,
@@ -500,7 +271,6 @@ export function createAudioController({ audioEl, hooks }) {
     pause();
     audioEl.removeAttribute("src");
     audioEl.load();
-    revokeObjectUrl();
     clearHighlight();
     words = [];
     bookId = null;

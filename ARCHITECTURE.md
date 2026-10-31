@@ -189,7 +189,7 @@ Narracja **Alexander Scourby** — tylko dla `kjv/1769` (BG nie ma audio).
 ```
 
 **MP3 są self-hosted** pod `/kjv/1769/{book}/{chapter}.mp3` (katalog: `web/audio-catalog.json`).  
-„Pobierz audio” bierze brakujące rozdziały po kolei w otwartej karcie i zapisuje je w Cache Storage (offline). Licznik rośnie po każdym zapisanym rozdziale.  
+Strona odtwarza je strumieniowo i nie zapisuje rozdziałów offline. Pobranie na urządzenie jest w `android/`.  
 Opcjonalne `.words.json` w `data/` tylko do podświetlania słów. Fonty UI (Cardo, Cinzel) leżą w `web/assets/fonts/` — bez Google Fonts.
 
 Strona: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po końcu audio, auto-next w ramach dziennej quoty, stop po 100%, CTA „słuchaj dalej” (tryb beyond → aż do Apokalipsy).
