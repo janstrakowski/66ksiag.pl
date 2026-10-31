@@ -97,6 +97,16 @@ test -f "$DIST/audio-catalog.json" || {
   echo "Brak audio-catalog.json — python3 tools/audio-kjv/build_catalog.py" >&2
   exit 1
 }
+
+# On every branch other than `main`, if Google Play & Android keystore secrets
+# are configured in CI (Cloudflare Workers Builds), build the signed release AAB,
+# upload it to Google Play Internal App Sharing, and write dist/android-preview.json
+# BEFORE wrangler reads the final dist/ asset manifest.
+if [[ "${SKIP_ANDROID_PLAY_UPLOAD:-0}" != "1" && -f "$ROOT/scripts/android-play-internal.sh" ]]; then
+  PLAY_PREVIEW_METADATA_OUT="$DIST/android-preview.json" \
+    bash "$ROOT/scripts/android-play-internal.sh" --if-non-main-branch
+fi
+
 file_n=$(find "$DIST" -type f | wc -l | tr -d ' ')
 if [[ "$file_n" -gt 20000 ]]; then
   echo "Uwaga: dist ma $file_n plików (>20k limit Workers Free)" >&2
@@ -104,10 +114,3 @@ fi
 
 echo "dist gotowe: $DIST (pliki: $file_n, MP3 hashe z audio-assets-manifest.json)"
 du -sh "$DIST" "$DIST/bg" "$DIST/kjv" 2>/dev/null || du -sh "$DIST" || true
-
-# On branch `dev`, if Google Play Internal Testing & Android keystore secrets are
-# configured in CI (Cloudflare Workers Builds), build the signed release AAB with
-# an auto-incrementing versionCode and upload it to the `internal` track.
-if [[ "${SKIP_ANDROID_PLAY_UPLOAD:-0}" != "1" && -f "$ROOT/scripts/android-play-internal.sh" ]]; then
-  bash "$ROOT/scripts/android-play-internal.sh" --if-dev-branch
-fi

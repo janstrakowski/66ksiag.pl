@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# Build a signed release AAB with a strictly increasing versionCode and upload
-# it to the Google Play Internal Testing track ("internal").
+# Build a signed release AAB and upload it to Google Play Internal App Sharing
+# for every branch other than `main` (and `master`).
 #
-# Never uploads to production, alpha, or beta tracks.
-# When invoked with --if-dev-branch (e.g. from scripts/build-dist.sh in
-# Cloudflare Workers Builds), runs only on the `dev` branch and skips cleanly
-# when Play / Android signing secrets are not configured in the environment.
+# Never uploads on `main` / `master` and never uploads to production tracks.
+# Writes `{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`
+# to `dist/android-preview.json` so `https://<branch>.66ksiag.pl/android-preview.json`
+# exposes the Play Store Internal App Sharing install link.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-IF_DEV_BRANCH=0
+IF_PREVIEW_BRANCH=0
+UPLOAD_MODE="${PLAY_UPLOAD_MODE:-internal-sharing}"
 for arg in "$@"; do
   case "$arg" in
-    --if-dev-branch) IF_DEV_BRANCH=1 ;;
+    --if-non-main-branch|--if-dev-branch) IF_PREVIEW_BRANCH=1 ;;
+    --track-internal) UPLOAD_MODE="track" ;;
+    --internal-sharing) UPLOAD_MODE="internal-sharing" ;;
   esac
 done
 
@@ -30,9 +33,20 @@ detect_branch() {
     ref="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
   fi
   if [[ "$ref" == "HEAD" ]]; then
-    if git show-ref --verify --quiet refs/remotes/origin/dev && [[ "$(git rev-parse HEAD)" == "$(git rev-parse refs/remotes/origin/dev)" ]]; then
-      if ! git show-ref --verify --quiet refs/remotes/origin/main || [[ "$(git rev-parse HEAD)" != "$(git rev-parse refs/remotes/origin/main)" ]]; then
-        ref="dev"
+    local head_sha
+    head_sha="$(git rev-parse HEAD 2>/dev/null || echo "")"
+    if [[ -n "$head_sha" ]]; then
+      if git show-ref --verify --quiet refs/remotes/origin/main && [[ "$head_sha" == "$(git rev-parse refs/remotes/origin/main)" ]]; then
+        if ! git show-ref --verify --quiet refs/remotes/origin/dev || [[ "$head_sha" != "$(git rev-parse refs/remotes/origin/dev)" ]]; then
+          ref="main"
+        fi
+      fi
+      if [[ "$ref" == "HEAD" ]]; then
+        local remote_match
+        remote_match="$(git for-each-ref --format='%(objectname) %(refname:lstrip=3)' refs/remotes/origin | awk -v sha="$head_sha" '$1 == sha && $2 != "HEAD" && $2 != "main" && $2 != "master" { print $2; exit }')"
+        if [[ -n "$remote_match" ]]; then
+          ref="$remote_match"
+        fi
       fi
     fi
   fi
@@ -41,27 +55,26 @@ detect_branch() {
 
 CURRENT_BRANCH="$(detect_branch)"
 
-if [[ "$IF_DEV_BRANCH" == "1" ]]; then
-  if [[ "$CURRENT_BRANCH" != "dev" ]]; then
+if [[ "$IF_PREVIEW_BRANCH" == "1" ]]; then
+  if [[ -z "$CURRENT_BRANCH" || "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" || "$CURRENT_BRANCH" == "HEAD" ]]; then
     exit 0
   fi
-  # On branch `dev` inside Workers Builds, check if secrets are present.
   # Load local android/secrets/keystore.env if present.
   # shellcheck disable=SC1091
   source "$ROOT/scripts/android-env.sh"
   if [[ -z "${PLAY_SERVICE_ACCOUNT_JSON:-}" ]]; then
-    echo "[play-internal] Branch is dev, but PLAY_SERVICE_ACCOUNT_JSON is not set; skipping Google Play Internal Testing upload."
+    echo "[play-internal] Branch is '${CURRENT_BRANCH}', but PLAY_SERVICE_ACCOUNT_JSON is not set; skipping Google Play Internal App Sharing upload."
     exit 0
   fi
   if [[ ! -f "$ROOT/android/android.keystore" && -z "${ANDROID_KEYSTORE_BASE64:-}" ]]; then
-    echo "[play-internal] Branch is dev, but ANDROID_KEYSTORE_BASE64 is not set; skipping Google Play Internal Testing upload."
+    echo "[play-internal] Branch is '${CURRENT_BRANCH}', but ANDROID_KEYSTORE_BASE64 is not set; skipping Google Play Internal App Sharing upload."
     exit 0
   fi
 fi
 
 if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
   if [[ "${ALLOW_PLAY_INTERNAL_FROM_ANY_BRANCH:-0}" != "1" ]]; then
-    echo "[play-internal] Refusing to run on branch '${CURRENT_BRANCH}'. Only 'dev' publishes to Google Play Internal Testing." >&2
+    echo "[play-internal] Refusing to run on production branch '${CURRENT_BRANCH}'. Only non-main branches upload to Google Play Internal App Sharing." >&2
     exit 1
   fi
 fi
@@ -89,13 +102,19 @@ fi
 # Verify service account JSON before starting the Gradle build.
 node "$ROOT/scripts/play-upload-internal.mjs" --verify-credentials
 
-# Compute strictly increasing versionCode (queries Google Play Internal track max versionCode + epoch seconds).
+if [[ "$UPLOAD_MODE" == "track" ]]; then
+  export PLAY_QUERY_REMOTE_VERSION_CODE=1
+fi
 NEXT_VERSION_CODE="$(node "$ROOT/scripts/play-upload-internal.mjs" --next-version-code)"
+FULL_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 SHORT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo dev)"
+SAFE_BRANCH="$(printf '%s' "${CURRENT_BRANCH:-dev}" | tr -c 'A-Za-z0-9._-' '-')"
+SAFE_BRANCH="${SAFE_BRANCH#-}"
+SAFE_BRANCH="${SAFE_BRANCH%-}"
 export KSIAG_VERSION_CODE="$NEXT_VERSION_CODE"
-export KSIAG_VERSION_NAME="${KSIAG_VERSION_NAME:-2.0.${NEXT_VERSION_CODE}-dev.${SHORT_SHA}}"
+export KSIAG_VERSION_NAME="${KSIAG_VERSION_NAME:-2.0.${NEXT_VERSION_CODE}-${SAFE_BRANCH}.${SHORT_SHA}}"
 
-echo "[play-internal] Building signed release AAB (package=com.jastrakowski.sixsixksiag, versionCode=${KSIAG_VERSION_CODE}, versionName=${KSIAG_VERSION_NAME})…"
+echo "[play-internal] Building signed release AAB (branch=${CURRENT_BRANCH}, package=com.jastrakowski.sixsixksiag, versionCode=${KSIAG_VERSION_CODE}, versionName=${KSIAG_VERSION_NAME})…"
 bash "$ROOT/scripts/android-build.sh"
 
 AAB_PATH="$ROOT/android/app-release-bundle.aab"
@@ -104,14 +123,30 @@ if [[ ! -f "$AAB_PATH" ]]; then
   exit 1
 fi
 
-RELEASE_NAME="${PLAY_RELEASE_NAME:-${KSIAG_VERSION_NAME}}"
-COMMIT_SUBJECT="$(git log -1 --pretty=%s 2>/dev/null || echo "dev build")"
-export PLAY_RELEASE_NOTES_PL="${PLAY_RELEASE_NOTES_PL:-Build z gałęzi dev (${SHORT_SHA}): ${COMMIT_SUBJECT}}"
-export PLAY_RELEASE_NOTES_EN="${PLAY_RELEASE_NOTES_EN:-Dev branch build (${SHORT_SHA}): ${COMMIT_SUBJECT}}"
+METADATA_OUT="${PLAY_PREVIEW_METADATA_OUT:-$ROOT/dist/android-preview.json}"
 
-echo "[play-internal] Uploading $AAB_PATH to Google Play track 'internal'…"
-node "$ROOT/scripts/play-upload-internal.mjs" \
-  --aab "$AAB_PATH" \
-  --package "com.jastrakowski.sixsixksiag" \
-  --track "internal" \
-  --release-name "$RELEASE_NAME"
+if [[ "$UPLOAD_MODE" == "track" ]]; then
+  RELEASE_NAME="${PLAY_RELEASE_NAME:-${KSIAG_VERSION_NAME}}"
+  COMMIT_SUBJECT="$(git log -1 --pretty=%s 2>/dev/null || echo "dev build")"
+  export PLAY_RELEASE_NOTES_PL="${PLAY_RELEASE_NOTES_PL:-Build z gałęzi ${CURRENT_BRANCH} (${SHORT_SHA}): ${COMMIT_SUBJECT}}"
+  export PLAY_RELEASE_NOTES_EN="${PLAY_RELEASE_NOTES_EN:-Branch ${CURRENT_BRANCH} build (${SHORT_SHA}): ${COMMIT_SUBJECT}}"
+
+  echo "[play-internal] Uploading $AAB_PATH to Google Play track 'internal'…"
+  node "$ROOT/scripts/play-upload-internal.mjs" \
+    --mode "track" \
+    --aab "$AAB_PATH" \
+    --package "com.jastrakowski.sixsixksiag" \
+    --track "internal" \
+    --release-name "$RELEASE_NAME"
+else
+  echo "[play-internal] Uploading $AAB_PATH to Google Play Internal App Sharing…"
+  node "$ROOT/scripts/play-upload-internal.mjs" \
+    --internal-sharing \
+    --aab "$AAB_PATH" \
+    --package "com.jastrakowski.sixsixksiag" \
+    --branch "$CURRENT_BRANCH" \
+    --commit "$FULL_SHA" \
+    --version-name "$KSIAG_VERSION_NAME" \
+    --version-code "$KSIAG_VERSION_CODE" \
+    --metadata-out "$METADATA_OUT"
+fi

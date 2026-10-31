@@ -1,22 +1,10 @@
-// Origin CI configuration for pushing `dev` to the Google Play Internal Testing track.
+// Origin CI configuration for uploading non-production branches to Google Play
+// Internal App Sharing.
 //
-// Only branch `dev` triggers this job, and `scripts/android-play-internal.sh`
-// exclusively targets the Google Play `internal` track (never production).
-//
-// Important note on secrets in this project:
-// Origin does not currently expose a user-accessible `origin secret` CLI/UI.
-// Primary CI with secret env vars is Cloudflare Workers Builds (connected to
-// Origin), where `npm run build` (`scripts/build-dist.sh`) invokes
-// `scripts/android-play-internal.sh --if-dev-branch` whenever `dev` is pushed
-// and the Play/Keystore secrets are set in Workers Builds Settings → Variables
-// and Secrets.
-//
-// If Origin CI injects these secrets, this job also runs directly on `dev` pushes:
-//   - ANDROID_KEYSTORE_BASE64
-//   - ANDROID_KEYSTORE_PASSWORD
-//   - ANDROID_KEY_ALIAS
-//   - ANDROID_KEY_PASSWORD
-//   - PLAY_SERVICE_ACCOUNT_JSON
+// `main` never runs this upload (`scripts/android-play-internal.sh --if-non-main-branch`
+// exits 0 on `main`). Every other branch builds a signed `.aab`, uploads it to
+// Google Play Internal App Sharing, logs the `downloadUrl`, and writes
+// `dist/android-preview.json` (served at `https://<branch>.66ksiag.pl/android-preview.json`).
 
 const playInternalEnv = {
   ANDROID_KEYSTORE_BASE64: secret("ANDROID_KEYSTORE_BASE64"),
@@ -30,7 +18,7 @@ const playInternalEnv = {
 export default {
   on: {
     push: {
-      branches: ["dev"],
+      branches: ["*"],
     },
   },
   jobs: {
@@ -40,7 +28,7 @@ export default {
       env: playInternalEnv,
       steps: [
         {
-          run: "bash scripts/android-play-internal.sh --if-dev-branch",
+          run: "bash scripts/android-play-internal.sh --if-non-main-branch",
           env: playInternalEnv,
         },
       ],
