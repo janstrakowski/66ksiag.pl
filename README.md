@@ -85,6 +85,21 @@ Rekordy A (`66ksiag.pl`, `www`, `*.66ksiag.pl`) są usunięte. Dopóki najbliżs
 
 Lokalne `npm run deploy` nadal robi `wrangler deploy` na tej maszynie. Automatyczna ścieżka to Workers Builds.
 
+### Git LFS na R2 (tylko dev / tooling)
+
+Produkcyjny Worker `66ksiag` nie używa R2 (serwuje audio jako Workers Static Assets). Obiekty Git LFS (`objects/<oid>` w buckecie R2 `66ksiag-audio`) są obsługiwane wyłącznie przez narzędzia deweloperskie, bez używania produkcyjnej domeny:
+
+```bash
+# Konfiguracja lokalnego custom transfer agenta R2 w .git/config:
+npm run lfs:use-r2
+
+# Synchronizacja obiektów LFS do bucketu R2 66ksiag-audio:
+npm run lfs:sync-r2
+
+# Opcjonalny osobny dev Worker (66ksiag-lfs.janstrakowski.workers.dev):
+npm run lfs:worker:deploy
+```
+
 ### Połączenie aplikacji (ręcznie)
 
 Tego OAuth nie da się dokończyć z repozytorium.

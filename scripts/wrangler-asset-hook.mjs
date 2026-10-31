@@ -203,6 +203,18 @@ async function prepareBucket(pairs, manifestFiles) {
 
   const urls = await loadUrlMap();
   await mapPool(still, FETCH_CONCURRENCY, async (item) => {
+    const r2Worker = (process.env.LFS_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+    if (r2Worker) {
+      try {
+        const buf = await fetchBytes(`${r2Worker}/objects/${item.entry.oid}`);
+        if (shaMatches(buf, item.entry)) {
+          writeFileSync(item.absPath, buf);
+          return;
+        }
+      } catch {
+        // Fall through to the public-domain chapter host.
+      }
+    }
     const url = urls[item.key];
     if (!url) throw new Error(`No public-domain URL for ${item.key}`);
     const buf = await fetchBytes(url);
