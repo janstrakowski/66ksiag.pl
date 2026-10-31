@@ -53,7 +53,7 @@ npm run deploy   # build dist/ + wrangler deploy
 
 Wymaga wcześniejszego `data/`. Worker serwuje assety i przekierowuje krótkie aliasy.
 
-Deploy idzie z aplikacji Cloudflare w Cursorze (Workers Builds). Tokenu API nie ma w gicie. Cloudflare zakłada własny token, gdy łączysz konto. Raspberry Pi nie bierze udziału w tym wdrożeniu.
+Deploy idzie z aplikacji Cloudflare w Cursorze (Workers Builds). Tokenu API nie ma w gicie. Cloudflare zakłada własny token, gdy łączysz konto.
 
 W `wrangler.toml` jest konto `86e0b7dbeec0ebfff2333c8e8c4087fb` (`account_id`). Workers Builds nie czyta polecenia build z tego pliku. W aplikacji ustaw:
 
@@ -76,7 +76,11 @@ Podgląd brancha `dev`:
 
 Niezmienny URL jednego wdrożenia: `https://<id>-dev.66ksiag.pl`.
 
-Lokalny `npm run build` wymaga `data/bg/1879/books.json` i `data/kjv/1769/books.json`. Workers Builds ustawia `WORKERS_CI=1` i tych plików nie ma w gicie, więc build i tak składa `dist/` z `web/` i deploy podmienia HTML. Tekst rozdziałów w takim deployu nie jedzie. Checkout nie pobiera Git LFS z `data/` (`.lfsconfig`), bo wielogigabajtowe audio przerywa build zanim wystartuje Wrangler. Fonty i ikony strony są zwykłymi plikami w `web/`.
+`npm run build` (`scripts/build-dist.sh`):
+1. Inicjalizuje submoduły w `sources/` i generuje `data/bg/1879` oraz `data/kjv/1769` (`scripts/import-editions.mjs`).
+2. Pobiera `data/kjv/1769/*/*.words.json` z Git LFS.
+3. Sprawdza sumy SHA-256 wskaźników Git LFS dla `data/kjv/1769/*/*.mp3` względem manifestu `_meta/lfs-manifest.json` w koszyku R2 `66ksiag-audio` (`scripts/sync-r2-audio.mjs`). Zmienione lub brakujące MP3 pobiera z LFS paczkami po `N` (domyślnie 40), wysyła do R2 i od razu usuwa z dysku przed kolejną paczką.
+4. Składa `dist/` (powłoka `web/` + JSON rozdziałów + `.words.json`), a Worker serwuje `/kjv/1769/{book}/{chapter}.mp3` bezpośrednio z R2 (`env.AUDIO`).
 
 Lokalne `npm run deploy` nadal robi `wrangler deploy` na tej maszynie. Automatyczna ścieżka to Workers Builds.
 
@@ -91,8 +95,6 @@ Tego OAuth nie da się dokończyć z repozytorium.
 5. W ustawieniach builda workera `66ksiag` ustaw branch produkcyjny `main`, włącz preview builds i polecenia z tabeli wyżej. Repo ma być podpięte do tego workera, nie do osobnej aplikacji.
 
 Klonowanie w Workers Builds idzie przez git-proxy z nagłówkiem `Authorization` aplikacji Cloudflare. Błąd „Failed: error occurred while checking out repository” na tym kroku jest odmową tego dostępu do `jastrakowski/66ksiag`. Repozytorium nie trzyma credentiala do tego proxy. Trzeba ponownie zainstalować aplikację i nadać jej to repozytorium.
-
-Tekst wydań (`data/bg`, `data/kjv` poza LFS) nie jest w tym commicie. Dopóki go nie ma w checkoutcie, podgląd serwuje samą stronę; rozdziały pojawią się, gdy tekst będzie w drzewie (np. submoduły).
 
 ## URL-e
 

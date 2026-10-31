@@ -30,11 +30,11 @@ python3 tools/audio-kjv/install_layout.py
 git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 ```
 
-`vendor/` i tekst wydań w `data/` są w `.gitignore`. KJV `*.mp3` / `*.words.json` są w **Git LFS**. Push na Pi: `bash scripts/push-origin.sh`. `build-dist` kopiuje MP3 do `dist/`.
+`vendor/` i tekst wydań w `data/` są w `.gitignore`. KJV `*.mp3` / `*.words.json` są w **Git LFS**.
 
 ## Deploy
 
-Pełny zestaw (~1–2 GB) musi być w `dist/kjv/` przed `wrangler deploy`.  
-Cloudflare Workers Assets / plan muszą unieść ten rozmiar (ew. R2 + custom routing).
-
-Automatyczny deploy produkcji to Workers Builds (aplikacja Cloudflare w Cursorze) przy pushu `main`, nie Pi. `npm run build` kopiuje pliki do `dist/` przed `wrangler deploy`.
+Podczas `npm run build` (`scripts/build-dist.sh`):
+- `scripts/sync-r2-audio.mjs` porównuje wskaźniki Git LFS (`data/kjv/1769/*/*.mp3`) z `_meta/lfs-manifest.json` w koszyku R2 `66ksiag-audio`, pobiera brakujące/zmienione MP3 w paczkach po `N` (domyślnie 40), wysyła je do R2 i usuwa z dysku przed kolejną paczką.
+- Worker (`worker/src/index.ts`) serwuje `/kjv/1769/{book}/{chapter}.mp3` z R2 (`env.AUDIO`, w tym żądania `Range`).
+- `*.words.json` i JSON rozdziałów trafiają do `dist/` jako Workers Static Assets.
