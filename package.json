@@ -16,6 +16,9 @@
     "android:build": "bash scripts/android-build.sh",
     "android:install": "bash scripts/android-install.sh",
     "android:play:internal": "bash scripts/android-play-internal.sh",
+    "lfs:sync-r2": "node scripts/sync-lfs-to-r2.mjs",
+    "lfs:use-r2": "node scripts/git-lfs-r2.mjs --install-git-config",
+    "lfs:worker:deploy": "npx wrangler deploy -c tools/lfs-r2-worker/wrangler.toml",
     "harness": "bash scripts/start-harness.sh"
   },
   "devDependencies": {

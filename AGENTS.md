@@ -69,6 +69,15 @@ git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json data/kjv/1769/audio-a
 Strona odtwarza `/kjv/1769/…/*.mp3` z Workers Static Assets na tym samym originie. Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
 Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + `.words.json` + wskaźniki MP3 (bez `.txt` i per-verse — limit Workers Assets).
 
+### Git LFS w Cloudflare R2 (tylko dev / tooling, poza produkcyjnym Workerem)
+
+Produkcyjny Worker `66ksiag` (`wrangler.toml`, `worker/src/index.ts`) nie ma żadnych bindingów R2 ani tras LFS — na produkcji MP3 są wyłącznie w Workers Static Assets.
+
+Do trzymania obiektów Git LFS (`objects/<sha256-oid>`) w buckecie R2 `66ksiag-audio` w środowisku deweloperskim służą:
+- `scripts/git-lfs-r2.mjs` — lokalny custom transfer agent Git LFS (`npm run lfs:use-r2` zapisuje konfigurację w `.git/config`, bez dotykania produkcyjnej domeny; obsługuje bezpośrednie S3 API R2 przez `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`, `wrangler r2 object` lub osobnego dev Workera),
+- `scripts/sync-lfs-to-r2.mjs` (`npm run lfs:sync-r2`) — skrypt synchronizujący obiekty LFS do bucketu R2 `66ksiag-audio` partiami,
+- `tools/lfs-r2-worker/` (`npm run lfs:worker:deploy`) — opcjonalny, całkowicie osobny Worker dev/tooling `66ksiag-lfs` (`https://66ksiag-lfs.janstrakowski.workers.dev`, `workers_dev = true`, bez domeny produkcyjnej) wystawiający Git LFS Batch API nad bucketem `66ksiag-audio`.
+
 Podgląd brancha to `https://<branch>.66ksiag.pl`. Apex, www i ten wildcard są Custom Domains; tworzy je `wrangler deploy`. Nie przywracaj rekordu A `*.66ksiag.pl`.
 
 ### Pobieranie audio w Androidzie

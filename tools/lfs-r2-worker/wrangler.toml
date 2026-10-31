@@ -1,0 +1,11 @@
+name = "66ksiag-lfs"
+account_id = "86e0b7dbeec0ebfff2333c8e8c4087fb"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+# Dev/tooling only: served on https://66ksiag-lfs.janstrakowski.workers.dev.
+# No custom domain (never attached to 66ksiag.pl or the production 66ksiag Worker).
+workers_dev = true
+
+[[r2_buckets]]
+binding = "LFS_BUCKET"
+bucket_name = "66ksiag-audio"
