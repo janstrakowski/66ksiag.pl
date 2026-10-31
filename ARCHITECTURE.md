@@ -128,8 +128,8 @@ Ten sam werset co element tablicy w rozdziale; `16.txt` to sam tekst (opcjonalni
 
 Źródła tekstu:
 
-- BG: `tools/import` ← [biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst) folder `1879`
-- KJV: `tools/import-kjv` ← [aruljohn/Bible-kjv](https://github.com/aruljohn/Bible-kjv) (PD; linia 1769)
+- BG: `tools/import` ← submoduł `sources/biblia-druk-tekst` ([biblia-druk-tekst](https://github.com/UczenJezusa/biblia-druk-tekst) folder `1879`)
+- KJV: `tools/import-kjv` ← submoduł `sources/bible-kjv` ([aruljohn/Bible-kjv](https://github.com/aruljohn/Bible-kjv); PD; linia 1769)
 
 UI KJV (styl 1611) — osobne dema w `demos/kjv-1611/` (WIP).
 

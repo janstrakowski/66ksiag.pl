@@ -43,21 +43,23 @@ Preferuj lokalne `data/`; HTTP tylko na kanoniczne URL-e.
 
 ## Import tekstu
 
-`data/` jest w `.gitignore`.
+Tekst wydań w `data/` jest w `.gitignore`. Źródła tekstu to submoduły w `sources/` (audio Scourby zostaje w `vendor/`, poza gitem). Po klonie: `git submodule update --init`.
 
 ```bash
-# BG
+# BG — sources/biblia-druk-tekst (pin: tools/import/SOURCE_PIN.txt)
 cargo run -p ksiag-import --release -- \
-  --source /tmp/biblia-druk-tekst/1879 --out data --commit <sha>
+  --source sources/biblia-druk-tekst/1879 --out data \
+  --commit "$(git -C sources/biblia-druk-tekst rev-parse HEAD)"
 
-# KJV
+# KJV — sources/bible-kjv
 cargo run -p ksiag-import-kjv --release -- \
-  --source /tmp/Bible-kjv --out data --commit <sha>
+  --source sources/bible-kjv --out data \
+  --commit "$(git -C sources/bible-kjv rev-parse HEAD)"
 ```
 
 ## Audio KJV (Scourby) — self-hosted (Git LFS)
 
-KJV `data/kjv/1769/**/*.mp3` i `*.words.json` są w **Git LFS** (obrazy/fonty też). Tekst wydań w `data/` nadal poza gitem (`vendor/` = cache pobierania).
+KJV `data/kjv/1769/**/*.mp3` i `*.words.json` są w **Git LFS** (obrazy/fonty też). Tekst wydań w `data/` nadal poza gitem. `vendor/` to cache pobierania audio, nie źródło tekstu.
 
 ```bash
 python3 tools/audio-kjv/fetch_scourby.py

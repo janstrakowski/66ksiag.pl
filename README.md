@@ -12,17 +12,18 @@ Wydania: **BG 1879** (PL) i **KJV** (EN, `/kjv/1769`). Wspólna numeracja KJV; j
 ## Szybki start
 
 ```bash
-# 1. Źródło tekstu (sparse)
-git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/UczenJezusa/biblia-druk-tekst.git /tmp/biblia-druk-tekst
-cd /tmp/biblia-druk-tekst && git sparse-checkout set --skip-checks 1879
+# 1. Źródła tekstu (submoduły; po świeżym klonie)
+git submodule update --init
 
-# 2. Import → data/bg/1879 (JSON + TXT, ~250 MB; poza gitem)
-cd /path/to/66ksiag-project
+# 2. Import → data/ (JSON + TXT; poza gitem)
 cargo run -p ksiag-import --release -- \
-  --source /tmp/biblia-druk-tekst/1879 \
+  --source sources/biblia-druk-tekst/1879 \
   --out data \
-  --commit "$(git -C /tmp/biblia-druk-tekst rev-parse HEAD)"
+  --commit "$(git -C sources/biblia-druk-tekst rev-parse HEAD)"
+cargo run -p ksiag-import-kjv --release -- \
+  --source sources/bible-kjv \
+  --out data \
+  --commit "$(git -C sources/bible-kjv rev-parse HEAD)"
 
 # 3. CLI
 cargo run -p ksiag --release -- --data data get jn 3 16
@@ -36,6 +37,8 @@ bash scripts/dev-serve.sh
 
 | Ścieżka | Rola |
 | --- | --- |
+| `sources/biblia-druk-tekst/` | Submoduł tekstu BG (`1879/`) |
+| `sources/bible-kjv/` | Submoduł tekstu KJV |
 | `data/bg/1879/` | Kanoniczne API (generowane importem) |
 | `tools/import/` | Rust: TXT źródła → `data/` |
 | `cli/` | Rust: `66ksiag books\|get\|chapter\|path` |

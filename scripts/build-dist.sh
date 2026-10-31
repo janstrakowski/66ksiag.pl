@@ -4,11 +4,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 
 if [[ ! -f "$ROOT/data/bg/1879/books.json" ]]; then
-  echo "Brak data/bg/1879 — najpierw import BG" >&2
+  echo "Brak data/bg/1879 — najpierw: cargo run -p ksiag-import --release -- --source sources/biblia-druk-tekst/1879 --out data" >&2
   exit 1
 fi
 if [[ ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
-  echo "Brak data/kjv/1769 — najpierw: cargo run -p ksiag-import-kjv --release -- --source … --out data" >&2
+  echo "Brak data/kjv/1769 — najpierw: cargo run -p ksiag-import-kjv --release -- --source sources/bible-kjv --out data" >&2
   exit 1
 fi
 
