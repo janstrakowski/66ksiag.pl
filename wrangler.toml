@@ -1,4 +1,4 @@
-name = "ksiag"
+name = "66ksiag"
 account_id = "86e0b7dbeec0ebfff2333c8e8c4087fb"
 main = "worker/src/index.ts"
 compatibility_date = "2025-10-01"
