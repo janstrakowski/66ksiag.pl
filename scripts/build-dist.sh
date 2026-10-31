@@ -18,10 +18,10 @@ mkdir -p "$DIST"
 cp -a "$ROOT/web/." "$DIST/"
 mkdir -p "$DIST/bg" "$DIST/kjv"
 
-# PWA: edition root + book/chapter JSON (+ KJV words/mp3).
+# Strona: edition root + book/chapter JSON (+ KJV words/mp3).
 # Bez *.txt i per-verse {book}/{ch}/{v}.* — Workers Free: max 20k plików.
 # src = katalog wydania (np. data/bg/1879), dest = dist/bg/1879
-copy_pwa_edition() {
+copy_edition() {
   local src="$1" dest="$2" follow_links="${3:-0}"
   local find_args=(.)
   mkdir -p "$dest"
@@ -54,10 +54,10 @@ copy_pwa_edition() {
 
 shopt -s nullglob
 for ed in "$ROOT"/data/bg/*/; do
-  copy_pwa_edition "$ed" "$DIST/bg/$(basename "$ed")" 0
+  copy_edition "$ed" "$DIST/bg/$(basename "$ed")" 0
 done
 for ed in "$ROOT"/data/kjv/*/; do
-  copy_pwa_edition "$ed" "$DIST/kjv/$(basename "$ed")" 1
+  copy_edition "$ed" "$DIST/kjv/$(basename "$ed")" 1
 done
 shopt -u nullglob
 cp -f "$ROOT/data/translations.json" "$DIST/translations.json" 2>/dev/null || true

@@ -15,16 +15,16 @@ test.describe("edition picker", () => {
     await page.locator('[data-pick="bg-1879"]').click();
     await expect(page.locator("#home")).toBeVisible();
     await expect(page.locator("#home-title")).toContainText(/Biblia/i);
-    await expect(page.locator("#home-audio-download-wrap")).toBeHidden();
+    await expect(page.locator("#home-audio-download")).toHaveCount(0);
   });
 
-  test("choosing KJV opens English title card with audio download", async ({ page }) => {
+  test("choosing KJV opens English title card without a download", async ({ page }) => {
     await page.goto("/wybor");
     await page.locator('[data-pick="kjv-1769"]').click();
     await expect(page.locator("#home")).toBeVisible();
     await expect(page.locator("#home-title")).toContainText(/Holy Bible/i);
-    await expect(page.locator("#home-audio-download-wrap")).toBeVisible();
-    await expect(page.locator("#home-audio-download")).toBeVisible();
+    await expect(page.locator("#home-audio-download")).toHaveCount(0);
+    await expect(page.getByText(/Pobierz audio|Download audio/)).toHaveCount(0);
   });
 });
 

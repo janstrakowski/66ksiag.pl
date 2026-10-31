@@ -19,7 +19,7 @@ Plan dzienny jest **jeden na użytkownika**: zaliczenie rozdziału w BG lub KJV 
 
 ```
 ┌──────────────────────────────────────────┐
-│  Klienci: PWA · CLI · LLM · inne appki   │
+│  Klienci: strona · CLI · LLM · inne appki│
 └──────────────────┬───────────────────────┘
                    │ HTTP (statyczne pliki)
 ┌──────────────────▼───────────────────────┐
@@ -63,13 +63,13 @@ Wygodne do wpisywania i share w UI. Zawsze wskazują na kanoniczny URL (redirect
   → /bg/1879/43-joh/3/16
 ```
 
-Mapowanie aliasów → `43-joh` żyje w `books.json` (per wydanie, te same aliasy). Krótki URL otwiera czytnik; treść pochodzi z wybranego w PWA tłumaczenia.
+Mapowanie aliasów → `43-joh` żyje w `books.json` (per wydanie, te same aliasy). Krótki URL otwiera czytnik; treść pochodzi z tłumaczenia wybranego na stronie.
 
 ### Oba poziomy szczegółowości
 
 | Zasób | Po co |
 | --- | --- |
-| Rozdział `.json` / `.txt` | PWA (jeden request), czytanie ciągłe |
+| Rozdział `.json` / `.txt` | Strona (jeden request), czytanie ciągłe |
 | Werset `.json` / `.txt` | CLI, LLM, głębokie linki, cytaty |
 
 ## Kontrakty plików
@@ -123,7 +123,7 @@ Ten sam werset co element tablicy w rozdziale; `16.txt` to sam tekst (opcjonalni
   data/                 # wygenerowane drzewo bg/1879/… (commitowane lub artifact CI)
   tools/import/         # upstream *.txt → data/ (JSON + TXT)
   cli/                  # Rust: klient lokalnego drzewa / URL kanonicznych
-  web/                  # PWA oparta na warstwie data/
+  web/                  # strona oparta na warstwie data/
 ```
 
 Źródła tekstu:
@@ -154,10 +154,10 @@ Szkic komend:
 66ksiag path jn 3 16      # kanoniczna ścieżka / URL
 ```
 
-## Frontend (PWA)
+## Frontend (strona)
 
 - Konsumuje wyłącznie kanoniczne (lub równoważne lokalne) pliki z `data/`
-- Offline: service worker cache’uje rozdziały / całe wydanie po pierwszej wizycie
+- Zwykła strona: bez service workera, bez manifestu aplikacji i bez instalacji na ekran główny. Aplikacją jest `android/`.
 - Share: Web Share API + deep link (krótki lub kanoniczny); w HTML ustawione `rel=canonical` na formę długą
 - Udostępnianie nie wymaga natywnej appki na MVP
 
@@ -189,10 +189,10 @@ Narracja **Alexander Scourby** — tylko dla `kjv/1769` (BG nie ma audio).
 ```
 
 **MP3 są self-hosted** pod `/kjv/1769/{book}/{chapter}.mp3` (katalog: `web/audio-catalog.json`).  
-„Pobierz audio” bierze brakujące rozdziały po kolei w otwartej karcie i zapisuje je w Cache Storage (offline). Licznik rośnie po każdym zapisanym rozdziale.  
+Strona odtwarza je strumieniowo i nie zapisuje rozdziałów offline. Pobranie na urządzenie jest w `android/`.  
 Opcjonalne `.words.json` w `data/` tylko do podświetlania słów. Fonty UI (Cardo, Cinzel) leżą w `web/assets/fonts/` — bez Google Fonts.
 
-PWA: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po końcu audio, auto-next w ramach dziennej quoty, stop po 100%, CTA „słuchaj dalej” (tryb beyond → aż do Apokalipsy).
+Strona: podkreślenie bieżącego słowa, zaliczanie rozdziału do planu po końcu audio, auto-next w ramach dziennej quoty, stop po 100%, CTA „słuchaj dalej” (tryb beyond → aż do Apokalipsy).
 
 ## Świadomie odłożone
 

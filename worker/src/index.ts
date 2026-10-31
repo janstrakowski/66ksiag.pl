@@ -233,6 +233,51 @@ export default {
       }
     }
 
+    const retired = retiredAsset(request);
+    if (retired) return retired;
+
     return env.ASSETS.fetch(request);
   },
 };
+
+/**
+ * Strona nie rejestruje service workera. Stare instalacje i tak odpytują
+ * `/sw.js` przy aktualizacji — SPA zwróciłoby index.html i zostawiło starą
+ * powłokę. Ten skrypt kasuje cache powłoki (`ksiag-vN`) i pobrane audio, potem
+ * się wyrejestrowuje.
+ */
+const RETIRED_SW = `self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter((key) => /^ksiag-v\\d+$/.test(key) || key === "ksiag-scourby-mp3-v1")
+        .map((key) => caches.delete(key))
+    );
+    await self.registration.unregister();
+    const windows = await self.clients.matchAll({ type: "window" });
+    await Promise.all(windows.map((client) => client.navigate(client.url)));
+  })());
+});
+`;
+
+export function retiredAsset(request: Request): Response | null {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
+  if (path === "/sw.js") {
+    return new Response(request.method === "HEAD" ? null : RETIRED_SW, {
+      status: 200,
+      headers: {
+        "content-type": "application/javascript; charset=utf-8",
+        "cache-control": "no-cache",
+      },
+    });
+  }
+  if (path === "/manifest.webmanifest") {
+    return new Response(null, { status: 404, headers: { "cache-control": "no-cache" } });
+  }
+  return null;
+}
