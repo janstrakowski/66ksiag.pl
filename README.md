@@ -76,7 +76,7 @@ Podgląd brancha `dev`:
 
 Niezmienny URL jednego wdrożenia: `https://<id>-dev.66ksiag.pl`.
 
-Lokalny `npm run build` wymaga `data/bg/1879/books.json` i `data/kjv/1769/books.json`. Workers Builds ustawia `WORKERS_CI=1` i tych plików nie ma w gicie, więc build i tak składa `dist/` z `web/` i deploy podmienia HTML. Tekst rozdziałów w takim deployu nie jedzie.
+Lokalny `npm run build` wymaga `data/bg/1879/books.json` i `data/kjv/1769/books.json`. Workers Builds ustawia `WORKERS_CI=1` i tych plików nie ma w gicie, więc build i tak składa `dist/` z `web/` i deploy podmienia HTML. Tekst rozdziałów w takim deployu nie jedzie. Checkout nie pobiera Git LFS z `data/` (`.lfsconfig`), bo wielogigabajtowe audio przerywa build zanim wystartuje Wrangler. Fonty i ikony strony są zwykłymi plikami w `web/`.
 
 Lokalne `npm run deploy` nadal robi `wrangler deploy` na tej maszynie. Automatyczna ścieżka to Workers Builds.
 

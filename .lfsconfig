@@ -1,0 +1,5 @@
+[lfs]
+	# Workers Builds clones this repo. Do not download the audio objects
+	# during checkout; a failed or multi-gigabyte LFS fetch stops the deploy
+	# before wrangler runs. The site shell does not need them.
+	fetchexclude = data/**

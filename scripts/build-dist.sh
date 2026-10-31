@@ -76,6 +76,13 @@ for ed in "$ROOT"/data/kjv/*/; do
   copy_edition "$ed" "$DIST/kjv/$(basename "$ed")" 1
 done
 shopt -u nullglob
+# A CI checkout leaves data/** as Git LFS pointers (.lfsconfig fetchexclude).
+# Publishing those pointers would replace real audio with the pointer text.
+while IFS= read -r -d '' pointer; do
+  if head -n 1 "$pointer" | grep -q 'git-lfs.github.com/spec/v1'; then
+    rm -f -- "$pointer"
+  fi
+done < <(find "$DIST" -type f -size -4k -print0)
 cp -f "$ROOT/data/translations.json" "$DIST/translations.json" 2>/dev/null || true
 cp -f "$ROOT/llms.txt" "$DIST/llms.txt"
 cp -f "$ROOT/AGENTS.md" "$DIST/AGENTS.md" 2>/dev/null || true
