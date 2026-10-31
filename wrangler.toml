@@ -8,7 +8,8 @@ preview_urls = true
 
 # Workers Builds does not read a build command from this file. The deploy
 # command does: `npx wrangler deploy` runs [build] before upload, so a push
-# still publishes web/ when the dashboard build command is empty.
+# still publishes web/ + edition JSON + R2 audio when the dashboard build
+# command is empty.
 # In the app, production branch must be main.
 #   build command:     npm run build
 #   deploy command:    npx wrangler deploy
@@ -43,13 +44,23 @@ enabled = false
 binding = "SYNC"
 id = "99a40bb27a764d839669293aea208e8f"
 
+# Audio KJV (Scourby) синхronizowane w paczkach z Git LFS → R2.
+[[r2_buckets]]
+binding = "AUDIO"
+bucket_name = "66ksiag-audio"
+
 [assets]
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 html_handling = "auto-trailing-slash"
+run_worker_first = ["/kjv/1769/*/*.mp3", "/api/*", "/sw.js", "/manifest.webmanifest"]
 
 # Previews do not inherit production bindings. Leave SYNC off this block so a
-# preview cannot read or write the production KV namespace. Routes and cron
-# triggers are not valid here; the preview hostname is the route above.
+# preview cannot read or write the production KV namespace, but bind the
+# read-only R2 audio bucket so previews can stream KJV audio.
 [previews]
+
+[[previews.r2_buckets]]
+binding = "AUDIO"
+bucket_name = "66ksiag-audio"

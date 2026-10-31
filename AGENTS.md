@@ -47,7 +47,7 @@ cargo run -p ksiag-import-kjv --release -- \
 
 ## Audio KJV (Scourby) — self-hosted (Git LFS)
 
-KJV `data/kjv/1769/**/*.mp3` i `*.words.json` są w **Git LFS** (obrazy/fonty też). Tekst wydań w `data/` nadal poza gitem. `vendor/` to cache pobierania audio, nie źródło tekstu.
+KJV `data/kjv/1769/**/*.mp3` i `*.words.json` są w **Git LFS**. Tekst wydań w `data/` jest generowany z submodułów w `sources/`.
 
 ```bash
 python3 tools/audio-kjv/fetch_scourby.py
@@ -57,10 +57,10 @@ python3 tools/audio-kjv/build_catalog.py           # → web/audio-catalog.json 
 git add data/kjv/1769/*/*.mp3 data/kjv/1769/*/*.words.json
 ```
 
-Audio LFS można zsynchronizować na dysk Pi (`bash scripts/push-origin.sh` — rsync na `/mnt/pi-data/git-lfs/66ksiag`). To magazyn plików audio, nie deploy. Produkcja idzie z Workers Builds (aplikacja Cloudflare w Cursorze) przy pushu `main`.
+W czasie buildu (`scripts/build-dist.sh`) `scripts/sync-r2-audio.mjs` porównuje sumy SHA-256 wskaźników Git LFS z manifestem `_meta/lfs-manifest.json` w koszyku R2 `66ksiag-audio` i wysyła zmienione lub brakujące MP3 paczkami po `N` plików, usuwając każdą paczkę z dysku przed kolejną.
 
-Strona odtwarza `/kjv/1769/…/*.mp3` strumieniowo z tego samego originu. Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
-Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + MP3/words (bez `.txt` i per-verse — limit Workers Assets).
+Strona odtwarza `/kjv/1769/…/*.mp3` strumieniowo z tego samego originu (Worker serwuje je z R2 `env.AUDIO`). Nie ma „Pobierz audio” i nie zapisuje rozdziałów w Cache Storage.  
+Szczegóły: `tools/audio-kjv/README.md`. `build-dist` kopiuje do `dist/` chapter JSON + `.words.json` (bez `.txt` i per-verse — limit Workers Assets).
 
 ### Pobieranie audio w Androidzie
 
