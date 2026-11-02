@@ -140,10 +140,12 @@ Natywny klient Kotlin/Compose w `android/`, package `com.jastrakowski.sixsixksia
 ```bash
 npm run android:build          # APK + AAB
 npm run android:install        # adb install na telefonie (USB debugging)
-npm run android:play:internal  # build + upload AAB na Google Play Internal testing
+npm run android:play:internal  # build + upload AAB do Google Play Internal App Sharing
 ```
 
-Keystore i `android/secrets/` poza gitem. Push na każdą gałąź inną niż `prod` (w tym `main`) automatycznie buduje podpisany `.aab`, wysyła go do **Google Play Internal App Sharing** i zapisuje link instalacji w `dist/android-preview.json` (`https://<branch>.66ksiag.pl/android-preview.json`; szczegóły i lista sekretów CI: `android/README.md`). Asset Links: `web/.well-known/assetlinks.json`.
+Keystore i `android/secrets/` poza gitem. Push na każdą gałąź inną niż `prod` (w tym `main`) uruchamia GitHub Actions (`.github/workflows/android-internal-sharing.yml`): podpisany `.aab` idzie wyłącznie do **Google Play Internal App Sharing**. Workflow nie tworzy wydania na ścieżce Internal testing. Link instalacji jest w podsumowaniu joba, w statusie commita `play/internal-sharing` i w artefakcie `android-preview.json`. Sekrety Actions: `android/README.md`. Asset Links: `web/.well-known/assetlinks.json`.
+
+Workers Builds (`scripts/build-dist.sh`) nie buduje Androida.
 
 ## Cursor Cloud specific instructions
 

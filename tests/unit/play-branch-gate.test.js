@@ -46,4 +46,16 @@ describe("Play Internal App Sharing branch gate", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/production branch 'prod'/);
   });
+
+  it("fails a direct main upload when Play credentials are missing", () => {
+    const result = run("main");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/PLAY_SERVICE_ACCOUNT_JSON/);
+  });
+
+  it("refuses to create an internal testing release", () => {
+    const result = run("main", ["--track-internal"]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/Internal App Sharing/);
+  });
 });

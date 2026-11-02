@@ -3,24 +3,36 @@
 # for every branch other than `prod`.
 #
 # `main` is latest development and does upload. `prod` is production and never
-# uploads. Never uploads to production Play tracks.
-# Writes `{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`
-# to `dist/android-preview.json` so `https://<branch>.66ksiag.pl/android-preview.json`
-# exposes the Play Store Internal App Sharing install link.
+# uploads. Does not create a Google Play testing-track release.
+# GitHub Actions runs this on each non-prod push
+# (.github/workflows/android-internal-sharing.yml). The install link is the
+# commit status `play/internal-sharing` and the `android-preview.json` artifact.
+# Locally, the same JSON is written to `dist/android-preview.json`.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 IF_PREVIEW_BRANCH=0
-UPLOAD_MODE="${PLAY_UPLOAD_MODE:-internal-sharing}"
 for arg in "$@"; do
   case "$arg" in
     --if-non-prod-branch|--if-non-main-branch|--if-dev-branch) IF_PREVIEW_BRANCH=1 ;;
-    --track-internal) UPLOAD_MODE="track" ;;
-    --internal-sharing) UPLOAD_MODE="internal-sharing" ;;
+    --internal-sharing) ;;
+    --track-internal)
+      echo "[play-internal] Refusing to create a Google Play internal testing release. Branch builds upload only to Internal App Sharing." >&2
+      exit 1
+      ;;
+    *)
+      echo "[play-internal] Unknown argument: $arg" >&2
+      exit 1
+      ;;
   esac
 done
+
+if [[ -n "${PLAY_UPLOAD_MODE:-}" && "${PLAY_UPLOAD_MODE}" != "internal-sharing" ]]; then
+  echo "[play-internal] Refusing PLAY_UPLOAD_MODE=${PLAY_UPLOAD_MODE}. Branch builds upload only to Internal App Sharing." >&2
+  exit 1
+fi
 
 detect_branch() {
   local ref="${WORKERS_CI_BRANCH:-${CF_PAGES_BRANCH:-${ORIGIN_REF_NAME:-${GITHUB_REF_NAME:-${CI_COMMIT_REF_NAME:-${BUILDKITE_BRANCH:-}}}}}}"
@@ -108,9 +120,6 @@ fi
 # Verify service account JSON before starting the Gradle build.
 node "$ROOT/scripts/play-upload-internal.mjs" --verify-credentials
 
-if [[ "$UPLOAD_MODE" == "track" ]]; then
-  export PLAY_QUERY_REMOTE_VERSION_CODE=1
-fi
 NEXT_VERSION_CODE="$(node "$ROOT/scripts/play-upload-internal.mjs" --next-version-code)"
 SHORT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo dev)"
 SAFE_BRANCH="$(printf '%s' "${CURRENT_BRANCH:-dev}" | tr -c 'A-Za-z0-9._-' '-')"
@@ -128,28 +137,13 @@ if [[ ! -f "$AAB_PATH" ]]; then
   exit 1
 fi
 
-if [[ "$UPLOAD_MODE" == "track" ]]; then
-  RELEASE_NAME="${PLAY_RELEASE_NAME:-${KSIAG_VERSION_NAME}}"
-  COMMIT_SUBJECT="$(git log -1 --pretty=%s 2>/dev/null || echo "dev build")"
-  export PLAY_RELEASE_NOTES_PL="${PLAY_RELEASE_NOTES_PL:-Build z gałęzi ${CURRENT_BRANCH} (${SHORT_SHA}): ${COMMIT_SUBJECT}}"
-  export PLAY_RELEASE_NOTES_EN="${PLAY_RELEASE_NOTES_EN:-Branch ${CURRENT_BRANCH} build (${SHORT_SHA}): ${COMMIT_SUBJECT}}"
-
-  echo "[play-internal] Uploading $AAB_PATH to Google Play track 'internal'…"
-  node "$ROOT/scripts/play-upload-internal.mjs" \
-    --mode "track" \
-    --aab "$AAB_PATH" \
-    --package "com.jastrakowski.sixsixksiag" \
-    --track "internal" \
-    --release-name "$RELEASE_NAME"
-else
-  echo "[play-internal] Uploading $AAB_PATH to Google Play Internal App Sharing…"
-  node "$ROOT/scripts/play-upload-internal.mjs" \
-    --internal-sharing \
-    --aab "$AAB_PATH" \
-    --package "com.jastrakowski.sixsixksiag" \
-    --branch "$CURRENT_BRANCH" \
-    --commit "$FULL_SHA" \
-    --version-name "$KSIAG_VERSION_NAME" \
-    --version-code "$KSIAG_VERSION_CODE" \
-    --metadata-out "$METADATA_OUT"
-fi
+echo "[play-internal] Uploading $AAB_PATH to Google Play Internal App Sharing…"
+node "$ROOT/scripts/play-upload-internal.mjs" \
+  --internal-sharing \
+  --aab "$AAB_PATH" \
+  --package "com.jastrakowski.sixsixksiag" \
+  --branch "$CURRENT_BRANCH" \
+  --commit "$FULL_SHA" \
+  --version-name "$KSIAG_VERSION_NAME" \
+  --version-code "$KSIAG_VERSION_CODE" \
+  --metadata-out "$METADATA_OUT"
