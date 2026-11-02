@@ -144,3 +144,11 @@ npm run android:play:internal  # build + upload AAB na Google Play Internal test
 ```
 
 Keystore i `android/secrets/` poza gitem. Push na każdą gałąź inną niż `main` automatycznie buduje podpisany `.aab`, wysyła go do **Google Play Internal App Sharing** i zapisuje link instalacji w `dist/android-preview.json` (`https://<branch>.66ksiag.pl/android-preview.json`; szczegóły i lista sekretów CI: `android/README.md`). Asset Links: `web/.well-known/assetlinks.json`.
+
+## Cursor Cloud specific instructions
+
+- Dev server: `bash scripts/dev-serve.sh` (albo `npm run dev`) na `http://127.0.0.1:8787`. Start środowiska trzyma ten proces. Gdy port odpowiada, nie uruchamiaj drugiego.
+- Tekst wydań nie jest w gicie. `node scripts/import-editions.mjs --web-only` buduje `data/bg/1879` i `data/kjv/1769` z submodułów `sources/` (układ jak importery Rust, bez Cargo). Serwer liczy tekst wersetu z JSON rozdziału. Submoduły klonuj z czystym nagłówkiem: `git -c http.extraHeader= -c http.https://github.com/.extraHeader= submodule update --init --checkout`.
+- Git LFS rozdziałów MP3 zwraca 404 w tym środowisku. Pełne audio Scourby’ego to ~3.3 GB. Instalacja trzyma prawdziwy `data/kjv/1769/01-gen/1.mp3` (sha256 ze wskaźnika) w `~/.cache/66ksiag/01-gen-1.mp3`, pobrany z `https://66ksiag.pl/kjv/1769/01-gen/1.mp3`. Start kopiuje cache z powrotem, gdy checkout zostawia wskaźnik LFS (`GIT_LFS_SKIP_SMUDGE=1`). Tego pliku wymaga test e2e. Reszta rozdziałów zostaje wskaźnikami.
+- Testy: `npm run test:unit` i `npm run test:e2e`. Playwright Chromium jest w instalacji. Oba potrzebują wygenerowanego `data/` i `web/audio-catalog.json`.
+- Android (SDK, keystore, Play) nie jest częścią tego środowiska.
