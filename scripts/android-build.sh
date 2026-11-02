@@ -46,7 +46,7 @@ else
   GRADLE_ARGS=(assembleRelease bundleRelease)
 fi
 
-if [[ "${WORKERS_CI:-0}" == "1" || "${CI:-0}" == "1" ]]; then
+if [[ "${WORKERS_CI:-0}" == "1" || "${CI:-}" == "1" || "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
   GRADLE_ARGS+=(
     "--no-daemon"
     "-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m"

@@ -1,9 +1,12 @@
 import { generateKeyPairSync } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  assertCliUploadMode,
   assertInternalTrackOnly,
   buildInternalAppSharingPreviewMetadata,
   buildTrackUpdatePayload,
@@ -16,6 +19,8 @@ import {
   uploadBundleToInternalAppSharing,
   uploadBundleToInternalTrack,
 } from "../../scripts/play-upload-internal.mjs";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const { privateKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,
@@ -33,6 +38,19 @@ const SAMPLE_SA = {
 };
 
 describe("Google Play Internal App Sharing & Internal Testing uploader", () => {
+  it("refuses to create a Play internal testing release from the CLI", () => {
+    expect(() => assertCliUploadMode("track")).toThrow(/does not create an internal testing release/);
+    expect(assertCliUploadMode("internal-sharing")).toBe("internal-sharing");
+
+    const result = spawnSync(process.execPath, ["scripts/play-upload-internal.mjs", "--mode", "track"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(1);
+    expect(`${result.stderr}`).toMatch(/Internal App Sharing/);
+    expect(`${result.stderr}`).toMatch(/does not create an internal testing release/);
+  });
+
   it("parses raw JSON, base64 JSON, and file paths for PLAY_SERVICE_ACCOUNT_JSON", () => {
     const raw = JSON.stringify(SAMPLE_SA);
     const b64 = Buffer.from(raw, "utf8").toString("base64");

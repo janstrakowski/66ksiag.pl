@@ -3,17 +3,16 @@
  * Upload a signed Android App Bundle (.aab) to Google Play via the
  * Google Play Android Developer API v3 (`androidpublisher.googleapis.com`).
  *
- * Supports two non-production upload modes:
- * 1. Internal App Sharing (`uploadBundleToInternalAppSharing`, default for
- *    `main` and every other branch except production `prod`):
- *    POST /upload/androidpublisher/v3/applications/internalappsharing/${packageName}/artifacts/bundle?uploadType=media
- *    Returns `{ downloadUrl, certificateFingerprint, sha256 }` and optionally
- *    writes `dist/android-preview.json` so `https://<branch>.66ksiag.pl/android-preview.json`
- *    exposes the Play Store Internal App Sharing install link.
- * 2. Internal Testing track (`uploadBundleToInternalTrack`, `--mode track`):
- *    Strictly restricted to the `internal` track — refuses any other track.
- *    Automatically falls back from `status: "completed"` to `status: "draft"`
- *    when Play Console reports that the app is still a draft / unreviewed app.
+ * The CLI uploads only to Internal App Sharing
+ * (`uploadBundleToInternalAppSharing`) for `main` and every other branch
+ * except production `prod`:
+ * POST /upload/androidpublisher/v3/applications/internalappsharing/${packageName}/artifacts/bundle?uploadType=media
+ * Returns `{ downloadUrl, certificateFingerprint, sha256 }` and optionally
+ * writes `android-preview.json` (branch, commit, version, downloadUrl).
+ * It does not create a Google Play testing-track release.
+ *
+ * `uploadBundleToInternalTrack` remains in this module for tests. The CLI
+ * refuses `--mode track`.
  */
 import { createSign } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -548,6 +547,17 @@ export async function uploadBundleToInternalTrack({
   throw new Error(`Failed to publish release on track "${ALLOWED_TRACK}" (HTTP ${firstAttempt.status}): ${firstAttempt.text}`);
 }
 
+const CLI_UPLOAD_MODES = new Set(["next-version-code", "verify-credentials", "internal-sharing"]);
+
+export function assertCliUploadMode(mode) {
+  if (!CLI_UPLOAD_MODES.has(mode)) {
+    throw new Error(
+      `Refusing upload mode "${mode}". This repository uploads branch builds only to Google Play Internal App Sharing and does not create an internal testing release.`
+    );
+  }
+  return mode;
+}
+
 function parseCliArgs(argv) {
   const opts = {
     mode: process.env.PLAY_UPLOAD_MODE || "internal-sharing",
@@ -602,6 +612,7 @@ function parseCliArgs(argv) {
 
 async function runCli() {
   const opts = parseCliArgs(process.argv.slice(2));
+  assertCliUploadMode(opts.mode);
   assertInternalTrackOnly(opts.track);
 
   if (opts.mode === "next-version-code") {
@@ -648,16 +659,7 @@ async function runCli() {
     return;
   }
 
-  await uploadBundleToInternalTrack({
-    aabPath: opts.aabPath,
-    packageName: opts.packageName,
-    credentials,
-    releaseName: opts.releaseName,
-    releaseNotesPl: opts.releaseNotesPl,
-    releaseNotesEn: opts.releaseNotesEn,
-    preferredStatus: opts.preferredStatus,
-    track: opts.track,
-  });
+  throw new Error(`Unhandled upload mode "${opts.mode}".`);
 }
 
 const isMain = Boolean(process.argv[1]) && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);

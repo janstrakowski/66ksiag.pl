@@ -17,13 +17,6 @@ if [[ "${WORKERS_CI:-0}" == "1" && "${FORCE_BUILD_DIST:-0}" != "1" ]]; then
   fi
 fi
 
-# Preserve an already generated dist/android-preview.json for the current commit
-# across `rm -rf "$DIST"` so a second build pass never wipes the Play Store link.
-SAVED_ANDROID_PREVIEW=""
-if [[ -f "$DIST/android-preview.json" ]] && grep -q "\"commit\": \"${HEAD_SHA}\"" "$DIST/android-preview.json" 2>/dev/null; then
-  SAVED_ANDROID_PREVIEW="$(cat "$DIST/android-preview.json")"
-fi
-
 # 1. Generate BG and KJV edition JSON from the git submodules in sources/ if missing.
 if [[ ! -f "$ROOT/data/bg/1879/books.json" || ! -f "$ROOT/data/kjv/1769/books.json" ]]; then
   if [[ -f "$ROOT/.gitmodules" ]]; then
@@ -52,10 +45,6 @@ fi
 
 rm -rf "$DIST"
 mkdir -p "$DIST"
-
-if [[ -n "$SAVED_ANDROID_PREVIEW" ]]; then
-  printf '%s\n' "$SAVED_ANDROID_PREVIEW" > "$DIST/android-preview.json"
-fi
 
 cp -a "$ROOT/web/." "$DIST/"
 mkdir -p "$DIST/bg" "$DIST/kjv"
@@ -123,15 +112,8 @@ test -f "$DIST/audio-catalog.json" || {
   exit 1
 }
 
-# On every branch other than `prod` (including `main`), if Google Play and
-# Android keystore secrets are configured in CI (Cloudflare Workers Builds),
-# build the signed release AAB, upload it to Google Play Internal App Sharing,
-# and write dist/android-preview.json BEFORE wrangler reads the final dist/
-# asset manifest.
-if [[ "${SKIP_ANDROID_PLAY_UPLOAD:-0}" != "1" && -f "$ROOT/scripts/android-play-internal.sh" ]]; then
-  PLAY_PREVIEW_METADATA_OUT="$DIST/android-preview.json" \
-    bash "$ROOT/scripts/android-play-internal.sh" --if-non-prod-branch
-fi
+# Android builds are GitHub Actions (.github/workflows/android-internal-sharing.yml).
+# This web dist must not compile the app or upload it to Play.
 
 if [[ -d "$ROOT/node_modules" ]]; then
   mkdir -p "$(dirname "$BUILD_STAMP")"

@@ -53,9 +53,9 @@ Fingerprint z lokalnego upload key (po Play App Signing dodaj też fingerprint z
 - Audio KJV: Media3 + MediaSession (pauza/wznów/następny/poprzedni rozdział w powiadomieniu i na ekranie blokady); pobieranie MP3 (`AudioDownloadService`)
 - Tekst Biblii: assets z `data/` (bez pobierania rozdziałów z sieci)
 
-## Play Console — Internal Testing (od zera, bez publikacji na Production)
+## Play Console — Internal App Sharing
 
-Aplikacja jest publikowana wyłącznie na ścieżkę **Internal testing** (`internal`). Skrypty CI odmawiają wysłania na `production`, `beta` lub `alpha`.
+Push na każdą gałąź inną niż `prod` (w tym `main`) buduje podpisany `.aab` w GitHub Actions i wysyła go wyłącznie do **Internal App Sharing**. Workflow nie tworzy wydania na ścieżce Internal testing, production, beta ani alpha. `prod` nie buduje Androida.
 
 ### 1. Klucz podpisu (Upload Key)
 
@@ -85,9 +85,9 @@ Zakoduj keystore do Base64 dla zmiennej CI `ANDROID_KEYSTORE_BASE64`:
 base64 -w0 android/android.keystore
 ```
 
-### 2. Utworzenie aplikacji i pierwszy ręczny upload na Internal testing
+### 2. Utworzenie aplikacji w Play Console
 
-Google Play Developer API pozwala na automatyczne wgrywanie kolejnych wydań dopiero po utworzeniu aplikacji i wgraniu pierwszego pliku `.aab` w konsoli.
+Internal App Sharing wymaga istniejącej aplikacji. CI nie publikuje wydań na Internal testing.
 
 1. Zbuduj lokalnie pierwszy podpisany pakiet `.aab`:
    ```bash
@@ -100,13 +100,7 @@ Google Play Developer API pozwala na automatyczne wgrywanie kolejnych wydań dop
    - **App or game**: `App`
    - **Free or paid**: `Free`
    - Zaakceptuj deklaracje Developer Program Policies i US export laws → **Create app**.
-3. W menu bocznym przejdź do **Test and release → Testing → Internal testing** (nie wchodź w Production):
-   - W sekcji **Testers** utwórz listę testerów (np. `Internal`), dodaj swoje adresy Gmail i zapisz.
-   - Kliknij **Create new release**.
-   - W sekcji **Play App Signing** kliknij **Choose signing key** → **Use Google-generated key**.
-   - Wgraj plik `android/app-release-bundle.aab`.
-   - Kliknij **Next** → **Save and publish** (lub **Save as draft**, jeśli konsola nie ma jeszcze wypełnionych formularzy App content; dla testów wewnętrznych nowy app działa od razu na Internal testing bez publicznej recenzji).
-   - Skopiuj link zaproszenia z zakładki **Testers → Copy link** i zaakceptuj udział w testach na telefonie.
+3. Jeśli konsola wymaga pierwszego pakietu, zanim Internal App Sharing przyjmie upload z API, wgraj `android/app-release-bundle.aab` ręcznie jeden raz. Dalsze buildy gałęzi nie idą na ścieżkę Internal testing.
 
 ### 3. Konto usługowe (Service Account) dla Google Play Android Developer API
 
@@ -117,23 +111,21 @@ Google Play Developer API pozwala na automatyczne wgrywanie kolejnych wydań dop
 3. W **Google Play Console → Users and permissions → Invite new users**:
    - Wklej adres e-mail konta usługowego (`client_email` z pliku JSON).
    - W zakładce **App permissions** dodaj aplikację `66ksiąg` (`com.jastrakowski.sixsixksiag`).
-   - Zaznacz uprawnienia:
-     - **View app information and download bulk reports (read-only)**
-     - **Release to testing tracks** (obejmuje Internal testing — nie musisz nadawać uprawnień do Production).
+   - Zaznacz **View app information and download bulk reports (read-only)**. Uprawnienie **Release to testing tracks** nie jest używane: CI nie tworzy wydania na ścieżce.
    - Kliknij **Invite user** → **Send invite**.
 
-### 4. Sekrety CI i automatyczny upload każdej gałęzi poza `prod` do Internal App Sharing
+### 4. Sekrety GitHub Actions i upload każdej gałęzi poza `prod` do Internal App Sharing
 
-Przy każdym pushu na dowolną gałąź inną niż `prod` (`main`, gałęzie PR itd.):
-- `scripts/build-dist.sh` (uruchamiany w Cloudflare Workers Builds przed wczytaniem manifestu `dist/` przez Wranglera) wywołuje `bash scripts/android-play-internal.sh --if-non-prod-branch`.
+Przy każdym pushu na dowolną gałąź inną niż `prod` (`main`, gałęzie robocze):
+- Workflow `.github/workflows/android-internal-sharing.yml` uruchamia `bash scripts/android-play-internal.sh`.
 - Skrypt buduje podpisany `android/app-release-bundle.aab` i wysyła go do **Google Play Internal App Sharing** (`POST /upload/androidpublisher/v3/applications/internalappsharing/com.jastrakowski.sixsixksiag/artifacts/bundle?uploadType=media`).
-- Zwrócony link `downloadUrl` jest wypisywany w logu builda oraz zapisywany do `dist/android-preview.json` (`{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`), dzięki czemu podgląd każdej gałęzi udostępnia go pod adresem `https://<branch>.66ksiag.pl/android-preview.json` (np. `https://main.66ksiag.pl/android-preview.json`).
-- Push na `prod` pomija ten upload. `prod` jest gałęzią produkcyjną strony, nie ścieżką Play.
+- Zwrócony `downloadUrl` trafia do podsumowania joba, do statusu commita `play/internal-sharing` i do artefaktu `android-internal-sharing` (plik `android-preview.json`: `{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`).
+- Push na `prod` nie uruchamia tego workflow. Cloudflare Workers Builds też nie buduje Androida.
 - Jednorazowe ustawienie w Play Console: **Test and release → Setup → Internal app sharing**:
   - **Manage uploaders**: dodaj adres e-mail konta usługowego (`ksiag-play-internal-ci@...iam.gserviceaccount.com`) lub zaznacz **Anyone you shared the link with can upload**.
   - **Manage testers**: wybierz **Anyone you shared the link with can download** (lub dodaj listę swoich adresów Gmail).
 
-Skonfiguruj 5 sekretów w **Cloudflare Dashboard → Workers & Pages → `66ksiag` → Settings → Builds → Variables and Secrets** (oraz opcjonalnie lokalnie w `android/secrets/keystore.env`):
+Skonfiguruj 5 sekretów w **GitHub → Settings → Secrets and variables → Actions** (oraz opcjonalnie lokalnie w `android/secrets/keystore.env`). Te same nazwy mogą zniknąć ze zmiennych Cloudflare Workers Builds — web deploy ich nie czyta.
 
 | Zmienna | Opis |
 | --- | --- |
@@ -143,7 +135,7 @@ Skonfiguruj 5 sekretów w **Cloudflare Dashboard → Workers & Pages → `66ksia
 | `ANDROID_KEY_PASSWORD` | Hasło do klucza (zwykle to samo co `ANDROID_KEYSTORE_PASSWORD`) |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Zawartość pliku JSON konta usługowego (raw JSON lub zakodowana w Base64) |
 
-Ręczne wywołanie publikacji na ścieżkę `internal`:
+Ręczny upload bieżącej gałęzi (nie `prod`) do Internal App Sharing:
 
 ```bash
 npm run android:play:internal

@@ -87,6 +87,8 @@ Rekordy A (`66ksiag.pl`, `www`, `*.66ksiag.pl`) są usunięte. Dopóki najbliżs
 2. Składa `dist/` (powłoka `web/` + JSON rozdziałów + `.words.json` + wskaźniki MP3).
 3. `npm install` patchuje wranglera 4.149. Przy deployu wskaźnik MP3 dostaje hash z `data/kjv/1769/audio-assets-manifest.json`. Cloudflare dociąga tylko brakujące rozdziały; reszta jest już na krawędzi jako Static Assets.
 
+Build Androida nie jest częścią tego deployu. Każda gałąź poza `prod` (w tym `main`) buduje podpisany `.aab` w GitHub Actions i wysyła go tylko do Google Play Internal App Sharing (`.github/workflows/android-internal-sharing.yml`).
+
 Lokalne `npm run deploy` nadal robi `wrangler deploy` na tej maszynie i publikuje workera produkcyjnego niezależnie od gałęzi. Automatyczna ścieżka to Workers Builds: produkcja tylko z `prod`, podgląd z `main` i pozostałych gałęzi.
 
 ### Git LFS na R2 (tylko dev / tooling)
