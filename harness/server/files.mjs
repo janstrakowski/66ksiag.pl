@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { worktreePath, DEV_WORKTREE } from "./paths.mjs";
+import { REPO_ROOT, worktreePath } from "./paths.mjs";
 
 const TEXT_EXT = new Set([
   ".txt",
@@ -63,12 +63,12 @@ const SKIP_DIRS = new Set([
 const MAX_TEXT_BYTES = 512 * 1024;
 
 function resolveRoot(scope, ticketId) {
-  if (scope === "dev") return DEV_WORKTREE;
+  if (scope === "main") return REPO_ROOT;
   if (scope === "ticket") {
     if (!ticketId) throw new Error("ticket id required");
     return worktreePath(ticketId);
   }
-  throw new Error("scope must be 'dev' or 'ticket'");
+  throw new Error("scope must be 'main' or 'ticket'");
 }
 
 function safeResolve(root, rel) {

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Build a signed release AAB and upload it to Google Play Internal App Sharing
-# for every branch other than `main` (and `master`).
+# for every branch other than `prod`.
 #
-# Never uploads on `main` / `master` and never uploads to production tracks.
+# `main` is latest development and does upload. `prod` is production and never
+# uploads. Never uploads to production Play tracks.
 # Writes `{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`
 # to `dist/android-preview.json` so `https://<branch>.66ksiag.pl/android-preview.json`
 # exposes the Play Store Internal App Sharing install link.
@@ -15,7 +16,7 @@ IF_PREVIEW_BRANCH=0
 UPLOAD_MODE="${PLAY_UPLOAD_MODE:-internal-sharing}"
 for arg in "$@"; do
   case "$arg" in
-    --if-non-main-branch|--if-dev-branch) IF_PREVIEW_BRANCH=1 ;;
+    --if-non-prod-branch|--if-non-main-branch|--if-dev-branch) IF_PREVIEW_BRANCH=1 ;;
     --track-internal) UPLOAD_MODE="track" ;;
     --internal-sharing) UPLOAD_MODE="internal-sharing" ;;
   esac
@@ -36,13 +37,13 @@ detect_branch() {
     local head_sha
     head_sha="$(git rev-parse HEAD 2>/dev/null || echo "")"
     if [[ -n "$head_sha" ]]; then
-      if git show-ref --verify --quiet refs/remotes/origin/main && [[ "$head_sha" == "$(git rev-parse refs/remotes/origin/main)" ]]; then
-        ref="main"
-      elif git show-ref --verify --quiet refs/remotes/origin/master && [[ "$head_sha" == "$(git rev-parse refs/remotes/origin/master)" ]]; then
-        ref="master"
+      # Prefer `prod` when the commit is also on another branch, so a
+      # production checkout is never classified as a preview.
+      if git show-ref --verify --quiet refs/remotes/origin/prod && [[ "$head_sha" == "$(git rev-parse refs/remotes/origin/prod)" ]]; then
+        ref="prod"
       else
         local remote_match
-        remote_match="$(git for-each-ref --format='%(objectname) %(refname:lstrip=3)' refs/remotes/origin | awk -v sha="$head_sha" '$1 == sha && $2 != "HEAD" && $2 != "main" && $2 != "master" { print $2; exit }')"
+        remote_match="$(git for-each-ref --format='%(objectname) %(refname:lstrip=3)' refs/remotes/origin | awk -v sha="$head_sha" '$1 == sha && $2 != "HEAD" && $2 != "prod" { print $2; exit }')"
         if [[ -n "$remote_match" ]]; then
           ref="$remote_match"
         fi
@@ -57,7 +58,7 @@ METADATA_OUT="${PLAY_PREVIEW_METADATA_OUT:-$ROOT/dist/android-preview.json}"
 FULL_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
 if [[ "$IF_PREVIEW_BRANCH" == "1" ]]; then
-  if [[ -z "$CURRENT_BRANCH" || "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" || "$CURRENT_BRANCH" == "HEAD" ]]; then
+  if [[ -z "$CURRENT_BRANCH" || "$CURRENT_BRANCH" == "prod" || "$CURRENT_BRANCH" == "HEAD" ]]; then
     exit 0
   fi
   if [[ -f "$METADATA_OUT" ]] && grep -q "\"commit\": \"${FULL_SHA}\"" "$METADATA_OUT" 2>/dev/null; then
@@ -77,9 +78,9 @@ if [[ "$IF_PREVIEW_BRANCH" == "1" ]]; then
   fi
 fi
 
-if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
+if [[ "$CURRENT_BRANCH" == "prod" ]]; then
   if [[ "${ALLOW_PLAY_INTERNAL_FROM_ANY_BRANCH:-0}" != "1" ]]; then
-    echo "[play-internal] Refusing to run on production branch '${CURRENT_BRANCH}'. Only non-main branches upload to Google Play Internal App Sharing." >&2
+    echo "[play-internal] Refusing to run on production branch 'prod'. main and every other branch upload to Google Play Internal App Sharing." >&2
     exit 1
   fi
 fi

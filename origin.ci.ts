@@ -1,9 +1,9 @@
 // Origin CI configuration for uploading non-production branches to Google Play
 // Internal App Sharing.
 //
-// `main` never runs this upload (`scripts/android-play-internal.sh --if-non-main-branch`
-// exits 0 on `main`). Every other branch builds a signed `.aab`, uploads it to
-// Google Play Internal App Sharing, logs the `downloadUrl`, and writes
+// `prod` never runs this upload (`scripts/android-play-internal.sh --if-non-prod-branch`
+// exits 0 on `prod`). `main` and every other branch build a signed `.aab`, upload
+// it to Google Play Internal App Sharing, log the `downloadUrl`, and write
 // `dist/android-preview.json` (served at `https://<branch>.66ksiag.pl/android-preview.json`).
 
 const playInternalEnv = {
@@ -28,7 +28,7 @@ export default {
       env: playInternalEnv,
       steps: [
         {
-          run: "bash scripts/android-play-internal.sh --if-non-main-branch",
+          run: "bash scripts/android-play-internal.sh --if-non-prod-branch",
           env: playInternalEnv,
         },
       ],

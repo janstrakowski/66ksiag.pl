@@ -4,11 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   HARNESS_PORT,
-  DEV_PREVIEW_PORT,
+  MAIN_PREVIEW_PORT,
   ensureHarnessLayout,
   REPO_ROOT,
 } from "./paths.mjs";
-import { ensureDevWorktree, currentSha, branchExists, git } from "./git.mjs";
+import { ensureMainCheckout, branchExists, git } from "./git.mjs";
 import {
   listTickets,
   getTicket,
@@ -17,7 +17,7 @@ import {
   ticketExists,
 } from "./tickets.mjs";
 import {
-  startDevPreview,
+  startMainPreview,
   startTicketPreview,
   registerTicketPreview,
   stopPreview,
@@ -34,7 +34,7 @@ import {
 } from "./agent.mjs";
 import { listDir, readFile } from "./files.mjs";
 import { startAndroidTest, androidStatus, subscribeAndroid } from "./android.mjs";
-import { mergeTicketToDev, mergeDevToMain } from "./merge.mjs";
+import { mergeTicketToMain, mergeMainToProd } from "./merge.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = path.resolve(__dirname, "../web");
@@ -114,23 +114,23 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && pathname === "/api/status") {
     let mainSha = null;
-    let devSha = null;
+    let prodSha = null;
     try {
       if (branchExists("main")) mainSha = git(["rev-parse", "main"]).stdout;
-      if (branchExists("dev")) devSha = git(["rev-parse", "dev"]).stdout;
+      if (branchExists("prod")) prodSha = git(["rev-parse", "prod"]).stdout;
     } catch {
       /* ignore */
     }
     return json(res, 200, {
       ok: true,
       harnessPort: HARNESS_PORT,
-      devPreview: getPreview("dev") || {
-        url: `http://127.0.0.1:${DEV_PREVIEW_PORT}/`,
-        port: DEV_PREVIEW_PORT,
+      mainPreview: getPreview("main") || {
+        url: `http://127.0.0.1:${MAIN_PREVIEW_PORT}/`,
+        port: MAIN_PREVIEW_PORT,
       },
       previews: listPreviews(),
       mainSha,
-      devSha,
+      prodSha,
       android: androidStatus(),
       repo: REPO_ROOT,
     });
@@ -216,7 +216,7 @@ async function handleApi(req, res, url) {
 
     if (req.method === "POST" && rest === "/merge") {
       try {
-        const result = mergeTicketToDev(id);
+        const result = mergeTicketToMain(id);
         return json(res, 200, result);
       } catch (err) {
         return json(res, err.mergeFailed ? 409 : 400, {
@@ -237,7 +237,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "GET" && pathname === "/api/files") {
-    const scope = searchParams.get("scope") || "dev";
+    const scope = searchParams.get("scope") || "main";
     const ticketId = searchParams.get("ticket") || undefined;
     const rel = searchParams.get("path") || ".";
     try {
@@ -248,7 +248,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "GET" && pathname === "/api/file") {
-    const scope = searchParams.get("scope") || "dev";
+    const scope = searchParams.get("scope") || "main";
     const ticketId = searchParams.get("ticket") || undefined;
     const rel = searchParams.get("path");
     if (!rel) return json(res, 400, { error: "path required" });
@@ -259,18 +259,18 @@ async function handleApi(req, res, url) {
     }
   }
 
-  if (req.method === "POST" && pathname === "/api/dev/merge-main") {
+  if (req.method === "POST" && pathname === "/api/main/promote") {
     try {
-      const result = mergeDevToMain();
+      const result = mergeMainToProd();
       return json(res, 200, result);
     } catch (err) {
       return json(res, 400, { error: err.message });
     }
   }
 
-  if (req.method === "POST" && pathname === "/api/dev/android") {
+  if (req.method === "POST" && pathname === "/api/main/android") {
     try {
-      const result = startAndroidTest({ scope: "dev" });
+      const result = startAndroidTest({ scope: "main" });
       return json(res, 200, result);
     } catch (err) {
       return json(res, 409, { error: err.message });
@@ -317,18 +317,18 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 ensureHarnessLayout();
-ensureDevWorktree();
+ensureMainCheckout();
 try {
-  startDevPreview();
-  console.log(`dev preview: http://127.0.0.1:${DEV_PREVIEW_PORT}/`);
+  startMainPreview();
+  console.log(`main preview: http://127.0.0.1:${MAIN_PREVIEW_PORT}/`);
 } catch (err) {
-  console.warn("Could not start dev preview:", err.message);
+  console.warn("Could not start main preview:", err.message);
 }
 
 server.listen(HARNESS_PORT, "127.0.0.1", () => {
   console.log(`harness: http://127.0.0.1:${HARNESS_PORT}/`);
   try {
-    console.log(`main=${branchExists("main") ? git(["rev-parse", "--short", "main"]).stdout : "?"} dev=${branchExists("dev") ? git(["rev-parse", "--short", "dev"]).stdout : "?"}`);
+    console.log(`main=${branchExists("main") ? git(["rev-parse", "--short", "main"]).stdout : "?"} prod=${branchExists("prod") ? git(["rev-parse", "--short", "prod"]).stdout : "?"}`);
   } catch {
     /* ignore */
   }

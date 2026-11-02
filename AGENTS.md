@@ -105,17 +105,17 @@ npm run deploy                     # local wrangler deploy; automatic deploys ar
 
 ## Harness (local tickets)
 
-Ticket UI + Cursor `agent` CLI + git worktrees on the **dev machine**. Pushing `main` deploys production from Workers Builds after the Cloudflare app is connected.
+Ticket UI + Cursor `agent` CLI + git worktrees on the **dev machine**. `main` is the latest development. Workers Builds production branch is `prod` (`https://66ksiag.pl`). There is no `dev` branch.
 
 ```bash
 npm run harness            # http://127.0.0.1:3900 (opens browser; HARNESS_NO_OPEN=1 to skip)
-# Requires: agent on PATH, data/, local branches
+# Requires: agent on PATH, data/, checkout of main
 ```
 
 - Tickets → worktrees under `.harness/worktrees/<id>` (lowercase-dashes, unique forever).
-- Branch flow: ticket → merge to local `dev` → ff-only `dev` → `main` → `git push origin main`.
-- Dev preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
-- Production deploy: Workers Builds on `main` (`npx wrangler deploy`) to Worker `66ksiag`. Custom Domains: `https://66ksiag.pl`, `https://www.66ksiag.pl`, and `https://<branch>.66ksiag.pl` for every other branch (`dev` → `https://dev.66ksiag.pl`).
+- Branch flow: ticket → merge to local `main` → ff-only `main` → `prod` → `git push origin main` and `git push origin prod`.
+- Main preview on `:3901` while the harness runs; per-ticket previews register via `harness/bin/register-preview`.
+- Production deploy: Workers Builds on `prod` (`npx wrangler deploy`) to Worker `66ksiag`. Custom Domains: `https://66ksiag.pl`, `https://www.66ksiag.pl`. Every other branch, including `main`, is a preview at `https://<branch>.66ksiag.pl` (`main` → `https://main.66ksiag.pl`).
 
 ## Testy
 
@@ -143,7 +143,7 @@ npm run android:install        # adb install na telefonie (USB debugging)
 npm run android:play:internal  # build + upload AAB na Google Play Internal testing
 ```
 
-Keystore i `android/secrets/` poza gitem. Push na każdą gałąź inną niż `main` automatycznie buduje podpisany `.aab`, wysyła go do **Google Play Internal App Sharing** i zapisuje link instalacji w `dist/android-preview.json` (`https://<branch>.66ksiag.pl/android-preview.json`; szczegóły i lista sekretów CI: `android/README.md`). Asset Links: `web/.well-known/assetlinks.json`.
+Keystore i `android/secrets/` poza gitem. Push na każdą gałąź inną niż `prod` (w tym `main`) automatycznie buduje podpisany `.aab`, wysyła go do **Google Play Internal App Sharing** i zapisuje link instalacji w `dist/android-preview.json` (`https://<branch>.66ksiag.pl/android-preview.json`; szczegóły i lista sekretów CI: `android/README.md`). Asset Links: `web/.well-known/assetlinks.json`.
 
 ## Cursor Cloud specific instructions
 

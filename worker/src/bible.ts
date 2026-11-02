@@ -1,5 +1,5 @@
 /**
- * Publiczne API Biblii. Upload zostaje taki jak na main: JSON rozdziału,
+ * Publiczne API Biblii. Upload zostaje przy drzewie wydań: JSON rozdziału,
  * .words.json i MP3 rozdziału pod /bg/1879 i /kjv/1769 (bez plików per-werset).
  * Worker liczy tekst i wycina audio wersetu z MP3.
  *

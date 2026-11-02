@@ -1,7 +1,7 @@
 import { spawnSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { REPO_ROOT, DEV_WORKTREE } from "./paths.mjs";
+import { REPO_ROOT, PROD_WORKTREE } from "./paths.mjs";
 
 export function git(args, opts = {}) {
   const cwd = opts.cwd || REPO_ROOT;
@@ -55,7 +55,7 @@ export function gitAsync(args, opts = {}) {
   });
 }
 
-/** Symlink main checkout data/ (and android secrets if present) into a worktree. */
+/** Symlink the main checkout's data/ (and android secrets if present) into a worktree. */
 export function linkSharedAssets(wt) {
   const dataSrc = path.join(REPO_ROOT, "data");
   const dataDst = path.join(wt, "data");
@@ -81,31 +81,42 @@ export function branchExists(name) {
   return r.status === 0;
 }
 
-export function ensureDevBranch() {
-  if (!branchExists("dev")) {
-    if (!branchExists("main")) {
-      throw new Error("Neither local branch 'dev' nor 'main' exists");
-    }
-    git(["branch", "dev", "main"]);
+/** Harness runs in the `main` checkout. `main` is the latest development. */
+export function ensureMainCheckout() {
+  if (!branchExists("main")) {
+    throw new Error("Local branch 'main' does not exist");
+  }
+  const head = git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout;
+  if (head !== "main") {
+    throw new Error(
+      `Harness checkout is on '${head}'. Check out 'main' (latest development) before starting the harness.`,
+    );
   }
 }
 
-export function ensureDevWorktree() {
-  ensureDevBranch();
-  if (!fs.existsSync(DEV_WORKTREE)) {
-    git(["worktree", "add", DEV_WORKTREE, "dev"]);
+/**
+ * Side worktree for `prod`. Creates the branch from `main` the first time
+ * production is promoted.
+ */
+export function ensureProdWorktree() {
+  ensureMainCheckout();
+  if (!branchExists("prod")) {
+    git(["branch", "prod", "main"]);
+  }
+  if (!fs.existsSync(PROD_WORKTREE)) {
+    git(["worktree", "add", PROD_WORKTREE, "prod"]);
   } else {
-    git(["checkout", "dev"], { cwd: DEV_WORKTREE, allowFail: true });
+    git(["checkout", "prod"], { cwd: PROD_WORKTREE, allowFail: true });
   }
-  linkSharedAssets(DEV_WORKTREE);
+  linkSharedAssets(PROD_WORKTREE);
 }
 
-export function addTicketWorktree(id, baseRef = "dev") {
+export function addTicketWorktree(id, baseRef = "main") {
   const dest = path.join(REPO_ROOT, ".harness", "worktrees", id);
   if (fs.existsSync(dest)) {
     throw new Error(`Worktree already exists: ${dest}`);
   }
-  ensureDevBranch();
+  ensureMainCheckout();
   git(["worktree", "add", "-b", id, dest, baseRef]);
   linkSharedAssets(dest);
   return dest;

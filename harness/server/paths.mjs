@@ -12,11 +12,15 @@ export const HARNESS_DIR = path.join(REPO_ROOT, ".harness");
 
 export const TICKETS_DIR = path.join(HARNESS_DIR, "tickets");
 export const WORKTREES_DIR = path.join(HARNESS_DIR, "worktrees");
-export const DEV_WORKTREE = path.join(HARNESS_DIR, "dev");
+/** Checkout of `prod` used only to fast-forward and push production. */
+export const PROD_WORKTREE = path.join(HARNESS_DIR, "prod");
 export const INDEX_PATH = path.join(HARNESS_DIR, "index.json");
 
 export const HARNESS_PORT = Number(process.env.HARNESS_PORT || 3900);
-export const DEV_PREVIEW_PORT = Number(process.env.HARNESS_DEV_PORT || 3901);
+/** Local preview of `main` (latest development). `HARNESS_DEV_PORT` remains accepted. */
+export const MAIN_PREVIEW_PORT = Number(
+  process.env.HARNESS_MAIN_PORT || process.env.HARNESS_DEV_PORT || 3901,
+);
 export const TICKET_PORT_START = Number(process.env.HARNESS_TICKET_PORT_START || 3910);
 export const TICKET_PORT_END = Number(process.env.HARNESS_TICKET_PORT_END || 3999);
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the local ticket harness (dashboard + dev preview).
+# Start the local ticket harness (dashboard + main preview).
 # Opens http://127.0.0.1:3900 in the browser unless HARNESS_NO_OPEN=1.
 set -euo pipefail
 

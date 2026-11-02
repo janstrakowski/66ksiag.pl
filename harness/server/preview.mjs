@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { REPO_ROOT, DEV_WORKTREE, DEV_PREVIEW_PORT, TICKET_PORT_START, TICKET_PORT_END, readIndex, writeIndex } from "./paths.mjs";
+import { REPO_ROOT, MAIN_PREVIEW_PORT, TICKET_PORT_START, TICKET_PORT_END, readIndex, writeIndex } from "./paths.mjs";
 
 /** @type {Map<string, { pid: number, port: number, child: import('node:child_process').ChildProcess }>} */
 const running = new Map();
@@ -23,7 +23,7 @@ function allocatePort() {
   const index = readIndex();
   let port = index.nextPort || TICKET_PORT_START;
   const used = new Set([...running.values()].map((v) => v.port));
-  used.add(DEV_PREVIEW_PORT);
+  used.add(MAIN_PREVIEW_PORT);
   while (used.has(port) || port < TICKET_PORT_START) {
     port += 1;
     if (port > TICKET_PORT_END) port = TICKET_PORT_START;
@@ -51,8 +51,8 @@ function startServe(key, cwd, port) {
   return getPreview(key);
 }
 
-export function startDevPreview() {
-  return startServe("dev", DEV_WORKTREE, DEV_PREVIEW_PORT);
+export function startMainPreview() {
+  return startServe("main", REPO_ROOT, MAIN_PREVIEW_PORT);
 }
 
 export function startTicketPreview(ticketId, port) {

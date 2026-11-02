@@ -4,8 +4,8 @@
  * Google Play Android Developer API v3 (`androidpublisher.googleapis.com`).
  *
  * Supports two non-production upload modes:
- * 1. Internal App Sharing (`uploadBundleToInternalAppSharing`, default for all
- *    non-`main` branch builds):
+ * 1. Internal App Sharing (`uploadBundleToInternalAppSharing`, default for
+ *    `main` and every other branch except production `prod`):
  *    POST /upload/androidpublisher/v3/applications/internalappsharing/${packageName}/artifacts/bundle?uploadType=media
  *    Returns `{ downloadUrl, certificateFingerprint, sha256 }` and optionally
  *    writes `dist/android-preview.json` so `https://<branch>.66ksiag.pl/android-preview.json`
