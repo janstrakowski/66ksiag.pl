@@ -122,12 +122,13 @@ Google Play Developer API pozwala na automatyczne wgrywanie kolejnych wydań dop
      - **Release to testing tracks** (obejmuje Internal testing — nie musisz nadawać uprawnień do Production).
    - Kliknij **Invite user** → **Send invite**.
 
-### 4. Sekrety CI i automatyczny upload każdej gałęzi poza `main` do Internal App Sharing
+### 4. Sekrety CI i automatyczny upload każdej gałęzi poza `prod` do Internal App Sharing
 
-Przy każdym pushu na dowolną gałąź inną niż `main` (`dev`, gałęzie PR itd.):
-- `scripts/build-dist.sh` (uruchamiany w Cloudflare Workers Builds przed wczytaniem manifestu `dist/` przez Wranglera) wywołuje `bash scripts/android-play-internal.sh --if-non-main-branch`.
+Przy każdym pushu na dowolną gałąź inną niż `prod` (`main`, gałęzie PR itd.):
+- `scripts/build-dist.sh` (uruchamiany w Cloudflare Workers Builds przed wczytaniem manifestu `dist/` przez Wranglera) wywołuje `bash scripts/android-play-internal.sh --if-non-prod-branch`.
 - Skrypt buduje podpisany `android/app-release-bundle.aab` i wysyła go do **Google Play Internal App Sharing** (`POST /upload/androidpublisher/v3/applications/internalappsharing/com.jastrakowski.sixsixksiag/artifacts/bundle?uploadType=media`).
-- Zwrócony link `downloadUrl` jest wypisywany w logu builda oraz zapisywany do `dist/android-preview.json` (`{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`), dzięki czemu podgląd każdej gałęzi udostępnia go pod adresem `https://<branch>.66ksiag.pl/android-preview.json` (np. `https://dev.66ksiag.pl/android-preview.json`).
+- Zwrócony link `downloadUrl` jest wypisywany w logu builda oraz zapisywany do `dist/android-preview.json` (`{ branch, commit, versionName, versionCode, downloadUrl, certificateFingerprint, sha256, builtAt }`), dzięki czemu podgląd każdej gałęzi udostępnia go pod adresem `https://<branch>.66ksiag.pl/android-preview.json` (np. `https://main.66ksiag.pl/android-preview.json`).
+- Push na `prod` pomija ten upload. `prod` jest gałęzią produkcyjną strony, nie ścieżką Play.
 - Jednorazowe ustawienie w Play Console: **Test and release → Setup → Internal app sharing**:
   - **Manage uploaders**: dodaj adres e-mail konta usługowego (`ksiag-play-internal-ci@...iam.gserviceaccount.com`) lub zaznacz **Anyone you shared the link with can upload**.
   - **Manage testers**: wybierz **Anyone you shared the link with can download** (lub dodaj listę swoich adresów Gmail).

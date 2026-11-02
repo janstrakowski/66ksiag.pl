@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { REPO_ROOT, DEV_WORKTREE, worktreePath } from "./paths.mjs";
+import { REPO_ROOT, worktreePath } from "./paths.mjs";
 import { linkSharedAssets } from "./git.mjs";
 
 /** @type {{ child: import('node:child_process').ChildProcess, scope: string, ticketId?: string } | null} */
@@ -29,12 +29,12 @@ function emit(ev) {
 }
 
 function resolveCwd(scope, ticketId) {
-  if (scope === "dev") return DEV_WORKTREE;
+  if (scope === "main") return REPO_ROOT;
   if (scope === "ticket") {
     if (!ticketId) throw new Error("ticket id required");
     return worktreePath(ticketId);
   }
-  throw new Error("scope must be 'dev' or 'ticket'");
+  throw new Error("scope must be 'main' or 'ticket'");
 }
 
 /**

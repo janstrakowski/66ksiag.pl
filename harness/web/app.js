@@ -49,9 +49,9 @@ async function showTicket(id) {
 
 async function refreshStatus() {
   const s = await api("/api/status");
-  $("#status-line").textContent = `main ${short(s.mainSha)} · dev ${short(s.devSha)} · ${s.repo}`;
-  const link = $("#dev-preview-link");
-  link.href = s.devPreview?.url || "#";
+  $("#status-line").textContent = `main ${short(s.mainSha)} · prod ${short(s.prodSha)} · ${s.repo}`;
+  const link = $("#main-preview-link");
+  link.href = s.mainPreview?.url || "#";
   return s;
 }
 
@@ -141,7 +141,7 @@ async function loadTicket(id) {
   const open = t.status === "open";
   $("#prompt-form").classList.toggle("hidden", !open);
   $("#btn-request-preview").disabled = !open;
-  $("#btn-merge-dev").disabled = !open;
+  $("#btn-merge-main").disabled = !open;
   $("#btn-stop").disabled = !open;
   $("#btn-android-ticket").disabled = !open;
 }
@@ -286,15 +286,15 @@ $("#btn-request-preview").addEventListener("click", async () => {
   }
 });
 
-$("#btn-merge-dev").addEventListener("click", async () => {
+$("#btn-merge-main").addEventListener("click", async () => {
   if (!state.ticketId) return;
-  if (!confirm(`Merge '${state.ticketId}' into dev and close the ticket?`)) return;
+  if (!confirm(`Merge '${state.ticketId}' into main and close the ticket?`)) return;
   try {
     const r = await api(`/api/tickets/${encodeURIComponent(state.ticketId)}/merge`, {
       method: "POST",
       body: "{}",
     });
-    log(`Merged to dev @ ${short(r.devSha)}`);
+    log(`Merged to main @ ${short(r.mainSha)}`);
     await loadTicket(state.ticketId);
     await refreshStatus();
   } catch (err) {
@@ -304,11 +304,11 @@ $("#btn-merge-dev").addEventListener("click", async () => {
   }
 });
 
-$("#btn-merge-main").addEventListener("click", async () => {
-  if (!confirm("Fast-forward main from dev and push origin/main? Origin CI will deploy 66ksiag.pl.")) return;
+$("#btn-promote-prod").addEventListener("click", async () => {
+  if (!confirm("Fast-forward prod from main and push origin/main and origin/prod? Workers Builds deploys 66ksiag.pl from prod.")) return;
   try {
-    const r = await api("/api/dev/merge-main", { method: "POST", body: "{}" });
-    log(`main @ ${short(r.mainSha)} pushed`);
+    const r = await api("/api/main/promote", { method: "POST", body: "{}" });
+    log(`prod @ ${short(r.prodSha)} pushed (main ${short(r.mainSha)})`);
     await refreshStatus();
   } catch (err) {
     log(`Promote failed: ${err.message}`);
@@ -316,11 +316,11 @@ $("#btn-merge-main").addEventListener("click", async () => {
   }
 });
 
-$("#btn-android-dev").addEventListener("click", async () => {
+$("#btn-android-main").addEventListener("click", async () => {
   try {
     connectAndroidLog();
-    await api("/api/dev/android", { method: "POST", body: "{}" });
-    log("Android build+install started (dev)");
+    await api("/api/main/android", { method: "POST", body: "{}" });
+    log("Android build+install started (main)");
   } catch (err) {
     alert(err.message);
   }

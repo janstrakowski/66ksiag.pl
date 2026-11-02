@@ -12,7 +12,7 @@ import {
   ticketDir,
   worktreePath,
 } from "./paths.mjs";
-import { addTicketWorktree, removeTicketWorktree, ensureDevBranch } from "./git.mjs";
+import { addTicketWorktree, removeTicketWorktree, ensureMainCheckout } from "./git.mjs";
 import { stopPreview } from "./preview.mjs";
 
 function createAgentChat() {
@@ -53,7 +53,7 @@ export function createTicket(rawId, title = "") {
     throw new Error("Ticket id must be lowercase letters, digits, and dashes (e.g. fix-audio-button)");
   }
   ensureHarnessLayout();
-  ensureDevBranch();
+  ensureMainCheckout();
   const index = readIndex();
   if (index.tickets[id]) {
     throw new Error(`Ticket '${id}' already exists`);
@@ -63,7 +63,7 @@ export function createTicket(rawId, title = "") {
   }
 
   const chatId = createAgentChat();
-  const wt = addTicketWorktree(id, "dev");
+  const wt = addTicketWorktree(id, "main");
   const now = new Date().toISOString();
   const meta = {
     id,

@@ -123,13 +123,14 @@ test -f "$DIST/audio-catalog.json" || {
   exit 1
 }
 
-# On every branch other than `main`, if Google Play & Android keystore secrets
-# are configured in CI (Cloudflare Workers Builds), build the signed release AAB,
-# upload it to Google Play Internal App Sharing, and write dist/android-preview.json
-# BEFORE wrangler reads the final dist/ asset manifest.
+# On every branch other than `prod` (including `main`), if Google Play and
+# Android keystore secrets are configured in CI (Cloudflare Workers Builds),
+# build the signed release AAB, upload it to Google Play Internal App Sharing,
+# and write dist/android-preview.json BEFORE wrangler reads the final dist/
+# asset manifest.
 if [[ "${SKIP_ANDROID_PLAY_UPLOAD:-0}" != "1" && -f "$ROOT/scripts/android-play-internal.sh" ]]; then
   PLAY_PREVIEW_METADATA_OUT="$DIST/android-preview.json" \
-    bash "$ROOT/scripts/android-play-internal.sh" --if-non-main-branch
+    bash "$ROOT/scripts/android-play-internal.sh" --if-non-prod-branch
 fi
 
 if [[ -d "$ROOT/node_modules" ]]; then

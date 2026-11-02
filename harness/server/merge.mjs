@@ -1,23 +1,24 @@
 import {
   REPO_ROOT,
-  DEV_WORKTREE,
+  PROD_WORKTREE,
   worktreePath,
   appendChat,
 } from "./paths.mjs";
 import {
   git,
-  ensureDevWorktree,
+  ensureMainCheckout,
+  ensureProdWorktree,
   isDirty,
   currentSha,
 } from "./git.mjs";
 import { assertOpen, closeTicket, updateTicketMeta } from "./tickets.mjs";
-import { startDevPreview, stopPreview } from "./preview.mjs";
+import { startMainPreview, stopPreview } from "./preview.mjs";
 
 /**
- * Merge ticket branch into local `dev`. On conflict, leave ticket open with
+ * Merge ticket branch into local `main`. On conflict, leave ticket open with
  * conflict state in the ticket worktree for the agent to resolve.
  */
-export function mergeTicketToDev(id) {
+export function mergeTicketToMain(id) {
   const meta = assertOpen(id);
   const wt = worktreePath(id);
 
@@ -25,18 +26,20 @@ export function mergeTicketToDev(id) {
     throw new Error("Ticket worktree has uncommitted changes — commit or discard before merge");
   }
 
-  ensureDevWorktree();
+  ensureMainCheckout();
+  if (isDirty(REPO_ROOT)) {
+    throw new Error("main checkout is dirty — commit or clean before merging the ticket");
+  }
 
   try {
-    git(["checkout", "dev"], { cwd: DEV_WORKTREE });
-    git(["merge", "--no-ff", "-m", `Merge ticket '${id}' into dev`, id], {
-      cwd: DEV_WORKTREE,
+    git(["merge", "--no-ff", "-m", `Merge ticket '${id}' into main`, id], {
+      cwd: REPO_ROOT,
     });
   } catch (err) {
-    git(["merge", "--abort"], { cwd: DEV_WORKTREE, allowFail: true });
+    git(["merge", "--abort"], { cwd: REPO_ROOT, allowFail: true });
 
     try {
-      git(["merge", "dev", "-m", `Merge dev into '${id}' to resolve`], {
+      git(["merge", "main", "-m", `Merge main into '${id}' to resolve`], {
         cwd: wt,
         allowFail: true,
       });
@@ -49,52 +52,56 @@ export function mergeTicketToDev(id) {
     appendChat(id, {
       type: "system",
       ts: new Date().toISOString(),
-      text: `Merge into dev failed:\n${msg}\n\nResolve conflicts in the worktree, commit, then approve merge again.`,
+      text: `Merge into main failed:\n${msg}\n\nResolve conflicts in the worktree, commit, then approve merge again.`,
     });
-    const e = new Error(`Merge into dev failed — continue in chat to resolve.\n${msg}`);
+    const e = new Error(`Merge into main failed — continue in chat to resolve.\n${msg}`);
     e.mergeFailed = true;
     throw e;
   }
 
   updateTicketMeta(id, { mergeError: null });
   stopPreview(id);
-  stopPreview("dev");
-  startDevPreview();
-  closeTicket(id, "merged-to-dev");
+  stopPreview("main");
+  startMainPreview();
+  closeTicket(id, "merged-to-main");
   return {
     ok: true,
-    devSha: currentSha(DEV_WORKTREE),
+    mainSha: currentSha(REPO_ROOT),
   };
 }
 
 /**
- * Fast-forward main from local dev and push origin main immediately.
+ * Fast-forward prod from local main, then push origin/main and origin/prod.
+ * Workers Builds deploys production from `prod`.
  */
-export function mergeDevToMain() {
-  ensureDevWorktree();
+export function mergeMainToProd() {
+  ensureMainCheckout();
 
-  if (isDirty(DEV_WORKTREE)) {
-    throw new Error("dev worktree is dirty — commit or clean before promoting to main");
+  if (isDirty(REPO_ROOT)) {
+    throw new Error("main checkout is dirty — commit or clean before promoting to prod");
   }
 
-  const onMain = git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout === "main";
-  if (!onMain) {
-    git(["checkout", "main"]);
+  ensureProdWorktree();
+
+  if (isDirty(PROD_WORKTREE)) {
+    throw new Error("prod worktree is dirty — commit or clean before promoting to prod");
   }
 
   try {
-    git(["merge", "--ff-only", "dev"]);
+    git(["merge", "--ff-only", "main"], { cwd: PROD_WORKTREE });
   } catch (err) {
     throw new Error(
-      `ff-only merge of dev into main failed (main must only move via dev):\n${err.message}`,
+      `ff-only merge of main into prod failed (prod must only move via main):\n${err.message}`,
     );
   }
 
-  const push = git(["push", "origin", "main"]);
+  const pushMain = git(["push", "-u", "origin", "main"]);
+  const pushProd = git(["push", "-u", "origin", "prod"]);
   return {
     ok: true,
     mainSha: currentSha(REPO_ROOT),
-    pushStdout: push.stdout,
-    pushStderr: push.stderr,
+    prodSha: currentSha(PROD_WORKTREE),
+    pushStdout: [pushMain.stdout, pushProd.stdout].filter(Boolean).join("\n"),
+    pushStderr: [pushMain.stderr, pushProd.stderr].filter(Boolean).join("\n"),
   };
 }
